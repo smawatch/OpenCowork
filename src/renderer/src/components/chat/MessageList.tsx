@@ -65,6 +65,11 @@ type MessageListRow =
 
 type AutoScrollMode = 'off' | 'user' | 'stream'
 
+interface AskUserQuestionPresence {
+  assistantMessageId: string
+  toolUseId: string
+}
+
 type ChatStoreSnapshot = ReturnType<typeof useChatStore.getState>
 type AgentStoreSnapshot = ReturnType<typeof useAgentStore.getState>
 type TeamStoreSnapshot = ReturnType<typeof useTeamStore.getState>
@@ -500,6 +505,29 @@ function getDistanceToBottom(ref: HTMLDivElement): number {
   return Math.max(0, ref.scrollHeight - ref.scrollTop - ref.clientHeight)
 }
 
+function findPendingAskUserQuestion(
+  rows: MessageListRow[],
+  toolResultsLookup: Map<string, ToolResultsLookup>,
+  messageLookup: Map<string, UnifiedMessage>
+): AskUserQuestionPresence | null {
+  for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex -= 1) {
+    const row = rows[rowIndex]
+    if (row.type !== 'message') continue
+
+    const message = messageLookup.get(row.data.messageId)
+    if (!message || message.role !== 'assistant' || !Array.isArray(message.content)) continue
+
+    const toolResults = toolResultsLookup.get(row.data.messageId)
+    for (const block of message.content) {
+      if (block.type !== 'tool_use' || block.name !== 'AskUserQuestion') continue
+      if (toolResults?.has(block.id)) continue
+      return { assistantMessageId: row.data.messageId, toolUseId: block.id }
+    }
+  }
+
+  return null
+}
+
 const MessageRow = React.memo(function MessageRow({
   message,
   sessionId,
@@ -721,6 +749,10 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
     if (hasLoadMoreRow) nextRows.unshift({ type: 'load-more', key: LOAD_MORE_ROW_KEY })
     return nextRows
   }, [hasLoadMoreRow, pendingAssistantRowKey, renderableMessages, showPendingAssistantRow])
+  const pendingAskUserQuestion = React.useMemo(
+    () => findPendingAskUserQuestion(rows, toolResultsLookup, messageLookup),
+    [messageLookup, rows, toolResultsLookup]
+  )
 
   const lastMessageRowIndex = rows.length - 1
 
@@ -811,6 +843,7 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
 
   React.useEffect(() => {
     if (!canSessionTriggerStreamingAutoScroll) return
+    if (pendingAskUserQuestion) return
 
     const intervalId = window.setInterval(() => {
       if (!canAutoScroll()) return
@@ -820,7 +853,7 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [canAutoScroll, canSessionTriggerStreamingAutoScroll, requestScrollToBottom])
+  }, [canAutoScroll, canSessionTriggerStreamingAutoScroll, pendingAskUserQuestion, requestScrollToBottom])
 
   const loadOlderMessages = React.useCallback(async (): Promise<void> => {
     if (!activeSessionId || olderUnloadedMessageCount === 0 || isAutoLoadingOlderRef.current) return
@@ -944,18 +977,19 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
 
   React.useEffect(() => {
     const wasOutputting = wasSessionOutputtingRef.current
-    if (!wasOutputting && isSessionOutputting && isAtBottom) {
+    if (!wasOutputting && isSessionOutputting && isAtBottom && !pendingAskUserQuestion) {
       autoScrollModeRef.current = 'stream'
     } else if (wasOutputting && !isSessionOutputting && autoScrollModeRef.current === 'stream') {
       autoScrollModeRef.current = 'off'
     }
     wasSessionOutputtingRef.current = isSessionOutputting
-  }, [isAtBottom, isSessionOutputting])
+  }, [isAtBottom, isSessionOutputting, pendingAskUserQuestion])
 
   React.useEffect(() => {
+    if (pendingAskUserQuestion) return
     if (!canAutoScroll()) return
     requestScrollToBottom({ maxFrames: FOLLOW_BOTTOM_SETTLE_FRAMES })
-  }, [canAutoScroll, requestScrollToBottom, rows.length])
+  }, [canAutoScroll, pendingAskUserQuestion, requestScrollToBottom, rows.length])
 
   React.useEffect(() => {
     return () => {
