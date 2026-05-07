@@ -14,7 +14,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Badge } from '@renderer/components/ui/badge'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useAgentStore } from '@renderer/stores/agent-store'
-import { usePlanStore, type PlanStatus } from '@renderer/stores/plan-store'
+import { usePlanStore, type Plan, type PlanStatus } from '@renderer/stores/plan-store'
 import { useUIStore } from '@renderer/stores/ui-store'
 import type { ToolCallStatus } from '@renderer/lib/agent/types'
 import type { ToolResultContent } from '@renderer/lib/api/types'
@@ -29,6 +29,7 @@ interface PlanReviewCardProps {
   output?: ToolResultContent
   status: ToolCallStatus | 'completed'
   isLive: boolean
+  sessionId?: string | null
 }
 
 interface PlanReviewPayload {
@@ -67,6 +68,19 @@ function parsePlanReviewPayload(output: ToolResultContent | undefined): PlanRevi
     content: typeof parsed.content === 'string' ? parsed.content : '',
     filePath: typeof parsed.plan_file_path === 'string' ? parsed.plan_file_path : undefined,
     message: typeof parsed.message === 'string' ? parsed.message : undefined
+  }
+}
+
+function buildPlanReviewPayloadFromPlan(plan: Plan | undefined): PlanReviewPayload | null {
+  if (!plan || plan.status === 'drafting') return null
+
+  return {
+    awaitingUserReview: plan.status === 'awaiting_review',
+    status: plan.status,
+    planId: plan.id,
+    title: plan.title,
+    content: plan.content ?? '',
+    filePath: plan.filePath
   }
 }
 
@@ -116,14 +130,29 @@ function getStatusAppearance(status: PlanStatus): {
   }
 }
 
-export function PlanReviewCard({ output, status, isLive }: PlanReviewCardProps): React.JSX.Element {
+export function PlanReviewCard({
+  output,
+  status,
+  isLive,
+  sessionId
+}: PlanReviewCardProps): React.JSX.Element {
   const { t } = useTranslation('chat')
-  const payload = React.useMemo(() => parsePlanReviewPayload(output), [output])
+  const parsedPayload = React.useMemo(() => parsePlanReviewPayload(output), [output])
   const outputText = React.useMemo(() => outputAsText(output), [output])
   const activeSessionId = useChatStore((s) => s.activeSessionId)
   const hasStreamingMessage = useChatStore((s) =>
     activeSessionId ? Boolean(s.streamingMessages[activeSessionId]) : false
   )
+  const fallbackPlan = usePlanStore((s) =>
+    parsedPayload?.planId
+      ? undefined
+      : sessionId
+        ? s.getPlanBySession(sessionId)
+        : activeSessionId
+          ? s.getPlanBySession(activeSessionId)
+          : undefined
+  )
+  const payload = parsedPayload ?? buildPlanReviewPayloadFromPlan(fallbackPlan)
   const plan = usePlanStore((s) => (payload?.planId ? s.plans[payload.planId] : undefined))
   const executionSession = useChatStore((s) =>
     payload?.planId ? s.getLatestSessionByPlanId(payload.planId) : undefined

@@ -253,7 +253,11 @@
     "canceledSubtitle": "本次提问在等待回答前已中止。",
     "errorTitle": "提问失败",
     "errorSubtitle": "这次没有进入等待回答状态。",
-    "sourceLabel": "来源"
+    "sourceLabel": "来源",
+    "backgroundSessionFallback": "后台会话",
+    "backgroundInboxTitle": "需要确认",
+    "backgroundInboxDescription": "{{title}} 正在等待你的选择",
+    "backgroundToast": "后台会话等待你的选择"
   },
   "permission": {
     "title": "需要权限",

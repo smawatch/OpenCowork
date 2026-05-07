@@ -1,4 +1,5 @@
 import { toast } from 'sonner'
+import i18n from '@renderer/locales'
 import { toolRegistry } from '../agent/tool-registry'
 import type { ToolDefinition } from '../api/types'
 import { useChatStore } from '@renderer/stores/chat-store'
@@ -43,8 +44,10 @@ export interface AskUserStructuredResult {
   autoAnswered?: boolean
 }
 
-const RECOMMENDED_OPTION_RE = /(?:\(|（)\s*(recommended|推荐)\s*(?:\)|）)/i
+const RECOMMENDED_OPTION_RE = /(?:\(|\uFF08)\s*(recommended|\u63A8\u8350)\s*(?:\)|\uFF09)/i
 const MAX_CHIP_WIDTH = 12
+const AUTONOMOUS_ANSWER =
+  'AI selected an answer automatically in long-running mode based on the current context.'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -81,15 +84,19 @@ function coerceArrayInput(value: unknown): unknown[] {
 
 function coerceQuestionOption(value: unknown): AskUserOption | null {
   if (typeof value === 'string') {
-    return { label: value }
+    return { label: value.trim() }
   }
 
   if (!isRecord(value)) return null
 
   return {
-    label: typeof value.label === 'string' ? value.label : '',
-    ...(typeof value.description === 'string' ? { description: value.description } : {}),
-    ...(typeof value.preview === 'string' ? { preview: value.preview } : {})
+    label: typeof value.label === 'string' ? value.label.trim() : '',
+    ...(typeof value.description === 'string' && value.description.trim()
+      ? { description: value.description.trim() }
+      : {}),
+    ...(typeof value.preview === 'string' && value.preview.trim()
+      ? { preview: value.preview.trim() }
+      : {})
   }
 }
 
@@ -108,8 +115,8 @@ export function coerceAskUserQuestions(value: unknown): AskUserQuestionItem[] {
       if (!isRecord(normalized)) return null
 
       return {
-        question: typeof normalized.question === 'string' ? normalized.question : '',
-        ...(typeof normalized.header === 'string' ? { header: normalized.header } : {}),
+        question: typeof normalized.question === 'string' ? normalized.question.trim() : '',
+        ...(typeof normalized.header === 'string' ? { header: normalized.header.trim() } : {}),
         ...(normalized.options !== undefined
           ? { options: coerceQuestionOptions(normalized.options) }
           : {}),
@@ -138,16 +145,19 @@ function chooseAutonomousAnswers(questions: AskUserQuestionItem[]): AskUserAnswe
       continue
     }
 
-    answers[String(index)] = '由 AI 在长时间运行模式下基于当前上下文自行决定。'
+    answers[String(index)] = AUTONOMOUS_ANSWER
   }
 
   return answers
 }
 
 function deriveHeader(question: string, index: number): string {
-  const compact = question.replace(/[?？]/g, '').trim().replace(/\s+/g, ' ')
+  const compact = question
+    .replace(/[?\uFF1F]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
   if (!compact) return `Q${index + 1}`
-  return compact.slice(0, MAX_CHIP_WIDTH)
+  return Array.from(compact).slice(0, MAX_CHIP_WIDTH).join('')
 }
 
 function headerLength(header: string): number {
@@ -156,12 +166,13 @@ function headerLength(header: string): number {
 
 function normalizeQuestions(questions: AskUserQuestionItem[]): AskUserQuestionItem[] {
   return questions.map((question, index) => ({
-    ...question,
+    question: question.question.trim(),
     header: question.header?.trim() || deriveHeader(question.question, index),
+    multiSelect: question.multiSelect === true,
     options: question.options?.map((option) => ({
-      label: option.label,
-      ...(option.description ? { description: option.description } : {}),
-      ...(option.preview ? { preview: option.preview } : {})
+      label: option.label.trim(),
+      ...(option.description?.trim() ? { description: option.description.trim() } : {}),
+      ...(option.preview?.trim() ? { preview: option.preview.trim() } : {})
     }))
   }))
 }
@@ -328,14 +339,18 @@ const askUserToolDefinition: Omit<ToolDefinition, 'name'> = {
     '3. Get decisions on implementation choices as you work\n' +
     '4. Offer choices to the user about what direction to take.\n\n' +
     'Usage notes:\n' +
-    '- Ask 1-4 focused questions at a time\n' +
-    '- Each question should include a short header chip label (max 12 chars)\n' +
-    '- Each question should offer 2-4 predefined options; do not add an "Other" option because the UI provides it automatically\n' +
-    '- Use multiSelect: true only when multiple options can be chosen together\n' +
-    '- If you recommend a specific option, put it first and append "(Recommended)" to the label\n' +
-    '- Use the optional preview field only for concrete artifacts the user needs to compare visually, such as UI mockups, code snippets, diagram variants, or config examples\n' +
-    '- Preview is only supported for single-select questions; for HTML previews, send a fragment only and never include <script>, <style>, <html>, <body>, or <!DOCTYPE>\n\n' +
-    'Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT ask for plan approval here. Do NOT ask "Is my plan ready?" or "Should I proceed?". Use ExitPlanMode for plan approval instead, and do not reference a plan the user cannot yet see.\n',
+    '- Users will always be able to select "Other" to provide custom text input\n' +
+    '- Use multiSelect: true to allow multiple answers to be selected for a question\n' +
+    '- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label\n\n' +
+    'Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT ask for plan approval here. Do NOT ask "Is my plan ready?" or "Should I proceed?". Use ExitPlanMode for plan approval instead, and do not reference a plan the user cannot yet see.\n' +
+    '\n' +
+    'Preview feature:\n' +
+    'Use the optional preview field on options when presenting concrete artifacts that users need to visually compare:\n' +
+    '- ASCII mockups of UI layouts or components\n' +
+    '- Code snippets showing different implementations\n' +
+    '- Diagram variations\n' +
+    '- Configuration examples\n\n' +
+    'Preview content is rendered as markdown in a monospace-friendly preview box. Multi-line text with newlines is supported. When any option has a preview, the UI switches to a side-by-side layout with a vertical option list on the left and preview on the right. Do not use previews for simple preference questions where labels and descriptions suffice. Preview is only supported for single-select questions. HTML fragments are accepted for compatibility only; never include <script>, <style>, <html>, <body>, or <!DOCTYPE>.\n',
   inputSchema: {
     type: 'object',
     properties: {
@@ -350,17 +365,17 @@ const askUserToolDefinition: Omit<ToolDefinition, 'name'> = {
             question: {
               type: 'string',
               description:
-                'The complete question to ask the user. It should be clear, specific, and end with a question mark when appropriate.'
+                'The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"'
             },
             header: {
               type: 'string',
               description:
-                'Very short chip label shown above the question, ideally 1-3 words and no more than 12 characters.'
+                'Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach".'
             },
             options: {
               type: 'array',
               description:
-                'Available choices for the user. Provide 2-4 options. Do not include an Other option.',
+                'The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice unless multiSelect is enabled. Do not include an Other option; the UI provides it automatically.',
               minItems: 2,
               maxItems: 4,
               items: {
@@ -368,28 +383,65 @@ const askUserToolDefinition: Omit<ToolDefinition, 'name'> = {
                 properties: {
                   label: {
                     type: 'string',
-                    description: 'Short label shown on the option button.'
+                    description:
+                      'The display text for this option that the user will see and select. Should be concise (1-5 words) and clearly describe the choice.'
                   },
                   description: {
                     type: 'string',
-                    description: 'Longer explanation of the option, tradeoff, or implication.'
+                    description:
+                      'Explanation of what this option means or what will happen if chosen. Useful for context about trade-offs or implications.'
                   },
                   preview: {
                     type: 'string',
                     description:
-                      'Optional preview content for side-by-side comparison. Use markdown or a safe HTML fragment only when visual comparison matters.'
+                      'Optional preview content rendered when this option is focused. Use for mockups, code snippets, diagrams, or configuration examples that help users compare options.'
                   }
                 },
-                required: ['label'],
+                required: ['label', 'description'],
                 additionalProperties: false
               }
             },
             multiSelect: {
               type: 'boolean',
-              description: 'Whether the user can select multiple options. Defaults to false.'
+              default: false,
+              description:
+                'Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.'
             }
           },
-          required: ['question', 'header', 'options'],
+          required: ['question', 'header', 'options', 'multiSelect'],
+          additionalProperties: false
+        }
+      },
+      answers: {
+        type: 'object',
+        description: 'User answers collected by the permission component.',
+        propertyNames: {
+          type: 'string'
+        },
+        additionalProperties: {
+          type: 'string'
+        }
+      },
+      annotations: {
+        type: 'object',
+        description:
+          'Optional per-question annotations from the user, such as notes on preview selections. Keyed by question text.',
+        propertyNames: {
+          type: 'string'
+        },
+        additionalProperties: {
+          type: 'object',
+          properties: {
+            preview: {
+              type: 'string',
+              description:
+                'The preview content of the selected option, if the question used previews.'
+            },
+            notes: {
+              type: 'string',
+              description: 'Free-text notes the user added to their selection.'
+            }
+          },
           additionalProperties: false
         }
       },
@@ -467,15 +519,33 @@ const askUserToolExecute: ToolHandler['execute'] = async (input, ctx) => {
   if (ctx.sessionId && !isSessionForeground(ctx.sessionId)) {
     const sessionTitle =
       useChatStore.getState().sessions.find((item) => item.id === ctx.sessionId)?.title ??
-      '后台会话'
+      i18n.t('askUser.backgroundSessionFallback', {
+        ns: 'chat',
+        defaultValue: 'Background session'
+      })
     useBackgroundSessionStore.getState().addInboxItem({
       sessionId: ctx.sessionId,
       type: 'ask_user',
-      title: questions[0]?.header || '需要确认',
-      description: `${sessionTitle} 正在等待你的选择`,
+      title:
+        questions[0]?.header ||
+        i18n.t('askUser.backgroundInboxTitle', {
+          ns: 'chat',
+          defaultValue: 'Input needed'
+        }),
+      description: i18n.t('askUser.backgroundInboxDescription', {
+        ns: 'chat',
+        defaultValue: '{{title}} is waiting for your choice',
+        title: sessionTitle
+      }),
       toolUseId
     })
-    toast.warning('后台会话等待你的选择', { description: sessionTitle })
+    toast.warning(
+      i18n.t('askUser.backgroundToast', {
+        ns: 'chat',
+        defaultValue: 'Background session is waiting for your choice'
+      }),
+      { description: sessionTitle }
+    )
   }
 
   const payload = await new Promise<AskUserResolvedPayload>((resolve) => {

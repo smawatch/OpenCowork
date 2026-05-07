@@ -21,9 +21,7 @@ import {
   isStructuredToolErrorText
 } from '@renderer/lib/tools/tool-result-format'
 import {
-  buildModePrompt,
   buildSystemPrompt,
-  getLatestInjectedMode,
   resolvePromptEnvironmentContext
 } from '@renderer/lib/agent/system-prompt'
 import { subAgentEvents } from '@renderer/lib/agent/sub-agents/events'
@@ -2841,7 +2839,6 @@ export function useChatActions(): {
 
         const sessionSnapshot = useChatStore.getState().sessions.find((s) => s.id === sessionId)
         const sessionMode = sessionSnapshot?.mode ?? uiStore.mode
-        const latestInjectedMode = getLatestInjectedMode(sessionSnapshot?.messages ?? [])
 
         // Add user message (multi-modal when images attached)
         const isQueuedInsertion = source === 'queued'
@@ -2856,28 +2853,6 @@ export function useChatActions(): {
             (isQueuedInsertion && hasImages && !effectiveResolvedCommand.command
               ? QUEUED_IMAGE_ONLY_TEXT
               : '')
-
-          if (sessionMode !== 'chat' && latestInjectedMode !== sessionMode) {
-            const sshConnection = sessionSnapshot?.sshConnectionId
-              ? useSshStore
-                  .getState()
-                  .connections.find(
-                    (connection) => connection.id === sessionSnapshot.sshConnectionId
-                  )
-              : undefined
-            const environmentContext = resolvePromptEnvironmentContext({
-              sshConnectionId: sessionSnapshot?.sshConnectionId,
-              workingFolder: sessionSnapshot?.workingFolder,
-              sshConnection
-            })
-            textBlocks.push({
-              type: 'text',
-              text: buildModePrompt({
-                mode: sessionMode as 'clarify' | 'cowork' | 'code' | 'acp',
-                environmentContext
-              })
-            })
-          }
 
           if (isQueuedInsertion) {
             textBlocks.push({ type: 'text', text: QUEUED_MESSAGE_SYSTEM_REMIND })
@@ -3278,6 +3253,7 @@ export function useChatActions(): {
 
           const autoSelectedFastWithoutTools =
             settings.mainModelSelectionMode === 'auto' &&
+            mode !== 'clarify' &&
             !resolvedSession?.providerId &&
             !resolvedSession?.pluginId &&
             providerResolution.autoSelection?.target === 'fast' &&
@@ -4306,9 +4282,11 @@ export function useChatActions(): {
                       providerBuiltinId:
                         event.debugInfo.providerBuiltinId ?? agentProviderConfig.providerBuiltinId,
                       model: event.debugInfo.model ?? agentProviderConfig.model,
-                      executionPath: event.debugInfo.executionPath ?? (useSidecar ? 'sidecar' : 'node')
+                      executionPath:
+                        event.debugInfo.executionPath ?? (useSidecar ? 'sidecar' : 'node')
                     }
-                    currentUsageProviderId = lastRequestDebugInfo.providerId ?? currentUsageProviderId
+                    currentUsageProviderId =
+                      lastRequestDebugInfo.providerId ?? currentUsageProviderId
                     currentUsageModelId = lastRequestDebugInfo.model ?? currentUsageModelId
                     setLastDebugInfo(assistantMsgId, lastRequestDebugInfo)
                     updateRuntimeMessage(sessionId!, assistantMsgId, {

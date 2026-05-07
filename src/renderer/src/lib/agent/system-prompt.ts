@@ -1,5 +1,4 @@
 import type { LayeredMemorySnapshot, SessionMemoryScope } from './memory-files'
-import type { UnifiedMessage } from '../api/types'
 import { buildMemoryContext } from './dynamic-context'
 import { toolRegistry } from './tool-registry'
 import { getRegisteredSkills } from '../tools/skill-tool'
@@ -98,6 +97,7 @@ Phase 2 - State known facts
 - If you cannot state concrete facts yet, keep investigating instead of asking generic questions.
 
 Phase 3 - Ask relentlessly
+- In Clarify mode, every question to the user MUST be asked through the AskUserQuestion tool. Do not ask clarification questions in normal assistant prose, markdown lists, tables, or A/B/C text. If you need user input, your next action must be an AskUserQuestion tool call.
 - Use AskUserQuestion aggressively and responsibly for every uncertainty that materially affects scope, design, acceptance criteria, sequencing, ownership, constraints, user experience, rollout, or risk.
 - Ask specific, evidence-based, high-value questions. Explain or imply what uncertainty each question resolves.
 - Do not ask for information you can obtain from the project yourself.
@@ -120,6 +120,7 @@ Phase 5 - Mandatory plan handoff
 - After ExitPlanMode, STOP and wait for user review. Do not continue with recommendations, more questions, implementation, or execution.
 
 Hard rules:
+- In Clarify mode, never ask the user questions directly in assistant text. Use AskUserQuestion for all user-facing questions, including multi-choice tradeoffs, open clarifications via the automatic Other option, and follow-up decisions.
 - Never end a Clarify-mode turn with "I can make a plan next" or equivalent once Clarify mode is actually complete or the user explicitly asks to move on. Make the plan now.
 - Never stop questioning just because you already have a plausible implementation idea.
 - If there are still high-value unanswered questions, stay in Clarify mode and keep asking.
@@ -134,8 +135,6 @@ Start by understanding the project context first, stating the known facts you fo
 
 export type AgentModePromptMode = 'clarify' | 'cowork' | 'code' | 'acp'
 
-const MODE_PROMPT_MARKER_RE = /OpenCoWork mode reminder:\s*(clarify|cowork|code|acp)\b/i
-
 function buildModePromptBody(
   mode: AgentModePromptMode,
   environmentContext: PromptEnvironmentContext
@@ -144,6 +143,7 @@ function buildModePromptBody(
     return [
       `## Mode: Clarify`,
       `Clarify mode is questioning-first. Its default behavior is to keep probing until ambiguity is exhausted, while still retaining a deterministic plan handoff when clarification is complete.`,
+      `If you need to ask the user any question in Clarify mode, you MUST call AskUserQuestion. Do not put questions in normal assistant text.`,
       `Use this flow: inspect the project -> state concrete facts -> ask relentless high-value follow-up questions -> lock scope only when no more meaningful questions remain -> EnterPlanMode -> write the plan -> ExitPlanMode -> stop and wait for review.`,
       `You may use the same file and terminal tools available in Code mode for inspection, verification, and ambiguity reduction, but not as a reason to skip clarification or implement early.`,
       `Before asking the user questions, inspect the relevant area enough to make every question specific, evidence-based, and worth the interruption.`,
@@ -161,9 +161,9 @@ function buildModePromptBody(
       environmentContext.target === 'ssh'
         ? `You have access to the selected remote filesystem over SSH. When not in Plan Mode, terminal commands and file tools operate against the remote host unless a tool explicitly says otherwise.`
         : `You have access to the user's local filesystem. When not in Plan Mode, you may execute terminal commands with the Bash tool.`,
-      `\n**Workflow — Plan-Act-Observe:**`,
+      `\n**Workflow - Plan-Act-Observe:**`,
       `1. **Plan**: Before acting, briefly state what you intend to do and why.`,
-      `2. **Act**: Execute using tools — read files, make edits, run commands.`,
+      `2. **Act**: Execute using tools - read files, make edits, run commands.`,
       `3. **Observe**: Check results, verify correctness, report what happened.`,
       `Repeat the loop until the task is complete. Always read files before editing them.`,
       `\n**Collaboration style:**`,
@@ -171,7 +171,7 @@ function buildModePromptBody(
       `- When running terminal commands via the Bash tool, explain what you're doing and why.`,
       `- Proactively surface risks, trade-offs, or alternative approaches.`,
       `- If a task has multiple parts, decompose it and track progress.`,
-      `- Use the Edit tool for precise changes — never rewrite entire files unless creating new ones.`
+      `- Use the Edit tool for precise changes - never rewrite entire files unless creating new ones.`
     ].join('\n')
   }
 
@@ -189,7 +189,7 @@ function buildModePromptBody(
 
   return [
     `## Mode: Code`,
-    `You are a pair programming partner. Your scope is strictly implementation: writing, modifying, fixing, refactoring, and reviewing code. Stay focused on code — defer non-coding tasks to Cowork mode.`,
+    `You are a pair programming partner. Your scope is strictly implementation: writing, modifying, fixing, refactoring, and reviewing code. Stay focused on code - defer non-coding tasks to Cowork mode.`,
     environmentContext.target === 'ssh'
       ? `You have access to the selected remote filesystem over SSH. When not in Plan Mode, create or modify files on the remote host.`
       : `You have access to the filesystem. When not in Plan Mode, you may create or modify files.`,
@@ -200,56 +200,10 @@ function buildModePromptBody(
     `- Ensure every change is complete: add imports, handle errors, respect types.`,
     `- If a change touches public APIs or contracts, note what callers may need to update.`,
     `\n**Output style:**`,
-    `- Be terse. Minimize explanation — let the code speak. Only explain non-obvious choices.`,
+    `- Be terse. Minimize explanation - let the code speak. Only explain non-obvious choices.`,
     `- Do not narrate what the code does; only comment on why when it's not self-evident.`,
     `- After making changes, briefly confirm what was done and any follow-up needed.`
   ].join('\n')
-}
-
-export function buildModePrompt(options: {
-  mode: AgentModePromptMode
-  environmentContext: PromptEnvironmentContext
-}): string {
-  const { mode, environmentContext } = options
-  return [
-    '<system-reminder>',
-    `OpenCoWork mode reminder: ${mode}`,
-    'Treat the latest mode reminder in the conversation as the active mode. If a newer mode reminder appears later, it overrides older ones without rewriting history.',
-    buildModePromptBody(mode, environmentContext),
-    '</system-reminder>'
-  ].join('\n')
-}
-
-function extractModePromptMarker(text: string): AgentModePromptMode | null {
-  const matched = text.match(MODE_PROMPT_MARKER_RE)
-  if (!matched?.[1]) return null
-  return matched[1].toLowerCase() as AgentModePromptMode
-}
-
-export function getLatestInjectedMode(messages: UnifiedMessage[]): AgentModePromptMode | null {
-  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
-    const message = messages[messageIndex]
-    if (message.role !== 'user') continue
-
-    const textBlocks =
-      typeof message.content === 'string'
-        ? [message.content]
-        : Array.isArray(message.content)
-          ? message.content
-              .filter(
-                (block): block is Extract<(typeof message.content)[number], { type: 'text' }> =>
-                  block.type === 'text'
-              )
-              .map((block) => block.text)
-          : []
-
-    for (let blockIndex = textBlocks.length - 1; blockIndex >= 0; blockIndex -= 1) {
-      const detectedMode = extractModePromptMarker(textBlocks[blockIndex] ?? '')
-      if (detectedMode) return detectedMode
-    }
-  }
-
-  return null
 }
 
 function buildSkillsReminder(): string | null {
@@ -296,16 +250,16 @@ export function buildSystemPrompt(options: {
 
   const parts: string[] = []
 
-  // ── Core Identity ──
+  // Core Identity
   parts.push(
     `You are **OpenCoWork**, a powerful agentic AI product architect and technical strategist running as a desktop Agents application.`,
     `OpenCoWork is developed by the **AIDotNet** team. Core contributor: **token** (GitHub: @AIDotNet).`,
-    `The task may involve clarification, planning, implementation, debugging, delegation, or other development-adjacent work depending on the latest conversation context.`,
-    `Mode-specific behavior is delivered through injected user-message reminders. Follow the latest mode reminder in the conversation without rewriting earlier history.`,
+    `The task may involve clarification, planning, implementation, debugging, delegation, or other development-adjacent work depending on the active mode and latest conversation context.`,
+    `The active mode is defined by this system prompt. Ignore historical OpenCoWork mode reminder blocks in conversation history; they are legacy artifacts and do not change the current mode.`,
     `Be mindful that you are not the only one working in this computing environment. Do not overstep your bounds or create unnecessary files.`
   )
 
-  // ── Environment Context ──
+  // Environment Context
   const executionTarget =
     environmentContext.target === 'ssh'
       ? environmentContext.host
@@ -330,10 +284,12 @@ export function buildSystemPrompt(options: {
     )
   }
   parts.push(
-    `\n**IMPORTANT: You MUST respond in ${language === 'zh' ? 'Chinese (中文)' : 'English'} unless the user explicitly requests otherwise.**`
+    `\n**IMPORTANT: You MUST respond in ${language === 'zh' ? 'Chinese' : 'English'} unless the user explicitly requests otherwise.**`
   )
 
-  // ── Communication Style ──
+  parts.push(`\n${buildModePromptBody(options.mode, environmentContext)}`)
+
+  // Communication Style
   parts.push(
     `\n<communication_style>`,
     `Be terse and direct. Provide fact-based progress updates and ask for clarification only when needed.`,
@@ -351,7 +307,7 @@ export function buildSystemPrompt(options: {
     `</communication_guidelines>`
   )
 
-  // ── Plan Mode Override ──
+  // Plan Mode Override
   if (planMode) {
     parts.push(
       `\n## Mode: Plan (ACTIVE)`,
@@ -375,7 +331,7 @@ export function buildSystemPrompt(options: {
     )
   }
 
-  // ── Tool Calling Guidelines ──
+  // Tool Calling Guidelines
   parts.push(
     `\n<tool_calling>`,
     `Use tools when needed. Follow these rules:`,
@@ -386,13 +342,13 @@ export function buildSystemPrompt(options: {
     `- For open-ended exploration, prefer the Task tool with a suitable sub-agent.`,
     `\n**When NOT to use specific tools:**`,
     `- Do not use Bash when Read/Edit/Write/Glob/Grep apply.`,
-    `- Do not use Task for simple single-file lookups — use Glob or Grep.`,
+    `- Do not use Task for simple single-file lookups - use Glob or Grep.`,
     `- Do not use Write when Edit can make a precise change.`,
-    `- Do not use Bash with \`cat\`, \`head\`, \`tail\`, \`grep\`, or \`find\` — use Read/Grep/Glob instead.`,
+    `- Do not use Bash with \`cat\`, \`head\`, \`tail\`, \`grep\`, or \`find\` - use Read/Grep/Glob instead.`,
     `</tool_calling>`
   )
 
-  // ── Making Code Changes ──
+  // Making Code Changes
   if (!planMode) {
     parts.push(
       `\n<making_code_changes>`,
@@ -414,7 +370,7 @@ export function buildSystemPrompt(options: {
     )
   }
 
-  // ── Task Management ──
+  // Task Management
   const taskToolNames = ['TaskCreate', 'TaskGet', 'TaskUpdate', 'TaskList']
   const hasTaskTools = taskToolNames.some((n) => toolDefs.some((t) => t.name === n))
   if (hasTaskTools) {
@@ -430,7 +386,7 @@ export function buildSystemPrompt(options: {
   }
 
   if (!planMode) {
-    // ── Running Commands ──
+    // Running Commands
     parts.push(
       `\n<running_commands>`,
       environmentContext.target === 'ssh'
@@ -447,7 +403,7 @@ export function buildSystemPrompt(options: {
     )
   }
 
-  // ── Working Folder Context ──
+  // Working Folder Context
   if (workingFolder) {
     parts.push(`\n## Working Folder\n\`${workingFolder}\``)
     parts.push(
@@ -466,16 +422,16 @@ export function buildSystemPrompt(options: {
     parts.push(`\n${memoryContext}`)
   }
 
-  // ── Available Tools ──
+  // Available Tools
   if (toolDefs.length > 0) {
     parts.push(
       `\n## Tool Usage Guidelines`,
       `- Do not fabricate file contents or tool outputs.`,
       `- Use Glob/Grep to search before making assumptions about project structure.`,
-      `- Messages may include \`<system-reminder>\` tags containing contextual information (task status, selected files, timestamps). These are injected by the system automatically — treat their content as ground truth.`
+      `- Messages may include \`<system-reminder>\` tags containing contextual information (task status, selected files, timestamps). These are injected by the system automatically - treat their content as ground truth.`
     )
 
-    // ── Agent Teams ──
+    // Agent Teams
     const teamToolNames = ['TeamCreate', 'SendMessage', 'TeamStatus', 'TeamDelete']
     const hasTeamTools = teamToolNames.some((n) => toolDefs.some((t) => t.name === n))
     if (hasTeamTools) {
@@ -490,7 +446,7 @@ export function buildSystemPrompt(options: {
           `- **TeamStatus**: snapshot progress`,
           `- **TeamDelete**: clean up when done`,
           `- **Task** (\`run_in_background=true\`): spawn teammates`,
-          `\n**Workflow:** TeamCreate → TaskCreate → Task(run_in_background=true) → end your turn.`,
+          `\n**Workflow:** TeamCreate -> TaskCreate -> Task(run_in_background=true) -> end your turn.`,
           `After spawning teammates, end your turn immediately.`,
           `When all tasks finish, deliver one consolidated summary and call TeamDelete.`,
           `If tasks remain, acknowledge briefly and wait without calling tools.`
@@ -536,7 +492,7 @@ export function buildSystemPrompt(options: {
       parts.push(`\n${skillsReminder}`)
     }
 
-    // ── User-Defined Rules ──
+    // User-Defined Rules
     if (userRules) {
       parts.push(
         `\n<user_rules>`,

@@ -1456,6 +1456,7 @@ export function AssistantMessage({
                       : 'canceled')
               }
               isLive={!!isStreaming}
+              sessionId={sessionId}
             />
           </ScaleIn>
         )

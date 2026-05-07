@@ -95,7 +95,18 @@ function parseStructuredAnsweredResult(
     parsed.annotations &&
     typeof parsed.annotations === 'object' &&
     !Array.isArray(parsed.annotations)
-      ? (parsed.annotations as Record<string, AskUserAnnotation>)
+      ? Object.fromEntries(
+          Object.entries(parsed.annotations as Record<string, unknown>)
+            .map(([key, value]) => {
+              if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+              const record = value as Record<string, unknown>
+              const preview = typeof record.preview === 'string' ? record.preview : undefined
+              const notes = typeof record.notes === 'string' ? record.notes : undefined
+              if (!preview && !notes) return null
+              return [key, { ...(preview ? { preview } : {}), ...(notes ? { notes } : {}) }]
+            })
+            .filter((entry): entry is [string, AskUserAnnotation] => entry !== null)
+        )
       : undefined
 
   return {
@@ -267,9 +278,7 @@ function PreviewPane({ preview }: { preview: string }): React.JSX.Element {
     <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
       <div className="mb-2 flex items-center gap-2">
         <PanelRight className="size-3.5 text-primary/80" />
-        <div className="text-xs font-medium text-foreground">
-          {t('askUser.previewTitle', { defaultValue: '选项预览' })}
-        </div>
+        <div className="text-xs font-medium text-foreground">{t('askUser.previewTitle')}</div>
         <Badge variant="outline" className="ml-auto text-[10px]">
           {isHtml ? 'HTML' : 'Markdown'}
         </Badge>
@@ -282,8 +291,8 @@ function PreviewPane({ preview }: { preview: string }): React.JSX.Element {
           className="h-56 w-full rounded-lg border border-border/60 bg-background"
         />
       ) : (
-        <div className="max-h-56 overflow-auto rounded-lg border border-border/60 bg-background px-3 py-2 text-[13px] leading-relaxed text-foreground">
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-muted prose-pre:px-3 prose-pre:py-2 prose-code:before:content-none prose-code:after:content-none prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm">
+        <div className="max-h-56 overflow-auto rounded-lg border border-border/60 bg-background px-3 py-2 font-mono text-[12px] leading-relaxed text-foreground">
+          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-muted prose-pre:px-3 prose-pre:py-2 prose-code:before:content-none prose-code:after:content-none prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:font-mono prose-pre:font-mono">
             <Markdown remarkPlugins={[remarkGfm]}>{preview}</Markdown>
           </div>
         </div>
@@ -400,13 +409,13 @@ function QuestionBlock({
                           className="border-primary/30 text-[10px] text-primary"
                         >
                           <Sparkles className="size-3" />
-                          {t('askUser.recommended', { defaultValue: '推荐' })}
+                          {t('askUser.recommended')}
                         </Badge>
                       )}
                       {opt.preview && !item.multiSelect && (
                         <Badge variant="outline" className="text-[10px] text-muted-foreground">
                           <PanelRight className="size-3" />
-                          {t('askUser.previewBadge', { defaultValue: '预览' })}
+                          {t('askUser.previewBadge')}
                         </Badge>
                       )}
                     </div>
@@ -447,7 +456,7 @@ function QuestionBlock({
                   isOtherSelected ? 'text-foreground' : 'text-muted-foreground'
                 )}
               >
-                {t('askUser.other', { defaultValue: '其他' })}
+                {t('askUser.other')}
               </span>
             </button>
           </div>
@@ -458,7 +467,7 @@ function QuestionBlock({
             disabled={disabled}
             value={customText}
             onChange={(e) => onCustomTextChange(index, e.target.value)}
-            placeholder={t('askUser.answerPlaceholder', { defaultValue: '输入你的回答…' })}
+            placeholder={t('askUser.answerPlaceholder')}
             rows={3}
             className={cn(
               'min-h-[84px] rounded-xl border bg-background/70 text-sm shadow-none',
@@ -473,15 +482,13 @@ function QuestionBlock({
           <div className="space-y-1.5 rounded-xl border border-dashed border-border/70 bg-muted/10 p-3">
             <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
               <ListChecks className="size-3.5" />
-              {t('askUser.notesTitle', { defaultValue: '补充说明（可选）' })}
+              {t('askUser.notesTitle')}
             </div>
             <Textarea
               disabled={disabled}
               value={notes}
               onChange={(e) => onNotesChange(index, e.target.value)}
-              placeholder={t('askUser.notesPlaceholder', {
-                defaultValue: '补充你的约束、偏好或说明…'
-              })}
+              placeholder={t('askUser.notesPlaceholder')}
               rows={3}
               className={cn(
                 'min-h-[76px] rounded-lg border bg-background/80 text-sm shadow-none',
@@ -542,6 +549,19 @@ function buildSubmissionPayload(
     answers,
     ...(Object.keys(annotations).length > 0 ? { annotations } : {})
   }
+}
+
+function questionHasAnswer(
+  question: AskUserQuestionItem | undefined,
+  selected: Set<string>,
+  customText: string
+): boolean {
+  if (!question) return false
+
+  const pickedCount = [...selected].filter((value) => value !== '__other__').length
+  if (pickedCount > 0) return true
+  if (selected.has('__other__') && customText.trim()) return true
+  return (!question.options || question.options.length === 0) && !!customText.trim()
 }
 
 export function AskUserQuestionCard({
@@ -684,24 +704,14 @@ export function AskUserQuestionCard({
   const hasCurrentAnswer = React.useMemo(() => {
     const sel = selections.get(currentQuestionIndex) ?? new Set()
     const custom = customTexts.get(currentQuestionIndex) ?? ''
-    const q = questions[currentQuestionIndex]
-    if (!q) return false
-    if (sel.size > 0 && !sel.has('__other__')) return true
-    if (sel.has('__other__') && custom.trim()) return true
-    if ((!q.options || q.options.length === 0) && custom.trim()) return true
-    return false
+    return questionHasAnswer(questions[currentQuestionIndex], sel, custom)
   }, [currentQuestionIndex, questions, selections, customTexts])
 
   const hasAllAnswers = React.useMemo(() => {
     for (let i = 0; i < questions.length; i += 1) {
       const sel = selections.get(i) ?? new Set()
       const custom = customTexts.get(i) ?? ''
-      const q = questions[i]
-      const hasAnswer =
-        (sel.size > 0 && !sel.has('__other__')) ||
-        (sel.has('__other__') && custom.trim()) ||
-        ((!q.options || q.options.length === 0) && custom.trim())
-      if (!hasAnswer) return false
+      if (!questionHasAnswer(questions[i], sel, custom)) return false
     }
     return true
   }, [questions, selections, customTexts])
@@ -769,12 +779,8 @@ export function AskUserQuestionCard({
   }, [currentQuestionIndex])
 
   if (isError || isCanceled) {
-    const title = isCanceled
-      ? t('askUser.canceledTitle', { defaultValue: '提问已取消' })
-      : t('askUser.errorTitle', { defaultValue: '提问失败' })
-    const subtitle = isCanceled
-      ? t('askUser.canceledSubtitle', { defaultValue: '本次提问在等待回答前已中止。' })
-      : t('askUser.errorSubtitle', { defaultValue: '这次没有进入等待回答状态。' })
+    const title = isCanceled ? t('askUser.canceledTitle') : t('askUser.errorTitle')
+    const subtitle = isCanceled ? t('askUser.canceledSubtitle') : t('askUser.errorSubtitle')
 
     return (
       <div
@@ -829,22 +835,20 @@ export function AskUserQuestionCard({
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span>{t('askUser.answeredTitle', { defaultValue: '问题已回答' })}</span>
+              <span>{t('askUser.answeredTitle')}</span>
               {answeredStructured?.autoAnswered && (
                 <Badge variant="outline" className="text-[10px] text-primary">
                   <Sparkles className="size-3" />
-                  {t('askUser.autoAnswered', { defaultValue: '自动回答' })}
+                  {t('askUser.autoAnswered')}
                 </Badge>
               )}
               {answeredStructured?.source && (
                 <Badge variant="secondary" className="text-[10px]">
-                  {t('askUser.sourceLabel', { defaultValue: '来源' })}: {answeredStructured.source}
+                  {t('askUser.sourceLabel')}: {answeredStructured.source}
                 </Badge>
               )}
             </div>
-            <div className="text-[11px] text-muted-foreground">
-              {t('askUser.answeredSubtitle', { defaultValue: '已记录你的选择与补充说明' })}
-            </div>
+            <div className="text-[11px] text-muted-foreground">{t('askUser.answeredSubtitle')}</div>
           </div>
         </div>
 
@@ -880,7 +884,7 @@ export function AskUserQuestionCard({
                   {pair.annotation?.notes && (
                     <div className="rounded-lg border border-border/50 bg-background/70 px-2.5 py-2 text-[11px] text-muted-foreground">
                       <div className="mb-1 font-medium text-foreground/80">
-                        {t('askUser.notesTitle', { defaultValue: '补充说明（可选）' })}
+                        {t('askUser.notesTitle')}
                       </div>
                       <div className="whitespace-pre-wrap break-words">{pair.annotation.notes}</div>
                     </div>
@@ -907,9 +911,9 @@ export function AskUserQuestionCard({
             <MessageSquare className="size-3.5 text-primary" />
           </span>
           <div className="min-w-0 flex-1">
-            <div>{t('askUser.completedTitle', { defaultValue: '问题已处理' })}</div>
+            <div>{t('askUser.completedTitle')}</div>
             <div className="text-[11px] text-muted-foreground">
-              {t('askUser.completedSubtitle', { defaultValue: '这次没有进入交互式回答界面。' })}
+              {t('askUser.completedSubtitle')}
             </div>
           </div>
         </div>
@@ -930,12 +934,8 @@ export function AskUserQuestionCard({
           <MessageSquare className="size-3.5 text-primary" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-foreground">
-            {t('askUser.title', { defaultValue: '需要你的回答' })}
-          </div>
-          <div className="text-[11px] text-muted-foreground">
-            {t('askUser.subtitle', { defaultValue: '回答这些问题后，我再继续处理。' })}
-          </div>
+          <div className="text-sm font-medium text-foreground">{t('askUser.title')}</div>
+          <div className="text-[11px] text-muted-foreground">{t('askUser.subtitle')}</div>
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground/80">
           {questions.length > 1 && (
@@ -946,7 +946,7 @@ export function AskUserQuestionCard({
           {isPending && (
             <span className="flex items-center gap-1 text-primary/80">
               <span className="size-1.5 rounded-full bg-primary animate-pulse" />
-              {t('askUser.waiting', { defaultValue: '等待回答' })}
+              {t('askUser.waiting')}
             </span>
           )}
         </div>
@@ -959,11 +959,7 @@ export function AskUserQuestionCard({
             const isDone = (() => {
               const sel = selections.get(index) ?? new Set()
               const custom = customTexts.get(index) ?? ''
-              return (
-                (sel.size > 0 && !sel.has('__other__')) ||
-                (sel.has('__other__') && custom.trim()) ||
-                ((!question.options || question.options.length === 0) && custom.trim())
-              )
+              return questionHasAnswer(question, sel, custom)
             })()
 
             return (
@@ -1018,7 +1014,7 @@ export function AskUserQuestionCard({
               className="gap-1 text-[12px]"
             >
               <ChevronLeft className="size-3.5" />
-              {t('askUser.previous', { defaultValue: '上一步' })}
+              {t('askUser.previous')}
             </Button>
           )}
 
@@ -1031,7 +1027,7 @@ export function AskUserQuestionCard({
               size="xs"
               className="gap-1 text-[12px]"
             >
-              {t('askUser.next', { defaultValue: '下一步' })}
+              {t('askUser.next')}
               <ChevronRight className="size-3.5" />
             </Button>
           )}
@@ -1043,7 +1039,7 @@ export function AskUserQuestionCard({
               size="xs"
               className="gap-1 text-[12px]"
             >
-              {t('askUser.submit', { defaultValue: '提交' })}
+              {t('askUser.submit')}
               <ChevronRight className="size-3.5" />
             </Button>
           )}

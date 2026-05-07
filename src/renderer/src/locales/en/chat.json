@@ -253,7 +253,11 @@
     "canceledSubtitle": "This question was stopped before an answer was collected.",
     "errorTitle": "Question failed",
     "errorSubtitle": "This run did not reach the waiting-for-answer state.",
-    "sourceLabel": "Source"
+    "sourceLabel": "Source",
+    "backgroundSessionFallback": "Background session",
+    "backgroundInboxTitle": "Input needed",
+    "backgroundInboxDescription": "{{title}} is waiting for your choice",
+    "backgroundToast": "Background session is waiting for your choice"
   },
   "permission": {
     "title": "Permission Required",
