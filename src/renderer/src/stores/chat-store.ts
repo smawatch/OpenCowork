@@ -1605,6 +1605,15 @@ export const useChatStore = create<ChatStore>()(
           if (!target || !matchesMessageLoadSnapshot(target, knownCount, sessionTailMessageIds)) {
             return
           }
+          if (
+            !force &&
+            target.messagesLoaded &&
+            target.loadedRangeStart === 0 &&
+            target.loadedRangeEnd >= effectiveKnownCount &&
+            target.messages.length >= effectiveKnownCount
+          ) {
+            return
+          }
           target.messages = messages
           target.messagesLoaded = true
           target.messageCount = effectiveKnownCount

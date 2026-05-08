@@ -325,22 +325,6 @@ export function SessionConversationPane({
                 </div>
               ) : null}
             </div>
-          ) : sessionView.projectId ? (
-            <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground/65">
-              <span className="truncate">
-                {sessionView.projectName ?? t('sidebar.projects', { defaultValue: 'Project' })}
-              </span>
-              {sessionView.workingFolder ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="truncate cursor-default text-muted-foreground/55">
-                      {sessionView.workingFolder}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>{sessionView.workingFolder}</TooltipContent>
-                </Tooltip>
-              ) : null}
-            </div>
           ) : null}
         </div>
 

@@ -313,9 +313,9 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
     }
     if (chatView === 'session') {
       return {
-        title: activeSessionTitle ?? t('sidebar.newChat', { defaultValue: '新建聊天' }),
+        title: '',
         subtitle: null,
-        tooltip: activeSessionProjectWorkingFolder
+        tooltip: null
       }
     }
     return {

@@ -189,14 +189,16 @@ export function TitleBar({
         ) : null}
 
         <div className="min-w-0 flex-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="truncate text-sm font-semibold text-foreground/92">{title}</div>
-              </div>
-            </TooltipTrigger>
-            {tooltip ? <TooltipContent>{tooltip}</TooltipContent> : null}
-          </Tooltip>
+          {title ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="truncate text-sm font-semibold text-foreground/92">{title}</div>
+                </div>
+              </TooltipTrigger>
+              {tooltip ? <TooltipContent>{tooltip}</TooltipContent> : null}
+            </Tooltip>
+          ) : null}
         </div>
       </div>
 

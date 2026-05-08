@@ -46,7 +46,7 @@ function normalizeAnthropicThinkingBodyParams(
 
 function resolveAnthropicEffort(
   config: ProviderConfig
-): 'low' | 'medium' | 'high' | 'max' | undefined {
+): 'low' | 'medium' | 'high' | 'xhigh' | 'max' | undefined {
   const levels = config.thinkingConfig?.reasoningEffortLevels
   if (!levels || levels.length === 0) return undefined
 
@@ -59,17 +59,28 @@ function resolveAnthropicEffort(
     case 'low':
     case 'medium':
     case 'high':
+    case 'xhigh':
     case 'max':
       return selected
-    case 'xhigh':
-      return 'max'
     default:
       return undefined
   }
 }
 
 function readNonNegativeNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
+  const numericValue =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : undefined
+  return numericValue != null && Number.isFinite(numericValue) && numericValue > 0
+    ? Math.floor(numericValue)
+    : undefined
+}
+
+function readTokenCount(value: unknown): number | undefined {
+  const numericValue =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : undefined
+  return numericValue != null && Number.isFinite(numericValue) && numericValue >= 0
+    ? Math.floor(numericValue)
+    : undefined
 }
 
 function readAnthropicThinkingBudgetFromBodyParams(
@@ -138,13 +149,25 @@ function extractAnthropicCacheCreationUsage(
 ): Partial<TokenUsage> {
   if (!usage) return {}
 
-  const cacheCreation =
-    usage.cache_creation && typeof usage.cache_creation === 'object'
-      ? (usage.cache_creation as Record<string, unknown>)
-      : undefined
+  let cacheCreation: Record<string, unknown> | undefined
+  if (usage.cache_creation && typeof usage.cache_creation === 'object') {
+    cacheCreation = usage.cache_creation as Record<string, unknown>
+  } else if (usage.cacheCreation && typeof usage.cacheCreation === 'object') {
+    cacheCreation = usage.cacheCreation as Record<string, unknown>
+  }
 
-  const cacheCreation5mTokens = readNonNegativeNumber(cacheCreation?.ephemeral_5m_input_tokens)
-  const cacheCreation1hTokens = readNonNegativeNumber(cacheCreation?.ephemeral_1h_input_tokens)
+  const cacheCreation5mTokens = readNonNegativeNumber(
+    cacheCreation?.ephemeral_5m_input_tokens ??
+      cacheCreation?.ephemeral5mInputTokens ??
+      usage.cache_creation_5m_input_tokens ??
+      usage.cacheCreation5mTokens
+  )
+  const cacheCreation1hTokens = readNonNegativeNumber(
+    cacheCreation?.ephemeral_1h_input_tokens ??
+      cacheCreation?.ephemeral1hInputTokens ??
+      usage.cache_creation_1h_input_tokens ??
+      usage.cacheCreation1hTokens
+  )
 
   if (cacheCreation5mTokens != null || cacheCreation1hTokens != null) {
     const total = (cacheCreation5mTokens ?? 0) + (cacheCreation1hTokens ?? 0)
@@ -155,13 +178,59 @@ function extractAnthropicCacheCreationUsage(
     }
   }
 
-  const cacheCreationTokens = readNonNegativeNumber(usage.cache_creation_input_tokens)
+  const cacheCreationTokens = readNonNegativeNumber(
+    usage.cache_creation_input_tokens ?? usage.cache_creation_tokens ?? usage.cacheCreationTokens
+  )
   return cacheCreationTokens != null
     ? {
         cacheCreationTokens,
         cacheCreation5mTokens: cacheCreationTokens
       }
     : {}
+}
+
+function mergeAnthropicUsage(target: TokenUsage, usage: Record<string, unknown> | undefined): void {
+  if (!usage) return
+
+  const inputTokens = readTokenCount(usage.input_tokens ?? usage.prompt_tokens ?? usage.inputTokens)
+  if (inputTokens !== undefined) {
+    target.inputTokens = inputTokens
+  }
+
+  const outputTokens = readTokenCount(
+    usage.output_tokens ?? usage.completion_tokens ?? usage.outputTokens
+  )
+  if (outputTokens !== undefined) {
+    target.outputTokens = outputTokens
+  }
+
+  Object.assign(target, extractAnthropicCacheCreationUsage(usage))
+
+  const inputTokenDetails =
+    usage.input_tokens_details && typeof usage.input_tokens_details === 'object'
+      ? (usage.input_tokens_details as Record<string, unknown>)
+      : undefined
+  const outputTokenDetails =
+    usage.output_tokens_details && typeof usage.output_tokens_details === 'object'
+      ? (usage.output_tokens_details as Record<string, unknown>)
+      : undefined
+
+  const cacheReadTokens = readTokenCount(
+    usage.cache_read_input_tokens ??
+      usage.cache_read_tokens ??
+      usage.cacheReadTokens ??
+      inputTokenDetails?.cached_tokens
+  )
+  if (cacheReadTokens !== undefined && cacheReadTokens > 0) {
+    target.cacheReadTokens = cacheReadTokens
+  }
+
+  const reasoningTokens = readTokenCount(
+    usage.reasoning_tokens ?? usage.reasoningTokens ?? outputTokenDetails?.reasoning_tokens
+  )
+  if (reasoningTokens !== undefined && reasoningTokens > 0) {
+    target.reasoningTokens = reasoningTokens
+  }
 }
 
 class AnthropicProvider implements APIProvider {
@@ -208,20 +277,21 @@ class AnthropicProvider implements APIProvider {
 
     if (config.thinkingEnabled && config.thinkingConfig) {
       if (thinkingBodyParams) Object.assign(body, thinkingBodyParams)
-      const effort = resolveAnthropicEffort(config)
-      if (effort) {
-        body.output_config = {
-          ...(typeof body.output_config === 'object' && body.output_config !== null
-            ? (body.output_config as Record<string, unknown>)
-            : {}),
-          effort
-        }
-      }
       if (config.thinkingConfig.forceTemperature !== undefined) {
         body.temperature = config.thinkingConfig.forceTemperature
       }
     } else if (disabledThinkingBodyParams) {
       Object.assign(body, disabledThinkingBodyParams)
+    }
+
+    const effort = resolveAnthropicEffort(config)
+    if (effort) {
+      body.output_config = {
+        ...(typeof body.output_config === 'object' && body.output_config !== null
+          ? (body.output_config as Record<string, unknown>)
+          : {}),
+        effort
+      }
     }
 
     normalizeAnthropicThinkingRequestBody(body)
@@ -267,6 +337,49 @@ class AnthropicProvider implements APIProvider {
     }
 
     const pendingUsage: TokenUsage = { inputTokens: 0, outputTokens: 0 }
+    let pendingStopReason: string | undefined
+    let messageEndEmitted = false
+    let sawMessageEvent = false
+
+    const flushToolCalls = function* (): Iterable<StreamEvent> {
+      if (toolCallsByBlockIndex.size === 0) return
+
+      for (const [blockIndex, toolCall] of toolCallsByBlockIndex) {
+        const raw = (toolBuffersByBlockIndex.get(blockIndex)?.join('') ?? '').trim()
+        let parsed: Record<string, unknown> = {}
+        if (raw) {
+          try {
+            parsed = JSON.parse(raw) as Record<string, unknown>
+          } catch {
+            parsed = {}
+          }
+        }
+        yield {
+          type: 'tool_call_end',
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          toolCallInput: parsed
+        }
+      }
+      toolCallsByBlockIndex.clear()
+      toolBuffersByBlockIndex.clear()
+    }
+
+    const buildMessageEndEvent = (): StreamEvent => {
+      const requestCompletedAt = Date.now()
+      outputTokens = pendingUsage.outputTokens
+      messageEndEmitted = true
+      return {
+        type: 'message_end',
+        stopReason: pendingStopReason,
+        usage: { ...pendingUsage },
+        timing: {
+          totalMs: requestCompletedAt - requestStartedAt,
+          ttftMs: firstTokenAt ? firstTokenAt - requestStartedAt : undefined,
+          tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt)
+        }
+      }
+    }
 
     for await (const sse of ipcStreamRequest({
       url,
@@ -288,21 +401,24 @@ class AnthropicProvider implements APIProvider {
         continue
       }
 
-      switch (data.type) {
+      const hasUsagePayload = Boolean(data.message?.usage || data.usage)
+      if (hasUsagePayload) {
+        mergeAnthropicUsage(pendingUsage, data.message?.usage)
+        mergeAnthropicUsage(pendingUsage, data.usage)
+        outputTokens = pendingUsage.outputTokens
+        sawMessageEvent = true
+      }
+
+      const eventType = sse.event ?? data.type
+      switch (eventType) {
         case 'message_start': {
-          const msgUsage = data.message?.usage
-          if (msgUsage) {
-            pendingUsage.inputTokens = msgUsage.input_tokens ?? 0
-            Object.assign(pendingUsage, extractAnthropicCacheCreationUsage(msgUsage))
-            if (msgUsage.cache_read_input_tokens) {
-              pendingUsage.cacheReadTokens = msgUsage.cache_read_input_tokens
-            }
-          }
+          sawMessageEvent = true
           yield { type: 'message_start' }
           break
         }
 
         case 'content_block_start': {
+          sawMessageEvent = true
           const blockIndex = Number.isFinite(data.index) ? Number(data.index) : -1
           if (data.content_block.type === 'tool_use' && blockIndex >= 0) {
             toolBuffersByBlockIndex.set(blockIndex, [])
@@ -327,6 +443,7 @@ class AnthropicProvider implements APIProvider {
         }
 
         case 'content_block_delta': {
+          sawMessageEvent = true
           const blockIndex = Number.isFinite(data.index) ? Number(data.index) : -1
           if (firstTokenAt === null) firstTokenAt = Date.now()
           if (data.delta.type === 'text_delta') {
@@ -358,6 +475,7 @@ class AnthropicProvider implements APIProvider {
         }
 
         case 'content_block_stop': {
+          sawMessageEvent = true
           const blockIndex = Number.isFinite(data.index) ? Number(data.index) : -1
           const toolCall = blockIndex >= 0 ? toolCallsByBlockIndex.get(blockIndex) : undefined
           if (toolCall) {
@@ -393,48 +511,35 @@ class AnthropicProvider implements APIProvider {
         }
 
         case 'message_delta': {
-          if (toolCallsByBlockIndex.size > 0) {
-            for (const [blockIndex, toolCall] of toolCallsByBlockIndex) {
-              const raw = (toolBuffersByBlockIndex.get(blockIndex)?.join('') ?? '').trim()
-              let parsed: Record<string, unknown> = {}
-              if (raw) {
-                try {
-                  parsed = JSON.parse(raw) as Record<string, unknown>
-                } catch {
-                  parsed = {}
-                }
-              }
-              yield {
-                type: 'tool_call_end',
-                toolCallId: toolCall.id,
-                toolName: toolCall.name,
-                toolCallInput: parsed
-              }
-            }
-            toolCallsByBlockIndex.clear()
-            toolBuffersByBlockIndex.clear()
+          sawMessageEvent = true
+          for (const event of flushToolCalls()) {
+            yield event
           }
+          pendingStopReason = data.delta?.stop_reason ?? pendingStopReason
+          break
+        }
 
-          const requestCompletedAt = Date.now()
-          pendingUsage.outputTokens = data.usage?.output_tokens ?? 0
-          outputTokens = pendingUsage.outputTokens
-          yield {
-            type: 'message_end',
-            stopReason: data.delta.stop_reason,
-            usage: { ...pendingUsage },
-            timing: {
-              totalMs: requestCompletedAt - requestStartedAt,
-              ttftMs: firstTokenAt ? firstTokenAt - requestStartedAt : undefined,
-              tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt)
-            }
+        case 'message_stop': {
+          sawMessageEvent = true
+          for (const event of flushToolCalls()) {
+            yield event
           }
+          pendingStopReason = data.stop_reason ?? data.delta?.stop_reason ?? pendingStopReason
           break
         }
 
         case 'error':
+          messageEndEmitted = true
           yield { type: 'error', error: data.error }
           break
       }
+    }
+
+    if (!messageEndEmitted && sawMessageEvent) {
+      for (const event of flushToolCalls()) {
+        yield event
+      }
+      yield buildMessageEndEvent()
     }
   }
 

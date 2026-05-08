@@ -72,7 +72,7 @@ export type ThemePresetDefinition = {
 }
 
 export const DEFAULT_APP_THEME_PRESET: AppThemePreset = 'mulberry'
-export const DEFAULT_SSH_TERMINAL_THEME_PRESET: SshTerminalThemePreset = 'graphite'
+export const DEFAULT_SSH_TERMINAL_THEME_PRESET: SshTerminalThemePreset = DEFAULT_APP_THEME_PRESET
 
 function createTerminalTheme(colors: {
   background: string
@@ -1627,7 +1627,7 @@ const PRESET_DEFINITIONS: Record<AppThemePreset, ThemePresetDefinition> = {
   }
 }
 
-export const APP_THEME_PRESETS = Object.values(PRESET_DEFINITIONS)
+export const APP_THEME_PRESETS = [PRESET_DEFINITIONS[DEFAULT_APP_THEME_PRESET]]
 const ALL_THEME_CSS_VAR_KEYS = Array.from(
   new Set(
     APP_THEME_PRESETS.flatMap((preset) =>
@@ -1637,7 +1637,7 @@ const ALL_THEME_CSS_VAR_KEYS = Array.from(
 )
 
 export function isAppThemePreset(value: unknown): value is AppThemePreset {
-  return typeof value === 'string' && value in PRESET_DEFINITIONS
+  return value === DEFAULT_APP_THEME_PRESET
 }
 
 export function resolveAppThemeMode(value?: string | null): AppThemeMode {
@@ -1645,7 +1645,9 @@ export function resolveAppThemeMode(value?: string | null): AppThemeMode {
 }
 
 export function getThemePresetDefinition(preset: AppThemePreset): ThemePresetDefinition {
-  return PRESET_DEFINITIONS[preset] ?? PRESET_DEFINITIONS[DEFAULT_APP_THEME_PRESET]
+  return preset === DEFAULT_APP_THEME_PRESET
+    ? PRESET_DEFINITIONS[preset]
+    : PRESET_DEFINITIONS[DEFAULT_APP_THEME_PRESET]
 }
 
 export function getTerminalTheme(preset: AppThemePreset, mode: AppThemeMode): ITheme {

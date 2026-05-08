@@ -429,6 +429,7 @@ export const useSettingsStore = create<SettingsStore>()(
         if (!isAppThemePreset(state.themePreset)) {
           state.themePreset = DEFAULT_APP_THEME_PRESET
         } else if (
+          state.themePreset !== DEFAULT_APP_THEME_PRESET ||
           (version < 17 && matchesLegacyThemeDefaults) ||
           (version < 18 && matchesV17ThemeDefaults) ||
           (version < 19 && matchesV18ThemeDefaults)
@@ -436,10 +437,9 @@ export const useSettingsStore = create<SettingsStore>()(
           state.themePreset = DEFAULT_APP_THEME_PRESET
         }
         if (!isAppThemePreset(state.sshTerminalThemePreset)) {
-          state.sshTerminalThemePreset = isAppThemePreset(state.themePreset)
-            ? state.themePreset
-            : DEFAULT_SSH_TERMINAL_THEME_PRESET
+          state.sshTerminalThemePreset = DEFAULT_SSH_TERMINAL_THEME_PRESET
         } else if (
+          state.sshTerminalThemePreset !== DEFAULT_SSH_TERMINAL_THEME_PRESET ||
           (version < 17 && matchesLegacyThemeDefaults) ||
           (version < 18 && matchesV17ThemeDefaults) ||
           (version < 19 && matchesV18ThemeDefaults)

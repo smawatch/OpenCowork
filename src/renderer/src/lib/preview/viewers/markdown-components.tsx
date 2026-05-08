@@ -17,6 +17,22 @@ const HASH_LINE_RE = /#L(\d+)(?:-L?\d+)?$/i
 const COLON_LINE_RE = /(?<!^[a-zA-Z]):(\d+)(?::(\d+))?$/
 const EXPLICIT_LINE_RE = /(?::\d+(?::\d+)?)$|#L\d+(?:-L?\d+)?$|\s+\(line\s+\d+(?::\d+)?\)$/i
 
+type MarkdownCodeElementProps = {
+  position?: {
+    start?: { line?: number }
+    end?: { line?: number }
+  }
+}
+
+function isMarkdownCodeBlock(rawCode: string, node?: MarkdownCodeElementProps): boolean {
+  const startLine = node?.position?.start?.line
+  const endLine = node?.position?.end?.line
+  return (
+    (typeof startLine === 'number' && typeof endLine === 'number' && startLine !== endLine) ||
+    rawCode.includes('\n')
+  )
+}
+
 function getActiveSessionContext(): { workingFolder?: string; sshConnectionId?: string } {
   const chatState = useChatStore.getState()
   const activeSession = chatState.sessions.find(
@@ -311,12 +327,13 @@ export function createMarkdownComponents(filePath?: string): Components {
       )
     },
     pre: ({ children }) => <>{children}</>,
-    code: ({ children, className }) => {
-      const code = String(children ?? '').replace(/\n$/, '')
+    code: ({ children, className, node }) => {
+      const rawCode = String(children ?? '')
+      const code = rawCode.replace(/\n$/, '')
       const languageMatch = /language-([\w-]+)/.exec(className || '')
       const language = languageMatch?.[1]?.toLowerCase()
 
-      if (!className) {
+      if (!className && !isMarkdownCodeBlock(rawCode, node)) {
         const resolvedPath = resolveLocalFilePath(code, filePath)
         if (resolvedPath) {
           return (

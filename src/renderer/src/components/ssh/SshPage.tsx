@@ -5,7 +5,6 @@ import {
   ChevronDown,
   FolderOpen,
   Loader2,
-  Palette,
   PanelRightClose,
   PanelRightOpen,
   Plus,
@@ -30,7 +29,6 @@ import {
 } from '@renderer/components/ui/sheet'
 import { SshConnectionList } from './SshConnectionList'
 import { SshFileEditor } from './SshFileEditor'
-import { SshTerminalThemePanel } from './SshTerminalThemePanel'
 import { SshTerminal } from './SshTerminal'
 import { SshTerminalStatusPanel } from './SshTerminalStatusPanel'
 
@@ -726,27 +724,6 @@ export function SshPage(): React.JSX.Element {
             </button>
           ) : null}
 
-          <Sheet>
-            <SheetTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex size-8 items-center justify-center rounded-[12px] transition-opacity hover:opacity-80"
-                style={getToneIconButtonStyle(shellTone, shellPalette)}
-                title={t('workspace.terminalTheme.title')}
-              >
-                <Palette className="size-4" />
-              </button>
-            </SheetTrigger>
-            <SheetContent className="gap-0 sm:max-w-[460px]">
-              <SheetHeader className="border-b border-border px-5 py-5 pr-12">
-                <SheetTitle>{t('workspace.terminalTheme.title')}</SheetTitle>
-                <SheetDescription>{t('workspace.terminalTheme.sheetDescription')}</SheetDescription>
-              </SheetHeader>
-              <div className="flex-1 overflow-y-auto px-5 py-5">
-                <SshTerminalThemePanel />
-              </div>
-            </SheetContent>
-          </Sheet>
 
           <Sheet>
             <SheetTrigger asChild>

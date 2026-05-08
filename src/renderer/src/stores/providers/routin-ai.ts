@@ -883,7 +883,7 @@ export const routinAiPreset: BuiltinProviderPreset = {
       maxOutputTokens: 384_000,
       supportsVision: false,
       supportsFunctionCall: true,
-      type:'anthropic',
+      type: 'anthropic',
       inputPrice: 1,
       outputPrice: 2,
       cacheCreationPrice: 1,
@@ -903,7 +903,7 @@ export const routinAiPreset: BuiltinProviderPreset = {
       maxOutputTokens: 384_000,
       supportsVision: false,
       supportsFunctionCall: true,
-      type:'anthropic',
+      type: 'anthropic',
       inputPrice: 12,
       outputPrice: 24,
       cacheCreationPrice: 12,
@@ -1132,8 +1132,10 @@ export const routinAiPreset: BuiltinProviderPreset = {
       cacheHitPrice: 0.5,
       supportsThinking: true,
       thinkingConfig: {
-        bodyParams: { thinking: { type: 'enabled', budget_tokens: 10000 } },
-        forceTemperature: 1
+        bodyParams: { thinking: { type: 'adaptive' } },
+        forceTemperature: 1,
+        reasoningEffortLevels: ['low', 'medium', 'high', 'max'],
+        defaultReasoningEffort: 'high'
       }
     },
     {
@@ -1152,8 +1154,10 @@ export const routinAiPreset: BuiltinProviderPreset = {
       cacheHitPrice: 0.5,
       supportsThinking: true,
       thinkingConfig: {
-        bodyParams: { thinking: { type: 'enabled', budget_tokens: 10000 } },
-        forceTemperature: 1
+        bodyParams: { thinking: { type: 'adaptive' } },
+        forceTemperature: 1,
+        reasoningEffortLevels: ['low', 'medium', 'high', 'xhigh', 'max'],
+        defaultReasoningEffort: 'high'
       }
     },
     {
@@ -1172,8 +1176,10 @@ export const routinAiPreset: BuiltinProviderPreset = {
       cacheHitPrice: 0.3,
       supportsThinking: true,
       thinkingConfig: {
-        bodyParams: { thinking: { type: 'enabled', budget_tokens: 10000 } },
-        forceTemperature: 1
+        bodyParams: { thinking: { type: 'adaptive' } },
+        forceTemperature: 1,
+        reasoningEffortLevels: ['low', 'medium', 'high', 'max'],
+        defaultReasoningEffort: 'high'
       }
     },
     {
@@ -1233,7 +1239,9 @@ export const routinAiPreset: BuiltinProviderPreset = {
       supportsThinking: true,
       thinkingConfig: {
         bodyParams: { thinking: { type: 'enabled', budget_tokens: 10000 } },
-        forceTemperature: 1
+        forceTemperature: 1,
+        reasoningEffortLevels: ['low', 'medium', 'high'],
+        defaultReasoningEffort: 'high'
       }
     },
     {

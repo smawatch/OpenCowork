@@ -1329,7 +1329,13 @@ export function GitPage(): React.JSX.Element {
                   <div className="space-y-1">
                     {historyListForPanel.map((c) => {
                       const canOpenHistory =
-                        selectedRow.section !== 'untracked' && Boolean(selectedRepoPath)
+                        Boolean(selectedRow) &&
+                        selectedRow.section !== 'untracked' &&
+                        Boolean(selectedRepoPath)
+                      const isHistorySelected =
+                        Boolean(selectedRow) &&
+                        historyPick?.hash === c.hash &&
+                        historyPick?.path === selectedRow.path
                       return (
                         <button
                           key={c.hash}
@@ -1341,9 +1347,7 @@ export function GitPage(): React.JSX.Element {
                             canOpenHistory && !busy
                               ? 'cursor-pointer border-border/60 bg-muted/10 hover:bg-muted/40'
                               : 'cursor-not-allowed border-border/40 opacity-60',
-                            historyPick?.hash === c.hash &&
-                              historyPick?.path === selectedRow.path &&
-                              'border-primary/50 bg-primary/10 ring-1 ring-primary/20'
+                            isHistorySelected && 'border-primary/50 bg-primary/10 ring-1 ring-primary/20'
                           )}
                         >
                           <div className="line-clamp-2 font-medium leading-snug">{c.subject}</div>

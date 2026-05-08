@@ -47,7 +47,7 @@ export const anthropicPreset: BuiltinProviderPreset = {
       thinkingConfig: {
         bodyParams: { thinking: { type: 'adaptive' } },
         forceTemperature: 1,
-        reasoningEffortLevels: ['low', 'medium', 'high'],
+        reasoningEffortLevels: ['low', 'medium', 'high', 'max'],
         defaultReasoningEffort: 'high'
       }
     },
@@ -105,7 +105,9 @@ export const anthropicPreset: BuiltinProviderPreset = {
       supportsThinking: true,
       thinkingConfig: {
         bodyParams: { thinking: { type: 'enabled', budget_tokens: 10000 } },
-        forceTemperature: 1
+        forceTemperature: 1,
+        reasoningEffortLevels: ['low', 'medium', 'high'],
+        defaultReasoningEffort: 'high'
       }
     },
     // Claude 4 series (legacy pricing)

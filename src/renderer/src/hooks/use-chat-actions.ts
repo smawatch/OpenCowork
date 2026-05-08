@@ -172,6 +172,7 @@ import type { AgentStreamEvent } from '../../../shared/agent-stream-protocol'
 /** Per-session abort controllers — module-level so concurrent sessions don't overwrite each other */
 const sessionAbortControllers = new Map<string, AbortController>()
 const sessionSidecarRunIds = new Map<string, string>()
+const continuingToolExecutionSessions = new Set<string>()
 // Register IPC listeners once at module level — not inside useEffect —
 // to avoid accumulating duplicate listeners when multiple components call useChatActions.
 attachRendererToolBridge()
@@ -4613,14 +4614,27 @@ export function useChatActions(): {
     const sessionId = chatStore.activeSessionId
     if (!sessionId) return
     if (hasActiveSessionRun(sessionId)) return
+    if (continuingToolExecutionSessions.has(sessionId)) return
+    continuingToolExecutionSessions.add(sessionId)
 
-    await chatStore.loadRecentSessionMessages(sessionId)
+    try {
+      await chatStore.loadRecentSessionMessages(sessionId)
+    } catch (error) {
+      continuingToolExecutionSessions.delete(sessionId)
+      throw error
+    }
     const messages = chatStore.getSessionMessages(sessionId)
     const tailToolExecution = getTailToolExecutionState(messages)
-    if (!tailToolExecution) return
+    if (!tailToolExecution) {
+      continuingToolExecutionSessions.delete(sessionId)
+      return
+    }
 
     const session = chatStore.sessions.find((item) => item.id === sessionId)
-    if (!session) return
+    if (!session) {
+      continuingToolExecutionSessions.delete(sessionId)
+      return
+    }
 
     const resumedAssistantMessageId = tailToolExecution.assistantMessageId
     let handedOffToSendMessage = false
@@ -4805,6 +4819,7 @@ export function useChatActions(): {
         )
       }
     } finally {
+      continuingToolExecutionSessions.delete(sessionId)
       if (!handedOffToSendMessage) {
         if (useChatStore.getState().streamingMessages[sessionId] === resumedAssistantMessageId) {
           setStreamingMessageIdWithSync(sessionId, null)

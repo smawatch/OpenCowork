@@ -376,8 +376,9 @@ function getRunChangeSetByQuery(args: ListRunChangesArgs): RunChangeSet | null {
   pruneStaleRunChanges()
 
   const sessionId = args.sessionId?.trim()
+  const rawToolUseIds = Array.isArray(args.toolUseIds) ? args.toolUseIds : []
   const toolUseIds = new Set(
-    (args.toolUseIds ?? []).filter((value): value is string => typeof value === 'string' && value)
+    rawToolUseIds.filter((value): value is string => typeof value === 'string' && value.length > 0)
   )
   if (toolUseIds.size === 0 && !runId) return null
 
@@ -386,7 +387,7 @@ function getRunChangeSetByQuery(args: ListRunChangesArgs): RunChangeSet | null {
   for (const changeSet of runChanges.values()) {
     if (sessionId && changeSet.sessionId !== sessionId) continue
 
-    const assistantMessageMatch = runId && changeSet.assistantMessageId === runId
+    const assistantMessageMatch = Boolean(runId && changeSet.assistantMessageId === runId)
     let toolMatchCount = 0
     if (toolUseIds.size > 0) {
       for (const change of changeSet.changes) {

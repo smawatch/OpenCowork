@@ -147,6 +147,9 @@ interface TokenUsage {
   outputTokens: number
   billableInputTokens?: number
   contextTokens?: number
+  cacheCreationTokens?: number
+  cacheCreation5mTokens?: number
+  cacheCreation1hTokens?: number
   cacheReadTokens?: number
   reasoningTokens?: number
 }
@@ -1568,6 +1571,111 @@ function buildAnthropicCacheControl(): { type: 'ephemeral' } {
 
 const MIN_ANTHROPIC_THINKING_BUDGET = 1024
 
+function readNonNegativeNumber(value: unknown): number | undefined {
+  const numericValue =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : undefined
+  return numericValue != null && Number.isFinite(numericValue) && numericValue > 0
+    ? Math.floor(numericValue)
+    : undefined
+}
+
+function readTokenCount(value: unknown): number | undefined {
+  const numericValue =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : undefined
+  return numericValue != null && Number.isFinite(numericValue) && numericValue >= 0
+    ? Math.floor(numericValue)
+    : undefined
+}
+
+function extractAnthropicCacheCreationUsage(
+  usage: Record<string, unknown> | undefined
+): Partial<TokenUsage> {
+  if (!usage) return {}
+
+  let cacheCreation: Record<string, unknown> | undefined
+  if (usage.cache_creation && typeof usage.cache_creation === 'object') {
+    cacheCreation = usage.cache_creation as Record<string, unknown>
+  } else if (usage.cacheCreation && typeof usage.cacheCreation === 'object') {
+    cacheCreation = usage.cacheCreation as Record<string, unknown>
+  }
+
+  const cacheCreation5mTokens = readNonNegativeNumber(
+    cacheCreation?.ephemeral_5m_input_tokens ??
+      cacheCreation?.ephemeral5mInputTokens ??
+      usage.cache_creation_5m_input_tokens ??
+      usage.cacheCreation5mTokens
+  )
+  const cacheCreation1hTokens = readNonNegativeNumber(
+    cacheCreation?.ephemeral_1h_input_tokens ??
+      cacheCreation?.ephemeral1hInputTokens ??
+      usage.cache_creation_1h_input_tokens ??
+      usage.cacheCreation1hTokens
+  )
+
+  if (cacheCreation5mTokens != null || cacheCreation1hTokens != null) {
+    const total = (cacheCreation5mTokens ?? 0) + (cacheCreation1hTokens ?? 0)
+    return {
+      ...(total > 0 ? { cacheCreationTokens: total } : {}),
+      ...(cacheCreation5mTokens != null ? { cacheCreation5mTokens } : {}),
+      ...(cacheCreation1hTokens != null ? { cacheCreation1hTokens } : {})
+    }
+  }
+
+  const cacheCreationTokens = readNonNegativeNumber(
+    usage.cache_creation_input_tokens ?? usage.cache_creation_tokens ?? usage.cacheCreationTokens
+  )
+  return cacheCreationTokens != null
+    ? {
+        cacheCreationTokens,
+        cacheCreation5mTokens: cacheCreationTokens
+      }
+    : {}
+}
+
+function mergeAnthropicUsage(target: TokenUsage, usage: Record<string, unknown> | undefined): void {
+  if (!usage) return
+
+  const inputTokens = readTokenCount(usage.input_tokens ?? usage.prompt_tokens ?? usage.inputTokens)
+  if (inputTokens !== undefined) {
+    target.inputTokens = inputTokens
+  }
+
+  const outputTokens = readTokenCount(
+    usage.output_tokens ?? usage.completion_tokens ?? usage.outputTokens
+  )
+  if (outputTokens !== undefined) {
+    target.outputTokens = outputTokens
+  }
+
+  Object.assign(target, extractAnthropicCacheCreationUsage(usage))
+
+  const inputTokenDetails =
+    usage.input_tokens_details && typeof usage.input_tokens_details === 'object'
+      ? (usage.input_tokens_details as Record<string, unknown>)
+      : undefined
+  const outputTokenDetails =
+    usage.output_tokens_details && typeof usage.output_tokens_details === 'object'
+      ? (usage.output_tokens_details as Record<string, unknown>)
+      : undefined
+
+  const cacheReadTokens = readTokenCount(
+    usage.cache_read_input_tokens ??
+      usage.cache_read_tokens ??
+      usage.cacheReadTokens ??
+      inputTokenDetails?.cached_tokens
+  )
+  if (cacheReadTokens !== undefined && cacheReadTokens > 0) {
+    target.cacheReadTokens = cacheReadTokens
+  }
+
+  const reasoningTokens = readTokenCount(
+    usage.reasoning_tokens ?? usage.reasoningTokens ?? outputTokenDetails?.reasoning_tokens
+  )
+  if (reasoningTokens !== undefined && reasoningTokens > 0) {
+    target.reasoningTokens = reasoningTokens
+  }
+}
+
 function normalizeAnthropicThinkingBodyParams(
   bodyParams?: Record<string, unknown>
 ): Record<string, unknown> | undefined {
@@ -2136,7 +2244,7 @@ async function* sendAnthropic(
   const systemPromptCacheEnabled = config.enableSystemPromptCache !== false
   const thinkingBodyParams = buildAnthropicThinkingBodyParams(config)
   const disabledThinkingBodyParams = buildAnthropicDisabledThinkingBodyParams(config)
-  const resolveAnthropicEffort = (): 'low' | 'medium' | 'high' | 'max' | undefined => {
+  const resolveAnthropicEffort = (): 'low' | 'medium' | 'high' | 'xhigh' | 'max' | undefined => {
     const levels = config.thinkingConfig?.reasoningEffortLevels
     if (!levels || levels.length === 0) return undefined
 
@@ -2149,10 +2257,9 @@ async function* sendAnthropic(
       case 'low':
       case 'medium':
       case 'high':
+      case 'xhigh':
       case 'max':
         return selected
-      case 'xhigh':
-        return 'max'
       default:
         return undefined
     }
@@ -2188,15 +2295,6 @@ async function* sendAnthropic(
 
   if (thinkingBodyParams && config.thinkingConfig) {
     Object.assign(body, thinkingBodyParams)
-    const effort = resolveAnthropicEffort()
-    if (effort) {
-      body.output_config = {
-        ...(typeof body.output_config === 'object' && body.output_config !== null
-          ? (body.output_config as Record<string, unknown>)
-          : {}),
-        effort
-      }
-    }
     if (config.thinkingConfig.forceTemperature !== undefined) {
       body.temperature = config.thinkingConfig.forceTemperature
     }
@@ -2208,6 +2306,17 @@ async function* sendAnthropic(
     body.temperature = config.temperature
   }
   applyBodyOverrides(body, config)
+
+  const effort = resolveAnthropicEffort()
+  if (effort) {
+    body.output_config = {
+      ...(typeof body.output_config === 'object' && body.output_config !== null
+        ? (body.output_config as Record<string, unknown>)
+        : {}),
+      effort
+    }
+  }
+
   normalizeAnthropicThinkingRequestBody(body)
 
   const maxTokens =
@@ -2265,9 +2374,44 @@ async function* sendAnthropic(
     config.useSystemProxy ?? false
   )
   let activeToolCall: { id: string; name: string; input: string[] } | null = null
+  const pendingUsage: TokenUsage = { inputTokens: 0, outputTokens: 0 }
+  let pendingStopReason: string | undefined
+  let sawMessageEvent = false
+  let messageEndEmitted = false
+  const flushActiveToolCall = (): StreamEvent | null => {
+    if (!activeToolCall) return null
+
+    let parsedInput: Record<string, unknown> = {}
+    try {
+      parsedInput = JSON.parse(activeToolCall.input.join('') || '{}')
+    } catch {
+      parsedInput = {}
+    }
+    const event: StreamEvent = {
+      type: 'tool_call_end',
+      toolCallId: activeToolCall.id,
+      toolName: activeToolCall.name,
+      toolCallInput: parsedInput
+    }
+    activeToolCall = null
+    return event
+  }
   for await (const sse of parseSSEStream(response)) {
     if (!sse.data || sse.data === '[DONE]') continue
     let data: {
+      type?: string
+      message?: {
+        usage?: {
+          input_tokens?: number
+          output_tokens?: number
+          cache_read_input_tokens?: number
+          cache_creation_input_tokens?: number
+          cache_creation?: {
+            ephemeral_5m_input_tokens?: number
+            ephemeral_1h_input_tokens?: number
+          }
+        }
+      }
       content_block?: { type?: string; id?: string; name?: string }
       delta?: {
         type?: string
@@ -2275,13 +2419,36 @@ async function* sendAnthropic(
         thinking?: string
         signature?: string
         partial_json?: string
+        stop_reason?: string
       }
-      usage?: { input_tokens?: number; output_tokens?: number }
+      usage?: {
+        input_tokens?: number
+        output_tokens?: number
+        cache_read_input_tokens?: number
+        cache_creation_input_tokens?: number
+        cache_creation?: {
+          ephemeral_5m_input_tokens?: number
+          ephemeral_1h_input_tokens?: number
+        }
+      }
       stop_reason?: string
       error?: { type?: string; message?: string }
     } | null = null
     try {
       data = JSON.parse(sse.data) as {
+        type?: string
+        message?: {
+          usage?: {
+            input_tokens?: number
+            output_tokens?: number
+            cache_read_input_tokens?: number
+            cache_creation_input_tokens?: number
+            cache_creation?: {
+              ephemeral_5m_input_tokens?: number
+              ephemeral_1h_input_tokens?: number
+            }
+          }
+        }
         content_block?: { type?: string; id?: string; name?: string }
         delta?: {
           type?: string
@@ -2289,8 +2456,18 @@ async function* sendAnthropic(
           thinking?: string
           signature?: string
           partial_json?: string
+          stop_reason?: string
         }
-        usage?: { input_tokens?: number; output_tokens?: number }
+        usage?: {
+          input_tokens?: number
+          output_tokens?: number
+          cache_read_input_tokens?: number
+          cache_creation_input_tokens?: number
+          cache_creation?: {
+            ephemeral_5m_input_tokens?: number
+            ephemeral_1h_input_tokens?: number
+          }
+        }
         stop_reason?: string
         error?: { type?: string; message?: string }
       }
@@ -2298,8 +2475,21 @@ async function* sendAnthropic(
       continue
     }
     if (!data) continue
-    switch (sse.event) {
+    const hasUsagePayload = Boolean(data.message?.usage || data.usage)
+    if (hasUsagePayload) {
+      mergeAnthropicUsage(pendingUsage, data.message?.usage)
+      mergeAnthropicUsage(pendingUsage, data.usage)
+      outputTokens = pendingUsage.outputTokens
+      sawMessageEvent = true
+    }
+    const eventType = sse.event ?? data.type
+    switch (eventType) {
+      case 'message_start': {
+        sawMessageEvent = true
+        break
+      }
       case 'content_block_start': {
+        sawMessageEvent = true
         if (data.content_block?.type === 'tool_use') {
           activeToolCall = {
             id: String(data.content_block.id ?? nanoid()),
@@ -2315,6 +2505,7 @@ async function* sendAnthropic(
         break
       }
       case 'content_block_delta': {
+        sawMessageEvent = true
         if (data.delta?.type === 'text_delta' && typeof data.delta.text === 'string') {
           if (firstTokenAt === null) firstTokenAt = Date.now()
           yield { type: 'text_delta', text: data.delta.text }
@@ -2348,51 +2539,50 @@ async function* sendAnthropic(
         break
       }
       case 'content_block_stop': {
-        if (activeToolCall) {
-          let parsedInput: Record<string, unknown> = {}
-          try {
-            parsedInput = JSON.parse(activeToolCall.input.join('') || '{}')
-          } catch {
-            parsedInput = {}
-          }
-          yield {
-            type: 'tool_call_end',
-            toolCallId: activeToolCall.id,
-            toolName: activeToolCall.name,
-            toolCallInput: parsedInput
-          }
-          activeToolCall = null
+        sawMessageEvent = true
+        const toolCallEndEvent = flushActiveToolCall()
+        if (toolCallEndEvent) {
+          yield toolCallEndEvent
         }
         break
       }
       case 'message_delta': {
-        if (data.usage?.output_tokens !== undefined) {
-          outputTokens = data.usage.output_tokens
-        }
+        sawMessageEvent = true
+        outputTokens = pendingUsage.outputTokens
+        pendingStopReason = data.delta?.stop_reason ?? pendingStopReason
         break
       }
       case 'message_stop': {
-        const requestCompletedAt = Date.now()
-        yield {
-          type: 'message_end',
-          stopReason: data.stop_reason,
-          usage: data.usage
-            ? {
-                inputTokens: data.usage.input_tokens ?? 0,
-                outputTokens: data.usage.output_tokens ?? 0
-              }
-            : undefined,
-          timing: {
-            totalMs: requestCompletedAt - requestStartedAt,
-            ttftMs: firstTokenAt ? firstTokenAt - requestStartedAt : undefined,
-            tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt)
-          }
+        sawMessageEvent = true
+        outputTokens = pendingUsage.outputTokens
+        const toolCallEndEvent = flushActiveToolCall()
+        if (toolCallEndEvent) {
+          yield toolCallEndEvent
         }
+        pendingStopReason = data.stop_reason ?? data.delta?.stop_reason ?? pendingStopReason
         break
       }
       case 'error':
+        messageEndEmitted = true
         yield { type: 'error', error: data.error }
         break
+    }
+  }
+  if (!messageEndEmitted && sawMessageEvent) {
+    const requestCompletedAt = Date.now()
+    const toolCallEndEvent = flushActiveToolCall()
+    if (toolCallEndEvent) {
+      yield toolCallEndEvent
+    }
+    yield {
+      type: 'message_end',
+      stopReason: pendingStopReason,
+      usage: { ...pendingUsage },
+      timing: {
+        totalMs: requestCompletedAt - requestStartedAt,
+        ttftMs: firstTokenAt ? firstTokenAt - requestStartedAt : undefined,
+        tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt)
+      }
     }
   }
 }
