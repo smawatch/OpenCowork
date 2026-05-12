@@ -232,15 +232,15 @@ window.electron.ipcRenderer.on(
     if (request.sessionId && !isSessionForeground(request.sessionId)) {
       const sessionTitle =
         useChatStore.getState().sessions.find((session) => session.id === request.sessionId)
-          ?.title ?? '后台会话'
+          ?.title ?? 'Background session'
       useBackgroundSessionStore.getState().addInboxItem({
         sessionId: request.sessionId,
         type: 'approval',
         title: request.toolCall.name,
-        description: `${sessionTitle} 正在等待工具审批`,
+        description: `${sessionTitle} waiting for tool approval`,
         toolUseId: request.toolCall.id
       })
-      toast.warning('后台会话等待审批', {
+      toast.warning('Background session awaiting approval', {
         description: `${sessionTitle} · ${request.toolCall.name}`
       })
     }
@@ -476,13 +476,13 @@ function normalizeContinuationErrorMessage(message: string): string {
     const extracted = extractApiErrorMessage(parsed)
     if (!extracted) continue
     if (/No tool output found for function call/i.test(extracted)) {
-      return '模型要求补交之前 function call 的 tool 输出，但当前会话里没有对应结果'
+      return 'Model requests previous function call tool output, but no matching result in current session'
     }
     return extracted
   }
 
   if (/No tool output found for function call/i.test(withoutProviderPrefix)) {
-    return '模型要求补交之前 function call 的 tool 输出，但当前会话里没有对应结果'
+    return 'Model requests previous function call tool output, but no matching result in current session'
   }
 
   return withoutProviderPrefix || withoutHttpPrefix || trimmed
@@ -3041,8 +3041,8 @@ export function useChatActions(): {
             if (!isSessionForeground(sessionId)) {
               const sessionTitle =
                 useChatStore.getState().sessions.find((item) => item.id === sessionId)?.title ??
-                '后台会话'
-              toast.success('后台会话已完成', { description: sessionTitle })
+                'Background session'
+              toast.success('Background session completed', { description: sessionTitle })
             }
             dispatchNextQueuedMessage(sessionId)
           }
@@ -4490,11 +4490,11 @@ export function useChatActions(): {
                   } else {
                     const sessionTitle =
                       useChatStore.getState().sessions.find((item) => item.id === sessionId)
-                        ?.title ?? '后台会话'
+                        ?.title ?? 'Background session'
                     useBackgroundSessionStore.getState().addInboxItem({
                       sessionId: sessionId!,
                       type: 'error',
-                      title: '运行错误',
+                      title: 'Runtime error',
                       description: `${sessionTitle} · ${errorMessage}`
                     })
                   }
@@ -4524,11 +4524,11 @@ export function useChatActions(): {
                 } else {
                   const sessionTitle =
                     useChatStore.getState().sessions.find((item) => item.id === sessionId)?.title ??
-                    '后台会话'
+                    'Background session'
                   useBackgroundSessionStore.getState().addInboxItem({
                     sessionId: sessionId!,
                     type: 'error',
-                    title: '运行错误',
+                    title: 'Runtime error',
                     description: `${sessionTitle} · ${errMsg}`
                   })
                 }
@@ -4594,8 +4594,8 @@ export function useChatActions(): {
               if (!isSessionForeground(sessionId)) {
                 const sessionTitle =
                   useChatStore.getState().sessions.find((session) => session.id === sessionId)
-                    ?.title ?? '后台会话'
-                toast.success('后台会话已完成', { description: sessionTitle })
+                    ?.title ?? 'Background session'
+                toast.success('Background session completed', { description: sessionTitle })
               }
 
               // Notify when agent finishes and window is not focused
@@ -4849,7 +4849,7 @@ export function useChatActions(): {
           : normalizedMessage
       console.error('[Continue Tool Execution]', err)
       if (!shouldSuppressTransientRuntimeError(apiErrorDetail)) {
-        toast.error('继续执行失败', { description: apiErrorDetail })
+        toast.error('Continue execution failed', { description: apiErrorDetail })
         appendRuntimeTextDelta(
           sessionId,
           resumedAssistantMessageId,
@@ -4990,7 +4990,7 @@ export function useChatActions(): {
     const agentStore = useAgentStore.getState()
     const sessionId = chatStore.activeSessionId
     if (!sessionId) {
-      toast.error('无法压缩', { description: '没有活跃的会话' })
+      toast.error('Cannot compress', { description: 'No active session' })
       return 'blocked'
     }
     await chatStore.loadSessionMessages(sessionId)
@@ -4998,7 +4998,7 @@ export function useChatActions(): {
     // Limitation 1: agent must not be running
     const sessionStatus = agentStore.runningSessions[sessionId]
     if (sessionStatus === 'running' || sessionStatus === 'retrying') {
-      toast.error('无法压缩', { description: 'Agent 正在运行中，请等待完成后再手动压缩' })
+      toast.error('Cannot compress', { description: 'Agent is running, please wait for completion before manual compression' })
       return 'blocked'
     }
 
@@ -5007,8 +5007,8 @@ export function useChatActions(): {
 
     // Limitation 2: minimum message count
     if (messages.length < MIN_MESSAGES) {
-      toast.error('无法压缩', {
-        description: `至少需要 ${MIN_MESSAGES} 条消息才能进行压缩（当前 ${messages.length} 条）`
+      toast.error('Cannot compress', {
+        description: `At least ${MIN_MESSAGES} messages required for compression (currently ${messages.length})`
       })
       return 'blocked'
     }
@@ -5018,7 +5018,7 @@ export function useChatActions(): {
       .slice(0, 3)
       .some((message) => isCompactSummaryLikeMessage(message))
     if (hasRecentSummary && messages.length < MIN_MESSAGES + 4) {
-      toast.error('无法压缩', { description: '上次压缩后消息过少，请继续对话后再尝试' })
+      toast.error('Cannot compress', { description: 'Too few messages since last compression, please continue the conversation' })
       return 'blocked'
     }
 
@@ -5029,7 +5029,7 @@ export function useChatActions(): {
     if (activeProvider) {
       const ready = await ensureProviderAuthReady(activeProvider.id)
       if (!ready) {
-        toast.error('认证缺失', { description: '请先在设置中完成服务商登录' })
+        toast.error('Authentication missing', { description: 'Please complete provider login in settings first' })
         return 'blocked'
       }
     }
@@ -5060,7 +5060,7 @@ export function useChatActions(): {
       : null
 
     if (!config) {
-      toast.error('无法压缩', { description: '未配置 AI 服务商' })
+      toast.error('Cannot compress', { description: 'AI provider not configured' })
       return 'blocked'
     }
 
@@ -5069,7 +5069,7 @@ export function useChatActions(): {
     if (compressSession?.providerId && compressSession?.modelId) {
       const ready = await ensureProviderAuthReady(compressSession.providerId)
       if (!ready) {
-        toast.error('认证缺失', { description: '请先在设置中完成会话服务商登录' })
+        toast.error('Authentication missing', { description: 'Please complete session provider login in settings first' })
         return 'blocked'
       }
       const sessionProviderConfig = providerStore.getProviderConfigById(
@@ -5093,7 +5093,7 @@ export function useChatActions(): {
         focusPrompt || undefined
       )
       if (!result.compressed) {
-        toast.warning('无需压缩', { description: '当前消息数量不足以进行有效压缩' })
+        toast.warning('No compression needed', { description: 'Current message count insufficient for effective compression' })
         return 'skipped'
       }
       chatStore.replaceSessionMessages(sessionId, compressed)
@@ -5101,7 +5101,7 @@ export function useChatActions(): {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       console.error('[Manual Compress Error]', err)
-      toast.error('压缩失败', { description: errMsg })
+      toast.error('Compression failed', { description: errMsg })
       return 'failed'
     }
   }, [])
@@ -5672,11 +5672,11 @@ async function runSimpleChat(
           if (!isSessionForeground(sessionId)) {
             const sessionTitle =
               useChatStore.getState().sessions.find((item) => item.id === sessionId)?.title ??
-              '后台会话'
+              'Background session'
             useBackgroundSessionStore.getState().addInboxItem({
               sessionId,
               type: 'error',
-              title: '运行错误',
+              title: 'Runtime error',
               description: `${sessionTitle} · ${errorMessage}`
             })
           }
@@ -5694,11 +5694,11 @@ async function runSimpleChat(
         if (!isSessionForeground(sessionId)) {
           const sessionTitle =
             useChatStore.getState().sessions.find((item) => item.id === sessionId)?.title ??
-            '后台会话'
+            'Background session'
           useBackgroundSessionStore.getState().addInboxItem({
             sessionId,
             type: 'error',
-            title: '运行错误',
+            title: 'Runtime error',
             description: `${sessionTitle} · ${errMsg}`
           })
         }
