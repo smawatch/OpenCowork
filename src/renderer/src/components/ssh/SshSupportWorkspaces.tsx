@@ -848,12 +848,12 @@ export function SshSnippetsWorkspace(): React.JSX.Element {
 
   return (
     <div className="flex min-w-0 flex-1 overflow-hidden">
-      <main className="flex min-w-0 flex-1 flex-col border-r border-[#d7dee8] bg-[#eef2f6]">
-        <div className="border-b border-[#d7dee8] px-4 py-3">
+      <main className="flex min-w-0 flex-1 flex-col border-r border-border bg-background">
+        <div className="border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              className="h-10 rounded-[14px] bg-[#59627b] px-4 text-[0.8rem] font-semibold text-white hover:bg-[#50586f]"
+              className="h-10 rounded-[14px] bg-secondary px-4 text-[0.8rem] font-semibold text-secondary-foreground hover:bg-secondary/80"
               onClick={resetForm}
             >
               <Plus className="size-3.5" />
