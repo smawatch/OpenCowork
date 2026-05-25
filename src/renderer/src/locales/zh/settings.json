@@ -1201,6 +1201,14 @@
     "configSummary": "配置摘要",
     "notSet": "未设置"
   },
+  "soulmarket": {
+    "title": "SOUL 市场",
+    "desc": "使用共享的 Skills 市场 API 密钥浏览 OpenCoWork SOUL。",
+    "apiKey": "API 密钥",
+    "getApiKey": "获取 API 密钥",
+    "openDocs": "打开文档",
+    "refresh": "刷新市场"
+  },
   "websearch": {
     "title": "联网搜索",
     "subtitle": "配置联网搜索提供商和设置",

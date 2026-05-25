@@ -1201,6 +1201,14 @@
     "configSummary": "Configuration Summary",
     "notSet": "Not set"
   },
+  "soulmarket": {
+    "title": "SOUL Market",
+    "desc": "Browse OpenCoWork SOULs with the shared Skills marketplace API key.",
+    "apiKey": "API Key",
+    "getApiKey": "Get API Key",
+    "openDocs": "Open Docs",
+    "refresh": "Refresh Market"
+  },
   "websearch": {
     "title": "Web Search",
     "subtitle": "Configure web search providers and settings",

@@ -30,6 +30,7 @@ import {
   Search,
   Settings,
   Server,
+  Sparkles,
   Trash2,
   Upload,
   Wand2,
@@ -340,6 +341,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
   const chatView = useUIStore((state) => state.chatView)
   const settingsPageOpen = useUIStore((state) => state.settingsPageOpen)
   const skillsPageOpen = useUIStore((state) => state.skillsPageOpen)
+  const soulsPageOpen = useUIStore((state) => state.soulsPageOpen)
   const resourcesPageOpen = useUIStore((state) => state.resourcesPageOpen)
   const drawPageOpen = useUIStore((state) => state.drawPageOpen)
   const translatePageOpen = useUIStore((state) => state.translatePageOpen)
@@ -465,11 +467,12 @@ export function WorkspaceSidebar(): React.JSX.Element {
   const chatSurfaceActive =
     !settingsPageOpen &&
     !skillsPageOpen &&
+    !soulsPageOpen &&
     !resourcesPageOpen &&
     !drawPageOpen &&
     !translatePageOpen &&
     !tasksPageOpen
-  const featureMenuActive = resourcesPageOpen || skillsPageOpen || drawPageOpen
+  const featureMenuActive = resourcesPageOpen || skillsPageOpen || soulsPageOpen || drawPageOpen
   const sessionsByProject = useMemo(() => {
     const next = new Map<string, SessionListItem[]>()
     for (const session of sessions) {
@@ -795,7 +798,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
         setAutoRenamingSessionId((current) => (current === sessionId ? null : current))
       }
     },
-    [autoRenamingSessionId, language, t, updateSessionIcon, updateSessionTitle]
+    [autoRenamingSessionId, t, updateSessionIcon, updateSessionTitle]
   )
 
   const deferDropdownAction = useCallback((action: () => void) => {
@@ -1233,6 +1236,18 @@ export function WorkspaceSidebar(): React.JSX.Element {
                   >
                     <Wand2 className="size-3.5 shrink-0" />
                     <span className="truncate">{t('navRail.skills')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => useUIStore.getState().openSoulsPage()}
+                    className={cn(
+                      'flex h-7 w-full items-center gap-2 px-2 text-[12px] font-medium transition-colors',
+                      SIDEBAR_TREE_ROW_CLASS,
+                      soulsPageOpen ? SIDEBAR_TREE_ACTIVE_CLASS : SIDEBAR_TREE_SUBITEM_HOVER_CLASS
+                    )}
+                  >
+                    <Sparkles className="size-3.5 shrink-0" />
+                    <span className="truncate">{t('navRail.souls')}</span>
                   </button>
                   <button
                     type="button"

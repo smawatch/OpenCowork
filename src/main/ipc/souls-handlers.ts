@@ -36,6 +36,10 @@ const FALLBACK_SOUL_CATEGORIES: SoulCategoryInfo[] = [
   { value: 'learning', label: 'Learning' }
 ]
 
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 function normaliseSoulItem(s: Record<string, unknown>, index: number): SoulMarketInfo {
   const slug = String(s['slug'] ?? s['name'] ?? `soul-${index}`)
   const name = String(s['name'] ?? slug)
@@ -105,7 +109,16 @@ async function fetchJson(url: string, apiKey?: string): Promise<Record<string, u
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    throw new Error(`SOUL marketplace API ${res.status}: ${body || 'Unknown error'}`)
+    let detail = body
+    try {
+      const parsed = JSON.parse(body) as Record<string, unknown>
+      const err = parsed['error'] as Record<string, unknown> | undefined
+      if (err?.['message']) detail = String(err['message'])
+      if (parsed['success'] === false && err?.['code']) detail = `${err['code']}: ${detail}`
+    } catch {
+      // Use raw response body.
+    }
+    throw new Error(`SOUL marketplace API ${res.status}: ${detail || 'Unknown error'}`)
   }
 
   return (await res.json()) as Record<string, unknown>
@@ -134,7 +147,7 @@ export function registerSoulsHandlers(): void {
         sortBy?: 'recent' | 'name'
         apiKey?: string
       }
-    ): Promise<{ total: number; souls: SoulMarketInfo[] }> => {
+    ): Promise<{ total: number; souls: SoulMarketInfo[]; error?: string }> => {
       try {
         const limit = Math.min(args.limit ?? 20, 100)
         const page = Math.floor((args.offset ?? 0) / limit) + 1
@@ -155,7 +168,7 @@ export function registerSoulsHandlers(): void {
         return parseSoulsResponse(json)
       } catch (err) {
         console.error('[Souls] Marketplace API error:', err)
-        return { total: 0, souls: [] }
+        return { total: 0, souls: [], error: getErrorMessage(err) }
       }
     }
   )
@@ -195,14 +208,23 @@ export function registerSoulsHandlers(): void {
 
         if (!response.ok) {
           const body = await response.text().catch(() => '')
+          let detail = body
+          try {
+            const parsed = JSON.parse(body) as Record<string, unknown>
+            const err = parsed['error'] as Record<string, unknown> | undefined
+            if (err?.['message']) detail = String(err['message'])
+            if (parsed['success'] === false && err?.['code']) detail = `${err['code']}: ${detail}`
+          } catch {
+            // Use raw response body.
+          }
           return {
-            error: `SOUL marketplace download failed ${response.status}: ${body || 'Unknown error'}`
+            error: `SOUL marketplace download failed ${response.status}: ${detail || 'Unknown error'}`
           }
         }
 
         return { content: await response.text() }
       } catch (err) {
-        return { error: String(err) }
+        return { error: getErrorMessage(err) }
       }
     }
   )
@@ -238,7 +260,7 @@ export function registerSoulsHandlers(): void {
         fs.writeFileSync(targetPath, content, 'utf-8')
         return { success: true, path: targetPath }
       } catch (err) {
-        return { success: false, error: String(err) }
+        return { success: false, error: getErrorMessage(err) }
       }
     }
   )

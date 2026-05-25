@@ -1,8 +1,10 @@
-import { AlertTriangle, FileText, Loader2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, FileText, FolderOpen, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
+import { Alert, AlertDescription, AlertTitle } from '@renderer/components/ui/alert'
 import {
   Dialog,
   DialogContent,
@@ -10,16 +12,28 @@ import {
   DialogHeader,
   DialogTitle
 } from '@renderer/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/components/ui/select'
 import { useSoulsStore, type SoulInstallTarget } from '@renderer/stores/souls-store'
+import { joinFsPath } from '@renderer/lib/agent/memory-files'
 import { cn } from '@renderer/lib/utils'
 
-interface SoulInstallDialogProps {
-  projectRootPath?: string | null
+export interface SoulInstallProjectOption {
+  id: string
+  name: string
+  workingFolder: string
 }
 
-export function SoulInstallDialog({
-  projectRootPath
-}: SoulInstallDialogProps): React.JSX.Element | null {
+interface SoulInstallDialogProps {
+  projects: SoulInstallProjectOption[]
+}
+
+export function SoulInstallDialog({ projects }: SoulInstallDialogProps): React.JSX.Element | null {
   const { t } = useTranslation('layout')
   const open = useSoulsStore((s) => s.installDialogOpen)
   const soul = useSoulsStore((s) => s.selectedSoul)
@@ -27,19 +41,31 @@ export function SoulInstallDialog({
   const target = useSoulsStore((s) => s.target)
   const targetPaths = useSoulsStore((s) => s.targetPaths)
   const downloading = useSoulsStore((s) => s.downloading)
+  const downloadError = useSoulsStore((s) => s.downloadError)
   const installing = useSoulsStore((s) => s.installing)
   const setTarget = useSoulsStore((s) => s.setTarget)
   const installSoul = useSoulsStore((s) => s.installSoul)
   const closeInstallDialog = useSoulsStore((s) => s.closeInstallDialog)
+  const [selectedProjectId, setSelectedProjectId] = useState('')
+
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId]
+  )
+  const selectedProjectRootPath = selectedProject?.workingFolder ?? null
+  const projectTargetPath = selectedProjectRootPath
+    ? joinFsPath(selectedProjectRootPath, '.agents', 'SOUL.md')
+    : null
 
   if (!open) return null
 
-  const currentPath = target === 'project' ? targetPaths?.project.path : targetPaths?.global.path
-  const projectAvailable = Boolean(targetPaths?.project.available)
+  const currentPath = target === 'project' ? projectTargetPath : targetPaths?.global.path
+  const projectAvailable = projects.length > 0
 
   const handleInstall = async (): Promise<void> => {
-    const result = await installSoul(projectRootPath)
+    const result = await installSoul(target === 'project' ? selectedProjectRootPath : undefined)
     if (result.success) {
+      setSelectedProjectId('')
       toast.success(t('soulsPage.installed', { path: result.path }))
     } else {
       toast.error(t('soulsPage.installFailed', { error: result.error }))
@@ -48,11 +74,22 @@ export function SoulInstallDialog({
 
   const targetOptions: { value: SoulInstallTarget; label: string; path?: string | null }[] = [
     { value: 'global', label: t('soulsPage.globalTarget'), path: targetPaths?.global.path },
-    { value: 'project', label: t('soulsPage.projectTarget'), path: targetPaths?.project.path }
+    {
+      value: 'project',
+      label: t('soulsPage.projectTarget'),
+      path: projectTargetPath ?? t('soulsPage.chooseProjectFirst')
+    }
   ]
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && closeInstallDialog()}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) return
+        setSelectedProjectId('')
+        closeInstallDialog()
+      }}
+    >
       <DialogContent className="sm:max-w-2xl max-h-[82vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -103,6 +140,33 @@ export function SoulInstallDialog({
                   )
                 })}
               </div>
+              {target === 'project' ? (
+                <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold">
+                    <FolderOpen className="size-3.5" />
+                    {t('soulsPage.selectProject')}
+                  </div>
+                  <Select
+                    value={selectedProjectId}
+                    onValueChange={(value) => setSelectedProjectId(value)}
+                    disabled={!projectAvailable}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue placeholder={t('soulsPage.projectSelectPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="truncate font-mono text-[11px] text-muted-foreground">
+                    {projectTargetPath ?? t('soulsPage.noProjectTarget')}
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
@@ -110,7 +174,10 @@ export function SoulInstallDialog({
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                 <div className="min-w-0">
                   <p className="font-semibold">{t('soulsPage.overwriteWarning')}</p>
-                  <p className="mt-1 truncate font-mono text-[11px]">{currentPath}</p>
+                  <p className="mt-1 truncate font-mono text-[11px]">
+                    {currentPath ?? t('soulsPage.chooseProjectFirst')}
+                  </p>
+                  <p className="mt-1 text-[11px]">{t('soulsPage.appliesNextRequest')}</p>
                 </div>
               </div>
             </div>
@@ -124,9 +191,13 @@ export function SoulInstallDialog({
             </div>
           </div>
         ) : (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            {t('soulsPage.downloadFailed')}
-          </div>
+          <Alert variant="destructive">
+            <AlertTriangle />
+            <AlertTitle>{t('soulsPage.downloadFailed')}</AlertTitle>
+            <AlertDescription>
+              {downloadError ?? t('soulsPage.downloadFailedDesc')}
+            </AlertDescription>
+          </Alert>
         )}
 
         <DialogFooter>
@@ -138,7 +209,10 @@ export function SoulInstallDialog({
             variant="destructive"
             onClick={() => void handleInstall()}
             disabled={
-              downloading || installing || !content || (target === 'project' && !projectAvailable)
+              downloading ||
+              installing ||
+              !content ||
+              (target === 'project' && (!projectAvailable || !selectedProjectRootPath))
             }
           >
             {installing ? (

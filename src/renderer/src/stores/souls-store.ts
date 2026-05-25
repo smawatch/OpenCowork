@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
+import { IPC } from '@renderer/lib/ipc/channels'
 import { useSettingsStore } from '@renderer/stores/settings-store'
 
 export interface SoulMarketInfo {
@@ -32,6 +33,7 @@ interface SoulsStore {
   souls: SoulMarketInfo[]
   total: number
   loading: boolean
+  error: string | null
   query: string
   category: string
   offset: number
@@ -44,6 +46,7 @@ interface SoulsStore {
   target: SoulInstallTarget
   targetPaths: SoulTargetPaths | null
   downloading: boolean
+  downloadError: string | null
   installing: boolean
   loadSouls: (reset?: boolean) => Promise<void>
   loadMoreSouls: () => Promise<void>
@@ -67,6 +70,7 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
   souls: [],
   total: 0,
   loading: false,
+  error: null,
   query: '',
   category: '',
   offset: 0,
@@ -79,6 +83,7 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
   target: 'global',
   targetPaths: null,
   downloading: false,
+  downloadError: null,
   installing: false,
 
   loadSouls: async (reset = true) => {
@@ -86,22 +91,30 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
     const offset = reset ? 0 : state.offset
     set({ loading: true })
     try {
-      const result = (await ipcClient.invoke('souls:market-list', {
+      const result = (await ipcClient.invoke(IPC.SOULS_MARKET_LIST, {
         query: state.query,
         category: state.category || undefined,
         offset,
         limit: 50,
         sortBy: state.sortBy,
         apiKey: getApiKey()
-      })) as { total: number; souls: SoulMarketInfo[] }
+      })) as { total: number; souls: SoulMarketInfo[]; error?: string }
 
       set({
         souls: reset || offset === 0 ? result.souls : [...get().souls, ...result.souls],
         total: result.total,
-        offset: offset + result.souls.length
+        offset: offset + result.souls.length,
+        error: result.error ?? null
       })
-    } catch {
-      if (reset || offset === 0) set({ souls: [], total: 0, offset: 0 })
+    } catch (err) {
+      if (reset || offset === 0) {
+        set({
+          souls: [],
+          total: 0,
+          offset: 0,
+          error: err instanceof Error ? err.message : String(err)
+        })
+      }
     } finally {
       set({ loading: false })
     }
@@ -131,7 +144,7 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
   loadCategories: async () => {
     set({ categoriesLoading: true })
     try {
-      const result = (await ipcClient.invoke('souls:categories', {
+      const result = (await ipcClient.invoke(IPC.SOULS_CATEGORIES, {
         apiKey: getApiKey()
       })) as { categories: SoulCategoryInfo[] }
       set({ categories: Array.isArray(result.categories) ? result.categories : [] })
@@ -150,29 +163,43 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
       target: 'global',
       targetPaths: null,
       downloading: true,
+      downloadError: null,
       installing: false
     })
 
     try {
       const [downloadResult, targetPaths] = await Promise.all([
-        ipcClient.invoke('souls:download-remote', {
+        ipcClient.invoke(IPC.SOULS_DOWNLOAD_REMOTE, {
           slug: soul.slug,
           downloadUrl: soul.downloadUrl,
           apiKey: getApiKey()
         }) as Promise<{ content?: string; error?: string }>,
-        ipcClient.invoke('souls:get-target-paths', {
+        ipcClient.invoke(IPC.SOULS_GET_TARGET_PATHS, {
           projectRootPath: projectRootPath ?? undefined
         }) as Promise<SoulTargetPaths>
       ])
 
       if (downloadResult.error || !downloadResult.content) {
-        set({ downloadedContent: '', targetPaths, downloading: false })
+        set({
+          downloadedContent: '',
+          targetPaths,
+          downloading: false,
+          downloadError: downloadResult.error ?? 'SOUL content is empty'
+        })
         return
       }
 
-      set({ downloadedContent: downloadResult.content, targetPaths, downloading: false })
-    } catch {
-      set({ downloading: false })
+      set({
+        downloadedContent: downloadResult.content,
+        targetPaths,
+        downloading: false,
+        downloadError: null
+      })
+    } catch (err) {
+      set({
+        downloading: false,
+        downloadError: err instanceof Error ? err.message : String(err)
+      })
     }
   },
 
@@ -183,7 +210,7 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
     if (!state.downloadedContent) return { success: false, error: 'No SOUL content' }
     set({ installing: true })
     try {
-      const result = (await ipcClient.invoke('souls:install', {
+      const result = (await ipcClient.invoke(IPC.SOULS_INSTALL, {
         content: state.downloadedContent,
         target: state.target,
         projectRootPath: projectRootPath ?? undefined
@@ -195,6 +222,7 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
           selectedSoul: null,
           downloadedContent: '',
           targetPaths: null,
+          downloadError: null,
           installing: false
         })
       } else {
@@ -203,7 +231,7 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
       return result
     } catch (err) {
       set({ installing: false })
-      return { success: false, error: String(err) }
+      return { success: false, error: err instanceof Error ? err.message : String(err) }
     }
   },
 
@@ -215,6 +243,7 @@ export const useSoulsStore = create<SoulsStore>((set, get) => ({
       target: 'global',
       targetPaths: null,
       downloading: false,
+      downloadError: null,
       installing: false
     })
 }))

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import {
   ArrowLeft,
+  AlertTriangle,
   BrainCircuit,
   Download,
   ExternalLink,
@@ -15,6 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
+import { Alert, AlertDescription, AlertTitle } from '@renderer/components/ui/alert'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import {
   Select,
@@ -27,7 +29,7 @@ import { useChatStore } from '@renderer/stores/chat-store'
 import { useSettingsStore } from '@renderer/stores/settings-store'
 import { useSoulsStore, type SoulMarketInfo, type SoulsSortBy } from '@renderer/stores/souls-store'
 import { useUIStore } from '@renderer/stores/ui-store'
-import { SoulInstallDialog } from './SoulInstallDialog'
+import { SoulInstallDialog, type SoulInstallProjectOption } from './SoulInstallDialog'
 
 const SOULS_MARKET_DOCS_URL = 'https://skills.open-cowork.shop/docs'
 const SOULS_MARKET_DASHBOARD_URL = 'https://skills.open-cowork.shop/dashboard'
@@ -110,13 +112,13 @@ function SoulMarketConfig(): React.JSX.Element {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-4 space-y-4">
         <div>
-          <p className="text-sm font-semibold">{t('skillsmarket.title')}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{t('skillsmarket.skillsmpDesc')}</p>
+          <p className="text-sm font-semibold">{t('soulmarket.title')}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('soulmarket.desc')}</p>
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium flex items-center gap-1">
             <KeyRound className="size-3" />
-            {t('skillsmarket.apiKey')}
+            {t('soulmarket.apiKey')}
           </label>
           <Input
             type="password"
@@ -130,13 +132,13 @@ function SoulMarketConfig(): React.JSX.Element {
           <Button size="sm" variant="outline" className="flex-1 text-xs" asChild>
             <a href={SOULS_MARKET_DOCS_URL} target="_blank" rel="noreferrer">
               <ExternalLink className="size-3" />
-              {t('skillsmarket.docs')}
+              {t('soulmarket.openDocs')}
             </a>
           </Button>
           <Button size="sm" className="flex-1 text-xs" asChild>
             <a href={SOULS_MARKET_DASHBOARD_URL} target="_blank" rel="noreferrer">
               <KeyRound className="size-3" />
-              {t('skillsmarket.getApiKey')}
+              {t('soulmarket.getApiKey')}
             </a>
           </Button>
         </div>
@@ -147,7 +149,7 @@ function SoulMarketConfig(): React.JSX.Element {
           onClick={() => void loadSouls(true)}
         >
           <RefreshCw className="size-3" />
-          {t('skillsmarket.testConnection')}
+          {t('soulmarket.refresh')}
         </Button>
       </PopoverContent>
     </Popover>
@@ -159,6 +161,7 @@ export function SoulsPage(): React.JSX.Element {
   const souls = useSoulsStore((s) => s.souls)
   const total = useSoulsStore((s) => s.total)
   const loading = useSoulsStore((s) => s.loading)
+  const error = useSoulsStore((s) => s.error)
   const query = useSoulsStore((s) => s.query)
   const category = useSoulsStore((s) => s.category)
   const sortBy = useSoulsStore((s) => s.sortBy)
@@ -171,13 +174,15 @@ export function SoulsPage(): React.JSX.Element {
   const loadCategories = useSoulsStore((s) => s.loadCategories)
   const downloadSoul = useSoulsStore((s) => s.downloadSoul)
 
-  const projectRootPath = useChatStore((s) => {
-    const activeSession = s.sessions.find((session) => session.id === s.activeSessionId)
-    const project = s.projects.find(
-      (item) => item.id === (activeSession?.projectId ?? s.activeProjectId)
-    )
-    return activeSession?.workingFolder ?? project?.workingFolder ?? null
-  })
+  const installProjects = useChatStore((s) =>
+    s.projects
+      .filter((project) => !project.pluginId)
+      .flatMap((project): SoulInstallProjectOption[] => {
+        const workingFolder = project.workingFolder?.trim()
+        if (!workingFolder) return []
+        return [{ id: project.id, name: project.name, workingFolder }]
+      })
+  )
 
   useEffect(() => {
     void loadCategories()
@@ -266,6 +271,14 @@ export function SoulsPage(): React.JSX.Element {
           </div>
         </div>
 
+        {error ? (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle />
+            <AlertTitle>{t('soulsPage.marketErrorTitle')}</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
         {loading && souls.length === 0 ? (
           <div className="flex h-48 items-center justify-center text-muted-foreground">
             <Loader2 className="size-5 animate-spin" />
@@ -280,11 +293,7 @@ export function SoulsPage(): React.JSX.Element {
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {souls.map((soul) => (
-                <SoulCard
-                  key={soul.id}
-                  soul={soul}
-                  onInstall={() => void downloadSoul(soul, projectRootPath)}
-                />
+                <SoulCard key={soul.id} soul={soul} onInstall={() => void downloadSoul(soul)} />
               ))}
             </div>
             {souls.length < total ? (
@@ -299,7 +308,7 @@ export function SoulsPage(): React.JSX.Element {
         )}
       </div>
 
-      <SoulInstallDialog projectRootPath={projectRootPath} />
+      <SoulInstallDialog projects={installProjects} />
     </div>
   )
 }
