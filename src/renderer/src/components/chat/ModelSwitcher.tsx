@@ -851,20 +851,15 @@ export function ModelSwitcher({
   }, [enabledProviders, isFastRoute, search])
   const selectedGroup = useMemo(
     () =>
-      (selectedProviderId
-        ? groups.find((group) => group.provider.id === selectedProviderId)
-        : null) ??
-      (displayProviderId
-        ? groups.find((group) => group.provider.id === displayProviderId)
-        : null) ??
-      groups[0] ??
-      null,
-    [displayProviderId, groups, selectedProviderId]
+      selectedProviderId
+        ? (groups.find((group) => group.provider.id === selectedProviderId) ?? null)
+        : null,
+    [groups, selectedProviderId]
   )
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen)
-    if (nextOpen) setSelectedProviderId(null)
+    setSelectedProviderId(null)
   }, [])
 
   useEffect(() => {
@@ -882,7 +877,15 @@ export function ModelSwitcher({
   }, [open])
 
   useEffect(() => {
-    if (!open || isAutoModeActive || search.trim() || hasAutoScrolledToSelectionRef.current) return
+    if (
+      !open ||
+      !selectedGroup ||
+      isAutoModeActive ||
+      search.trim() ||
+      hasAutoScrolledToSelectionRef.current
+    ) {
+      return
+    }
 
     const timer = setTimeout(() => {
       const target = activeModelRef.current
@@ -946,7 +949,7 @@ export function ModelSwitcher({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[560px] max-w-[calc(100vw-2rem)] overflow-hidden p-0"
+          className="w-64 max-w-[calc(100vw-2rem)] overflow-visible p-0"
           align="start"
           sideOffset={8}
         >
@@ -1018,130 +1021,142 @@ export function ModelSwitcher({
               </button>
             </div>
           )}
-          <div className="grid max-h-[360px] grid-cols-[180px_minmax(0,1fr)]">
-            <div className="min-h-0 border-r bg-muted/20 p-1">
-              <div className="px-2 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                {t('topbar.providers')}
-              </div>
-              <div className="max-h-[328px] overflow-y-auto">
-                {groups.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-xs text-muted-foreground/50">
-                    {enabledProviders.length === 0 ? t('topbar.noProviders') : t('topbar.noModels')}
-                  </div>
-                ) : (
-                  groups.map(({ provider, models }) => {
-                    const isSelected = provider.id === selectedGroup?.provider.id
-                    const isDisplayProvider = provider.id === displayProviderId && !isAutoModeActive
-                    return (
-                      <button
-                        key={provider.id}
-                        type="button"
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/70',
-                          isSelected && 'bg-background shadow-sm',
-                          isDisplayProvider && !isSelected && 'text-primary'
-                        )}
-                        onFocus={() => setSelectedProviderId(provider.id)}
-                        onMouseEnter={() => setSelectedProviderId(provider.id)}
-                        onClick={() => setSelectedProviderId(provider.id)}
-                      >
-                        <ProviderIcon builtinId={provider.builtinId} size={16} />
-                        <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                          {provider.name}
-                        </span>
-                        <span
-                          className={cn(
-                            'rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground',
-                            isDisplayProvider && 'bg-primary/10 text-primary'
-                          )}
-                        >
-                          {models.length}
-                        </span>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
+          <div className="p-1">
+            <div className="px-2 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+              {t('topbar.providers')}
             </div>
-            <div ref={listRef} className="min-h-0 max-h-[360px] overflow-y-auto p-1">
-              {selectedGroup && (
-                <div className="sticky top-0 z-10 mb-1 flex items-center gap-2 border-b bg-popover/95 px-2 py-1.5 backdrop-blur">
-                  <ProviderIcon builtinId={selectedGroup.provider.builtinId} size={14} />
-                  <span className="min-w-0 flex-1 truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                    {selectedGroup.provider.name}
-                  </span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground/50">
-                    {t('topbar.modelsCount', { count: selectedGroup.models.length })}
-                  </span>
-                </div>
-              )}
-              {!selectedGroup ? (
+            <div className="max-h-[328px] overflow-y-auto">
+              {groups.length === 0 ? (
                 <div className="px-3 py-6 text-center text-xs text-muted-foreground/50">
                   {enabledProviders.length === 0 ? t('topbar.noProviders') : t('topbar.noModels')}
                 </div>
               ) : (
-                selectedGroup.models.map((m) => {
-                  const provider = selectedGroup.provider
-                  const isActive =
-                    !isAutoModeActive &&
-                    provider.id === displayProviderId &&
-                    m.id === displayModelId
+                groups.map(({ provider, models }) => {
+                  const isSelected = provider.id === selectedGroup?.provider.id
+                  const isDisplayProvider = provider.id === displayProviderId && !isAutoModeActive
                   return (
-                    <button
-                      key={`${provider.id}-${m.id}`}
-                      ref={isActive ? activeModelRef : undefined}
-                      className={cn(
-                        'flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left hover:bg-muted/60 transition-colors group',
-                        isActive && 'bg-primary/5'
-                      )}
-                      onClick={() =>
-                        isFastRoute
-                          ? selectFastModel(
-                              provider,
-                              m.id,
-                              activeFastProviderId,
-                              setActiveFastProvider,
-                              setActiveFastModel,
-                              setOpen
-                            )
-                          : selectModel(
-                              provider,
-                              m.id,
-                              activeProviderId,
-                              setActiveProvider,
-                              setActiveModel,
-                              setOpen
-                            )
-                      }
+                    <Popover
+                      key={provider.id}
+                      open={selectedProviderId === provider.id}
+                      onOpenChange={(nextOpen) => {
+                        if (nextOpen) setSelectedProviderId(provider.id)
+                      }}
                     >
-                      <span className="mt-0.5 shrink-0">
-                        {isActive ? (
-                          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10">
-                            <Check className="size-3 text-primary" />
-                          </span>
-                        ) : (
-                          <ModelIcon
-                            icon={m.icon}
-                            modelId={m.id}
-                            providerBuiltinId={provider.builtinId}
-                            size={20}
-                          />
-                        )}
-                      </span>
-                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
                           className={cn(
-                            'truncate text-xs',
-                            isActive
-                              ? 'font-semibold text-primary'
-                              : 'text-foreground/80 group-hover:text-foreground'
+                            'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/70',
+                            isSelected && 'bg-background shadow-sm',
+                            isDisplayProvider && !isSelected && 'text-primary'
                           )}
+                          onFocus={() => setSelectedProviderId(provider.id)}
+                          onMouseEnter={() => setSelectedProviderId(provider.id)}
+                          onClick={() => setSelectedProviderId(provider.id)}
                         >
-                          {m.name || m.id.replace(/-\d{8}$/, '')}
-                        </span>
-                        <ModelCapabilityTags model={m} providerType={provider.type} t={t} />
-                      </div>
-                    </button>
+                          <ProviderIcon builtinId={provider.builtinId} size={16} />
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                            {provider.name}
+                          </span>
+                          <span
+                            className={cn(
+                              'rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground',
+                              isDisplayProvider && 'bg-primary/10 text-primary'
+                            )}
+                          >
+                            {models.length}
+                          </span>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden p-1"
+                        align="start"
+                        side="right"
+                        sideOffset={6}
+                      >
+                        <div className="sticky top-0 z-10 mb-1 flex items-center gap-2 border-b bg-popover/95 px-2 py-1.5 backdrop-blur">
+                          <ProviderIcon builtinId={provider.builtinId} size={14} />
+                          <span className="min-w-0 flex-1 truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                            {provider.name}
+                          </span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground/50">
+                            {t('topbar.modelsCount', { count: models.length })}
+                          </span>
+                        </div>
+                        <div
+                          ref={selectedProviderId === provider.id ? listRef : undefined}
+                          className="max-h-[344px] overflow-y-auto"
+                        >
+                          {models.map((m) => {
+                            const isActive =
+                              !isAutoModeActive &&
+                              provider.id === displayProviderId &&
+                              m.id === displayModelId
+                            return (
+                              <button
+                                key={`${provider.id}-${m.id}`}
+                                ref={isActive ? activeModelRef : undefined}
+                                className={cn(
+                                  'flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/60 group',
+                                  isActive && 'bg-primary/5'
+                                )}
+                                onClick={() =>
+                                  isFastRoute
+                                    ? selectFastModel(
+                                        provider,
+                                        m.id,
+                                        activeFastProviderId,
+                                        setActiveFastProvider,
+                                        setActiveFastModel,
+                                        setOpen
+                                      )
+                                    : selectModel(
+                                        provider,
+                                        m.id,
+                                        activeProviderId,
+                                        setActiveProvider,
+                                        setActiveModel,
+                                        setOpen
+                                      )
+                                }
+                              >
+                                <span className="mt-0.5 shrink-0">
+                                  {isActive ? (
+                                    <span className="flex size-5 items-center justify-center rounded-full bg-primary/10">
+                                      <Check className="size-3 text-primary" />
+                                    </span>
+                                  ) : (
+                                    <ModelIcon
+                                      icon={m.icon}
+                                      modelId={m.id}
+                                      providerBuiltinId={provider.builtinId}
+                                      size={20}
+                                    />
+                                  )}
+                                </span>
+                                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                  <span
+                                    className={cn(
+                                      'truncate text-xs',
+                                      isActive
+                                        ? 'font-semibold text-primary'
+                                        : 'text-foreground/80 group-hover:text-foreground'
+                                    )}
+                                  >
+                                    {m.name || m.id.replace(/-\d{8}$/, '')}
+                                  </span>
+                                  <ModelCapabilityTags
+                                    model={m}
+                                    providerType={provider.type}
+                                    t={t}
+                                  />
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   )
                 })
               )}
