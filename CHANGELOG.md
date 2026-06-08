@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.115] - 2026-06-08
+
+### Added
+
+- Added heuristic Auto model routing signals for task type, tool intent, complexity, risk, and routing reasons.
+- Added Auto model routing metadata display in the model switcher, including complexity and risk labels.
+- Added localized Auto routing fallback, complexity, and risk labels in English and Chinese.
+
+### Changed
+
+- Reworked Auto model selection to combine heuristic signals, sidecar classifier output, low-confidence reuse, and policy overrides before choosing main or fast models.
+- Limited sidecar prompt tool context to requests that actually need tools, reducing unnecessary channel and MCP context for simple prompts.
+- Simplified page transitions to avoid extra animated wrapper behavior.
+
+### Fixed
+
+- Fixed unsafe fast-model routing for complex, high-risk, tool-required, or workspace-aware requests by forcing main-model routing when policy gates require it.
+
 ## [0.9.114] - 2026-06-05
 
 ### Added

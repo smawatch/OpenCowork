@@ -154,7 +154,7 @@
     "noModel": "No model",
     "autoModel": "Auto",
     "autoModelDesc": "Use the fast model to classify task type first, then dynamically choose the main or fast model",
-    "autoModelTooltip": "Auto · This turn used {{route}} · {{model}} · {{taskType}} · {{confidence}}{{reason, select,  { } other { · {{reason}}}}}",
+    "autoModelTooltip": "Auto · This turn used {{route}} · {{model}} · {{taskType}} · {{confidence}}{{complexity, select,  { } other { · {{complexity}}}}{{risk, select,  { } other { · {{risk}}}}{{reason, select,  { } other { · {{reason}}}}}",
     "autoModelTooltipIdle": "Auto · No turn sent yet, routing happens right before send",
     "autoModelRouting": "Auto · Classifying this turn's task type…",
     "autoModelRoutingShort": "Routing",
@@ -175,7 +175,23 @@
       "invalid_classifier_output": "Invalid classifier output; fell back to main",
       "classification_failed": "Classification failed; fell back to main",
       "low_confidence_reuse_last_route": "Low confidence; reused last high-confidence route",
-      "low_confidence_main": "Low confidence; conservatively fell back to main"
+      "low_confidence_main": "Low confidence; conservatively fell back to main",
+      "low_confidence_fast": "Low confidence; low-risk request used fast",
+      "heuristic_simple_fast": "Simple low-risk request; used fast",
+      "heuristic_complex_main": "Complex or high-risk request; used main",
+      "tool_required_main": "Tool or workspace context required; used main",
+      "classifier_overridden_main": "Classifier fast route overridden by policy; used main",
+      "capability_gate_main": "Capability gate selected main"
+    },
+    "autoModelComplexity": {
+      "simple": "simple",
+      "medium": "medium",
+      "complex": "complex"
+    },
+    "autoModelRisk": {
+      "low": "low risk",
+      "medium": "medium risk",
+      "high": "high risk"
     },
     "clickToSwitch": "click to switch",
     "providers": "Providers",

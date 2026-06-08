@@ -143,27 +143,8 @@ ScaleIn.displayName = 'ScaleIn'
  */
 export const PageTransition = forwardRef<HTMLDivElement, BaseTransitionProps>(
   ({ children, className, ...props }, ref) => {
-    const animationsEnabled = useSettingsStore((s) => s.animationsEnabled)
-
     return (
-      <motion.div
-        ref={ref}
-        initial={animationsEnabled ? { opacity: 0, y: 20, filter: 'blur(5px)' } : false}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        exit={animationsEnabled ? { opacity: 0, y: -20, filter: 'blur(5px)' } : undefined}
-        transition={
-          animationsEnabled
-            ? {
-                type: 'spring',
-                stiffness: 260,
-                damping: 20,
-                mass: 0.8
-              }
-            : { duration: 0 }
-        }
-        className={cn('size-full', className)}
-        {...props}
-      >
+      <motion.div ref={ref} className={cn('size-full', className)} {...props}>
         {children}
       </motion.div>
     )

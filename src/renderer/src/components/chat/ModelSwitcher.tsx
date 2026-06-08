@@ -1009,6 +1009,12 @@ export function ModelSwitcher({
                               autoSelection.taskType ?? t('topbar.autoModelTaskTypeUnknown'),
                             confidence:
                               autoSelection.confidence ?? t('topbar.autoModelConfidenceUnknown'),
+                            complexity: autoSelection.complexity
+                              ? t(`topbar.autoModelComplexity.${autoSelection.complexity}`)
+                              : '',
+                            risk: autoSelection.risk
+                              ? t(`topbar.autoModelRisk.${autoSelection.risk}`)
+                              : '',
                             reason: autoSelection.fallbackReason
                               ? t(`topbar.autoModelFallback.${autoSelection.fallbackReason}`, {
                                   defaultValue: autoSelection.fallbackReason

@@ -3594,9 +3594,20 @@ export function useChatActions(): {
             )
           }
 
+          const autoSelectedFastWithoutTools =
+            settings.mainModelSelectionMode === 'auto' &&
+            mode !== 'clarify' &&
+            !resolvedSession?.providerId &&
+            !resolvedSession?.pluginId &&
+            providerResolution.autoSelection?.target === 'fast' &&
+            providerResolution.autoSelection.toolsAllowed === false &&
+            source !== 'continue'
+          const promptToolDefs = autoSelectedFastWithoutTools ? [] : finalEffectiveToolDefs
+          const promptAllowsToolContext = !autoSelectedFastWithoutTools
+
           // Build channel info for system prompt — only inject channels bound to the current project
           let userPrompt = settings.systemPrompt || ''
-          if (scopedActiveChannels.length > 0) {
+          if (promptAllowsToolContext && scopedActiveChannels.length > 0) {
             const channelLines: string[] = ['\n## Project Channels']
             for (const c of scopedActiveChannels) {
               channelLines.push(`- **${c.name}** (channel_id: \`${c.id}\`, type: ${c.type})`)
@@ -3611,7 +3622,7 @@ export function useChatActions(): {
           }
 
           // Build MCP info for system prompt — inject active MCP server metadata and tool mappings
-          if (activeMcps.length > 0) {
+          if (promptAllowsToolContext && activeMcps.length > 0) {
             const mcpLines: string[] = ['\n## Active MCP Servers']
             for (const srv of activeMcps) {
               const tools = activeMcpTools[srv.id] ?? []
@@ -3637,7 +3648,7 @@ export function useChatActions(): {
           }
 
           const imagePluginConfig = useAppPluginStore.getState().getResolvedImagePluginConfig()
-          if (imagePluginConfig) {
+          if (promptAllowsToolContext && imagePluginConfig) {
             const imagePluginSection = [
               '\n## Enabled Plugins',
               `- **Image Plugin** is enabled. Use \`${IMAGE_GENERATE_TOOL_NAME}\` when the user explicitly asks you to generate or render an image.`,
@@ -3648,7 +3659,7 @@ export function useChatActions(): {
             userPrompt = userPrompt ? `${userPrompt}\n${imagePluginSection}` : imagePluginSection
           }
 
-          if (desktopControlMode !== 'disabled') {
+          if (promptAllowsToolContext && desktopControlMode !== 'disabled') {
             const desktopPluginSection = [
               '\n## Desktop Control',
               desktopControlMode === 'computer-use'
@@ -3663,7 +3674,7 @@ export function useChatActions(): {
           }
 
           // Channel session context: inject reply instructions when this session belongs to a channel
-          if (session?.pluginId && session?.externalChatId) {
+          if (promptAllowsToolContext && session?.pluginId && session?.externalChatId) {
             const channelMeta = useChannelStore
               .getState()
               .channels.find((p) => p.id === session.pluginId)
@@ -3702,12 +3713,12 @@ export function useChatActions(): {
                   environmentContext,
                   memorySnapshot,
                   sessionScope,
-                  hasWebSearch: finalEffectiveToolDefs.some(
+                  hasWebSearch: promptToolDefs.some(
                     (tool) => tool.name === 'WebSearch' || tool.name === 'WebFetch'
                   ),
-                  hasPluginTools: hasChatModePluginTools(finalEffectiveToolDefs),
-                  activeMcps,
-                  activeMcpTools
+                  hasPluginTools: hasChatModePluginTools(promptToolDefs),
+                  activeMcps: promptAllowsToolContext ? activeMcps : [],
+                  activeMcpTools: promptAllowsToolContext ? activeMcpTools : {}
                 })
               : buildSystemPromptContextCacheKey({
                   language: settings.language,
@@ -3725,29 +3736,18 @@ export function useChatActions(): {
             (cachedPromptSnapshot.workingFolder ?? null) === (sessionWorkingFolder ?? null) &&
             (cachedPromptSnapshot.sshConnectionId ?? null) === (session?.sshConnectionId ?? null) &&
             cachedPromptSnapshot.contextCacheKey === promptContextCacheKey &&
-            haveSameToolDefinitions(cachedPromptSnapshot.toolDefs, finalEffectiveToolDefs) &&
+            haveSameToolDefinitions(cachedPromptSnapshot.toolDefs, promptToolDefs) &&
             // Plugin-bound sessions require plugin tools in the cached snapshot.
             // A stale snapshot (built when plugin tools were unregistered) must be
             // discarded so the system prompt + tool list are rebuilt. Issue #73.
             (!session?.pluginId ||
               cachedPromptSnapshot.toolDefs.some((t) => t.name === 'PluginSendMessage'))
 
-          const autoSelectedFastWithoutTools =
-            settings.mainModelSelectionMode === 'auto' &&
-            mode !== 'clarify' &&
-            !resolvedSession?.providerId &&
-            !resolvedSession?.pluginId &&
-            providerResolution.autoSelection?.target === 'fast' &&
-            providerResolution.autoSelection.toolsAllowed === false &&
-            source !== 'continue'
-
-          let effectiveToolDefs = autoSelectedFastWithoutTools ? [] : finalEffectiveToolDefs
+          let effectiveToolDefs = promptToolDefs
           let agentSystemPrompt = cachedPromptSnapshot?.systemPrompt ?? ''
 
           if (canReusePromptSnapshot && cachedPromptSnapshot) {
-            effectiveToolDefs = autoSelectedFastWithoutTools
-              ? []
-              : cachedPromptSnapshot.toolDefs.slice()
+            effectiveToolDefs = cachedPromptSnapshot.toolDefs.slice()
           } else {
             agentSystemPrompt =
               mode === 'chat'
@@ -3758,19 +3758,19 @@ export function useChatActions(): {
                     environmentContext,
                     memorySnapshot,
                     sessionScope,
-                    hasWebSearch: finalEffectiveToolDefs.some(
+                    hasWebSearch: promptToolDefs.some(
                       (tool) => tool.name === 'WebSearch' || tool.name === 'WebFetch'
                     ),
-                    hasPluginTools: hasChatModePluginTools(finalEffectiveToolDefs),
-                    activeMcps,
-                    activeMcpTools
+                    hasPluginTools: hasChatModePluginTools(promptToolDefs),
+                    activeMcps: promptAllowsToolContext ? activeMcps : [],
+                    activeMcpTools: promptAllowsToolContext ? activeMcpTools : {}
                   })
                 : buildSystemPrompt({
                     mode: mode as 'clarify' | 'cowork' | 'code' | 'acp',
                     workingFolder: sessionWorkingFolder,
                     sessionId,
                     userRules: userPrompt || undefined,
-                    toolDefs: finalEffectiveToolDefs,
+                    toolDefs: promptToolDefs,
                     language: settings.language,
                     planMode: isPlanMode,
                     hasActiveTeam: !!activeTeam,
@@ -3784,7 +3784,7 @@ export function useChatActions(): {
               mode,
               planMode: isPlanMode,
               systemPrompt: agentSystemPrompt,
-              toolDefs: finalEffectiveToolDefs,
+              toolDefs: promptToolDefs,
               projectId: session?.projectId,
               workingFolder: sessionWorkingFolder,
               sshConnectionId: session?.sshConnectionId ?? null,
@@ -3795,7 +3795,7 @@ export function useChatActions(): {
           const agentProviderConfig = withResponsesSessionScope(
             {
               ...baseProviderConfig,
-              computerUseEnabled: desktopControlMode === 'computer-use',
+              computerUseEnabled: promptAllowsToolContext && desktopControlMode === 'computer-use',
               systemPrompt: agentSystemPrompt
             },
             RESPONSES_SESSION_SCOPE_AGENT_MAIN
@@ -4015,9 +4015,9 @@ export function useChatActions(): {
                     compression: compressionConfig,
                     isPlanMode,
                     sessionMode: mode,
-                    desktopControlMode,
-                    hasChannels: scopedActiveChannels.length > 0,
-                    hasMcps: activeMcps.length > 0
+                    desktopControlMode: promptAllowsToolContext ? desktopControlMode : 'disabled',
+                    hasChannels: promptAllowsToolContext && scopedActiveChannels.length > 0,
+                    hasMcps: promptAllowsToolContext && activeMcps.length > 0
                   })
 
             console.log('[ChatActions] Agent execution path', {
@@ -4029,8 +4029,8 @@ export function useChatActions(): {
               hasSidecarRequest: !!sidecarRequest,
               isPlanMode,
               sessionMode: mode,
-              hasChannels: scopedActiveChannels.length > 0,
-              hasMcps: activeMcps.length > 0
+              hasChannels: promptAllowsToolContext && scopedActiveChannels.length > 0,
+              hasMcps: promptAllowsToolContext && activeMcps.length > 0
             })
 
             let loop: AsyncIterable<AgentEvent>

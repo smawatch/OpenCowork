@@ -83,9 +83,13 @@ export type AutoModelTaskType =
   | 'analyze'
   | 'other'
 export type AutoModelConfidence = 'high' | 'medium' | 'low'
+export type AutoModelRoutingComplexity = 'simple' | 'medium' | 'complex'
+export type AutoModelRoutingRisk = 'low' | 'medium' | 'high'
 export type AutoModelDecisionSource =
   | 'classifier'
   | 'legacy-classifier'
+  | 'heuristic'
+  | 'policy'
   | 'fallback-main'
   | 'fallback-fast'
   | 'fallback-last-high-confidence'
@@ -102,7 +106,13 @@ export interface AutoModelSelectionStatus {
   confidence?: AutoModelConfidence
   decisionSource?: AutoModelDecisionSource
   toolsAllowed?: boolean
+  complexity?: AutoModelRoutingComplexity
+  risk?: AutoModelRoutingRisk
+  reasons?: string[]
+  classifierRoute?: AutoModelRoute
+  heuristicRoute?: AutoModelRoute
   fallbackReason?: string
+  routingDurationMs?: number
   selectedAt: number
 }
 
