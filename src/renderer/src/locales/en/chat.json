@@ -6,6 +6,8 @@
     "placeholderCode": "Describe what you want to build, like fixing bugs, writing scripts, or using /commit to commit the repository...",
     "placeholderAcp": "Describe the goal, context, constraints, and acceptance criteria. I will design and delegate first instead of coding directly...",
     "placeholderPlanReview": "Enter revision feedback for this plan, or click the card above to implement it...",
+    "placeholderPendingGoal": "Enter the goal and send it as a normal message...",
+    "pendingGoalBanner": "Goal is ready: your next text message will be sent normally and set as the session goal.",
     "placeholderInitWorkspace": "No AGENTS.md found in the current working folder. Try /init first to initialize the project context...",
     "noApiKey": "No API key configured. Click here to open Settings.",
     "attachImages": "Attach images (paste or drag & drop also supported)",

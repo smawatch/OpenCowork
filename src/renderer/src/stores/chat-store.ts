@@ -27,6 +27,11 @@ import {
   summarizeToolInputForHistory,
   sanitizeMessagesForToolReplay
 } from '../lib/tools/tool-input-sanitizer'
+import {
+  isCompactArtifactMessage,
+  isCompactBoundaryMessage,
+  resolveActiveCompactArtifacts
+} from '../lib/agent/context-compression'
 
 export type SessionMode = 'chat' | 'clarify' | 'cowork' | 'code' | 'acp'
 
@@ -362,6 +367,16 @@ function dbClearMessages(sessionId: string): void {
   enqueueSessionMessageWrite(sessionId, () => ipcClient.invoke('db:messages:clear', sessionId))
 }
 
+function dbDeleteMessage(sessionId: string, messageId: string): void {
+  const generation = getMessageWriteGeneration(sessionId)
+  const pending = enqueueSessionMessageWrite(
+    sessionId,
+    () => ipcClient.invoke('db:messages:delete', { sessionId, messageId }),
+    generation
+  )
+  trackPendingMessageWrite([messageId], pending)
+}
+
 function dbTruncateMessagesFrom(sessionId: string, fromSortOrder: number): void {
   bumpMessageWriteGeneration(sessionId)
   enqueueSessionMessageWrite(sessionId, () =>
@@ -411,6 +426,15 @@ function clearDeferredMessageAdds(sessionId: string, fromSortOrder = 0): void {
   for (let i = _deferredMessageAdds.length - 1; i >= 0; i--) {
     const entry = _deferredMessageAdds[i]
     if (entry.sessionId === sessionId && entry.sortOrder >= fromSortOrder) {
+      _deferredMessageAdds.splice(i, 1)
+    }
+  }
+}
+
+function clearDeferredMessageAddById(sessionId: string, messageId: string): void {
+  for (let i = _deferredMessageAdds.length - 1; i >= 0; i--) {
+    const entry = _deferredMessageAdds[i]
+    if (entry.sessionId === sessionId && entry.msg.id === messageId) {
       _deferredMessageAdds.splice(i, 1)
     }
   }
@@ -718,6 +742,7 @@ interface ChatStore {
     streamingMessageId: string | null
   ) => void
   updateMessage: (sessionId: string, msgId: string, patch: Partial<UnifiedMessage>) => void
+  removeMessageById: (sessionId: string, msgId: string) => boolean
   appendTextDelta: (sessionId: string, msgId: string, text: string) => void
   appendThinkingDelta: (sessionId: string, msgId: string, thinking: string) => void
   setThinkingEncryptedContent: (
@@ -1184,29 +1209,6 @@ function clampRequestContext(
   return messages.slice(boundary)
 }
 
-function isRequestCompactBoundaryMessage(message: UnifiedMessage): boolean {
-  return message.role === 'system' && !!message.meta?.compactBoundary
-}
-
-function isRequestCompactSummaryMessage(message: UnifiedMessage): boolean {
-  return message.role === 'user' && !!message.meta?.compactSummary
-}
-
-function hasCompactSummaryAfterBoundary(
-  messages: UnifiedMessage[],
-  boundaryIndex: number
-): boolean {
-  for (let index = boundaryIndex + 1; index < messages.length; index += 1) {
-    if (isRequestCompactBoundaryMessage(messages[index])) {
-      return false
-    }
-    if (isRequestCompactSummaryMessage(messages[index])) {
-      return true
-    }
-  }
-  return false
-}
-
 function isUiOnlyRequestMessage(message: UnifiedMessage): boolean {
   if (message.role !== 'system') return false
   if (message.meta?.compressionStatus) return true
@@ -1216,16 +1218,18 @@ function isUiOnlyRequestMessage(message: UnifiedMessage): boolean {
 }
 
 function applyLatestCompactRequestView(messages: UnifiedMessage[]): UnifiedMessage[] {
-  let latestBoundaryIndex = -1
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (!isRequestCompactBoundaryMessage(messages[index])) continue
-    if (!hasCompactSummaryAfterBoundary(messages, index)) continue
-    latestBoundaryIndex = index
-    break
-  }
+  const activeCompact = resolveActiveCompactArtifacts(messages)
+  const compactView =
+    activeCompact && activeCompact.boundaryIndex >= 0
+      ? messages.slice(activeCompact.boundaryIndex)
+      : messages
 
-  const compactView = latestBoundaryIndex >= 0 ? messages.slice(latestBoundaryIndex) : messages
-  return compactView.filter((message) => !isUiOnlyRequestMessage(message))
+  return compactView.filter((message) => {
+    if (isUiOnlyRequestMessage(message)) return false
+    if (!isCompactArtifactMessage(message)) return true
+    if (isCompactBoundaryMessage(message)) return message.id === activeCompact?.boundaryId
+    return message.id === activeCompact?.summaryId
+  })
 }
 
 function mergeResidentTailWithFetchedPrefix(
@@ -3437,6 +3441,54 @@ export const useChatStore = create<ChatStore>()(
       if (msg) dbUpsertMessage(sessionId, msg, resolveMessageSortOrder(session, msgId))
     },
 
+    removeMessageById: (sessionId, msgId) => {
+      let removed = false
+      let wasStreamingMessage = false
+      const now = Date.now()
+      set((state) => {
+        const session = getSessionByIdFromState(state, sessionId)
+        if (!session) return
+        const index = session.messages.findIndex((message) => message.id === msgId)
+        if (index < 0) return
+
+        removed = true
+        wasStreamingMessage = state.streamingMessages[sessionId] === msgId
+        session.messages.splice(index, 1)
+        session.messageCount = Math.max(0, session.messageCount - 1)
+        if (session.messageCount === 0) {
+          session.messagesLoaded = true
+          session.loadedRangeStart = 0
+          session.loadedRangeEnd = 0
+          session.lastKnownMessageCount = 0
+        } else {
+          session.loadedRangeEnd = Math.max(session.loadedRangeStart, session.loadedRangeEnd - 1)
+          session.lastKnownMessageCount = session.messageCount
+        }
+        session.updatedAt = now
+
+        if (wasStreamingMessage) {
+          _streamingBackfillBlockedSessionIds.add(sessionId)
+          delete state.streamingMessages[sessionId]
+          if (sessionId === state.activeSessionId) {
+            state.streamingMessageId = null
+          }
+        }
+        releaseDormantSessionMemory(state)
+      })
+
+      if (!removed) return false
+
+      clearPendingMessageFlushes([msgId])
+      clearDeferredMessageAddById(sessionId, msgId)
+      discardPendingStreamDeltasForMessage(sessionId, msgId)
+      _streamingDirtyMessageIds.delete(msgId)
+      _activeStreamingMessageIds.delete(msgId)
+      if (wasStreamingMessage) stopStreamingPeriodicFlush(sessionId)
+      dbDeleteMessage(sessionId, msgId)
+      dbUpdateSession(sessionId, { updatedAt: now })
+      return true
+    },
+
     appendTextDelta: (sessionId, msgId, text) => {
       _pendingStreamDeltas.push({ kind: 'text', sessionId, msgId, text })
       _scheduleStreamDeltaFlush()
@@ -3970,6 +4022,15 @@ function flushPendingStreamDeltasForMessage(sessionId: string, msgId: string): v
   const affectedMessages: Array<{ sessionId: string; msgId: string }> = []
   applyStreamDeltas(groupStreamDeltasBySession(matching), affectedMessages)
   persistAffectedMessages(affectedMessages)
+}
+
+function discardPendingStreamDeltasForMessage(sessionId: string, msgId: string): void {
+  for (let index = _pendingStreamDeltas.length - 1; index >= 0; index -= 1) {
+    const delta = _pendingStreamDeltas[index]
+    if (delta.sessionId === sessionId && delta.msgId === msgId) {
+      _pendingStreamDeltas.splice(index, 1)
+    }
+  }
 }
 
 function flushStreamDeltas(): void {

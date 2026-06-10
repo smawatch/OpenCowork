@@ -357,16 +357,7 @@ export function UserMessage({
       ? [`[Skill: ${skillDirective.name}]`, copyBodyText].filter(Boolean).join('\n')
       : copyBodyText
 
-  const fullText =
-    typeof content === 'string'
-      ? content
-      : content
-          .filter(
-            (block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text'
-          )
-          .map((block) => block.text)
-          .join('\n')
-  const displayFullText = skillDirective ? displayText : fullText
+  const displayFullText = skillDirective ? displayText : plainText
   const memoizedTokens = useMemoizedTokens(displayFullText)
 
   const activeProvider = useProviderStore((s) => {

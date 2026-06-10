@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { nanoid } from 'nanoid'
 import { toast } from 'sonner'
 import i18n from '@renderer/locales'
-import { useChatStore } from '@renderer/stores/chat-store'
+import { useChatStore, type Session } from '@renderer/stores/chat-store'
 import {
   clampMaxParallelToolCalls,
   resolveReasoningEffortForModel,
@@ -91,7 +91,6 @@ import { ApiStreamError } from '@renderer/lib/ipc/api-stream'
 import { recordUsageEvent } from '@renderer/lib/usage-analytics'
 import {
   compressMessages,
-  mergeCompressedMessagesKeepHistory,
   mergeLoopEndMessagesKeepHistory,
   resolveCompressionContextLength,
   resolveCompressionReservedOutputBudget,
@@ -170,6 +169,7 @@ import {
 import { ensureDefaultChatWorkingFolder } from '@renderer/lib/chat-working-folder'
 import { ensureRequestToolCatalogFresh } from '@renderer/lib/tools/dynamic-tool-catalog'
 import {
+  escapeGoalXmlText,
   goalStatusLabel,
   shouldIgnoreGoalRuntimeForMode,
   validateGoalObjective
@@ -198,8 +198,6 @@ const sessionSidecarRunIds = new Map<string, string>()
 const continuingToolExecutionSessions = new Set<string>()
 const pendingGoalContinuationSessions = new Set<string>()
 const scheduledGoalContinuationSessions = new Set<string>()
-/** Per-session id of the synthetic system message rendered while compression is in flight. */
-const sessionCompressionPlaceholderIds = new Map<string, string>()
 installSessionControlSyncListener((event) => {
   applySessionControlSyncEvent(event)
 })
@@ -214,7 +212,6 @@ useChatStore.subscribe((state) => {
         pendingSessionMessages.delete(id)
         pendingSessionMessageViews.delete(id)
         pausedPendingSessionDispatch.delete(id)
-        sessionCompressionPlaceholderIds.delete(id)
       }
     }
   }
@@ -420,9 +417,115 @@ This message was inserted after that run finished.
 Treat the following user query as the latest instruction and respond to it directly.
 </system-reminder>`
 
+function buildGoalMessageSystemReminder(objective: string): string {
+  return (
+    `<system-reminder>\n` +
+    `The user has started a goal pursuit. Treat the current user message as the goal objective and continue working toward it across turns until the goal is completed, paused, or cleared.\n` +
+    `Goal objective:\n${escapeGoalXmlText(objective)}\n` +
+    `</system-reminder>`
+  )
+}
+
 function cloneOptionalImageAttachments(images?: ImageAttachment[]): ImageAttachment[] | undefined {
   const cloned = cloneImageAttachments(images)
   return cloned.length > 0 ? cloned : undefined
+}
+
+function cloneCompressedMessageContent(
+  content: UnifiedMessage['content']
+): UnifiedMessage['content'] {
+  if (typeof content === 'string') return content
+  return JSON.parse(JSON.stringify(content)) as ContentBlock[]
+}
+
+function cloneCompressedMessagesForSession(messages: UnifiedMessage[]): UnifiedMessage[] {
+  const now = Date.now()
+  return messages.map((message, index) => ({
+    ...message,
+    id: nanoid(),
+    content: cloneCompressedMessageContent(message.content),
+    createdAt: now + index,
+    ...(message.meta
+      ? { meta: JSON.parse(JSON.stringify(message.meta)) as UnifiedMessage['meta'] }
+      : {}),
+    ...(message.usage ? { usage: { ...message.usage } } : {}),
+    ...(message.debugInfo ? { debugInfo: { ...message.debugInfo } } : {})
+  }))
+}
+
+function hasMeaningfulAssistantMessageContent(message: UnifiedMessage): boolean {
+  if (message.role !== 'assistant') return true
+  if (typeof message.content === 'string') return message.content.trim().length > 0
+  if (!Array.isArray(message.content)) return false
+
+  return message.content.some((block) => {
+    switch (block.type) {
+      case 'text':
+        return block.text.trim().length > 0
+      case 'thinking':
+        return block.thinking.trim().length > 0 || !!block.encryptedContent
+      case 'tool_use':
+      case 'image':
+      case 'image_error':
+      case 'agent_error':
+        return true
+      default:
+        return false
+    }
+  })
+}
+
+function removeEmptyAssistantPlaceholder(sessionId: string, messageId: string): void {
+  const chatStore = useChatStore.getState()
+  const session = chatStore.sessions.find((item) => item.id === sessionId)
+  const message = session?.messages.find((item) => item.id === messageId)
+  if (!message || message.role !== 'assistant') return
+  if (hasMeaningfulAssistantMessageContent(message)) return
+  chatStore.removeMessageById(sessionId, messageId)
+}
+
+function createCompressedContinuationSession(args: {
+  sourceSession: Session
+  compressedMessages: UnifiedMessage[]
+}): string {
+  const chatStore = useChatStore.getState()
+  const uiStore = useUIStore.getState()
+  const newSessionId = chatStore.createSession(
+    args.sourceSession.mode,
+    args.sourceSession.projectId,
+    {
+      preserveProjectless: !args.sourceSession.projectId,
+      workingFolder: args.sourceSession.workingFolder,
+      sshConnectionId: args.sourceSession.sshConnectionId ?? null,
+      planId: args.sourceSession.planId ?? null
+    }
+  )
+
+  chatStore.updateSessionTitle(
+    newSessionId,
+    i18n.t('contextCompression.continuationSessionTitle', {
+      ns: 'agent',
+      title: args.sourceSession.title,
+      defaultValue: '{{title}} · Compressed'
+    })
+  )
+  if (args.sourceSession.icon) {
+    chatStore.updateSessionIcon(newSessionId, args.sourceSession.icon)
+  }
+  if (args.sourceSession.providerId && args.sourceSession.modelId) {
+    chatStore.updateSessionModel(
+      newSessionId,
+      args.sourceSession.providerId,
+      args.sourceSession.modelId
+    )
+  }
+
+  chatStore.replaceSessionMessages(
+    newSessionId,
+    cloneCompressedMessagesForSession(args.compressedMessages)
+  )
+  uiStore.navigateToSession(newSessionId)
+  return newSessionId
 }
 
 function getTaskProgressSnapshot(sessionId: string): string {
@@ -1369,6 +1472,22 @@ function toPendingItem(msg: QueuedSessionMessage): PendingSessionMessageItem {
   }
 }
 
+function updateQueuedGoalObjectiveOption(
+  options: SendMessageOptions | undefined,
+  text: string
+): SendMessageOptions | undefined {
+  if (options?.goalObjective === undefined) return options
+
+  const next = { ...options }
+  const objective = text.trim()
+  if (objective) {
+    next.goalObjective = objective
+  } else {
+    delete next.goalObjective
+  }
+  return next
+}
+
 export function subscribePendingSessionMessages(listener: () => void): () => void {
   pendingSessionMessageListeners.add(listener)
   return () => {
@@ -1413,7 +1532,8 @@ export function updatePendingSessionMessageDraft(
       ...msg,
       text: draft.text,
       images: cloneOptionalImageAttachments(draft.images),
-      command: draft.command
+      command: draft.command,
+      options: updateQueuedGoalObjectiveOption(msg.options, draft.text)
     }
   })
   if (!changed) return false
@@ -2110,12 +2230,6 @@ function ensurePlanAwaitingReview(planId: string): Plan | null {
   }
 
   return plan
-}
-
-function hasSameMessageIdSequence(left: UnifiedMessage[], right: UnifiedMessage[]): boolean {
-  return (
-    left.length === right.length && left.every((message, index) => message.id === right[index]?.id)
-  )
 }
 
 async function confirmPlanExecution(options?: { newSession?: boolean }): Promise<boolean> {
@@ -2951,67 +3065,17 @@ export function useChatActions(): {
         useUIStore.getState().enterPlanMode(sessionId)
       }
 
-      if (options?.goalObjective !== undefined && source !== 'continue') {
-        if (commandOverride || images?.length) {
-          toast.error(i18n.t('goal.toasts.createFailed', { ns: 'chat' }), {
-            description: i18n.t('goal.errors.objectiveOnly', {
-              ns: 'chat',
-              defaultValue: 'Goal mode can only start from text input.'
-            })
-          })
-          return
-        }
-
-        const objective = options.goalObjective.trim()
-        const validationError = validateGoalObjective(objective)
-        if (validationError) {
-          toast.error(i18n.t('goal.toasts.objectiveInvalid', { ns: 'chat' }), {
-            description: validationError
-          })
-          return
-        }
-
-        const result = await useGoalStore.getState().setGoal({
+      if (options?.goalObjective === undefined) {
+        const goalSlashResult = await tryHandleGoalSlashCommand({
           sessionId,
-          objective,
-          status: 'active'
+          text,
+          source,
+          images,
+          commandOverride
         })
-        if (!result.success) {
-          toast.error(i18n.t('goal.toasts.createFailed', { ns: 'chat' }), {
-            description: result.error
-          })
+        if (goalSlashResult) {
           return
         }
-
-        const goalSession = useChatStore.getState().sessions.find((s) => s.id === sessionId)
-        if (goalSession && canAutoGenerateSessionTitle(goalSession.title)) {
-          const capturedSessionId = sessionId
-          generateSessionTitle(objective)
-            .then((titleResult) => {
-              if (!titleResult) return
-              const store = useChatStore.getState()
-              const latestSession = store.sessions.find((item) => item.id === capturedSessionId)
-              if (!latestSession || !canAutoGenerateSessionTitle(latestSession.title)) return
-              store.updateSessionTitle(capturedSessionId, titleResult.title)
-              store.updateSessionIcon(capturedSessionId, titleResult.icon)
-            })
-            .catch(() => {
-              /* keep default title on failure */
-            })
-        }
-
-        return
-      }
-
-      const goalSlashResult = await tryHandleGoalSlashCommand({
-        sessionId,
-        text,
-        source,
-        images,
-        commandOverride
-      })
-      if (goalSlashResult) {
-        return
       }
 
       const inMemoryMessages = chatStore.getSessionMessages(sessionId)
@@ -3284,6 +3348,33 @@ export function useChatActions(): {
           }
         }
 
+        let appliedGoalObjective: string | null = null
+        if (options?.goalObjective !== undefined && source !== 'continue') {
+          const objective = options.goalObjective.trim()
+          const validationError = validateGoalObjective(objective)
+          if (validationError) {
+            clearPreflightIndicator()
+            toast.error(i18n.t('goal.toasts.objectiveInvalid', { ns: 'chat' }), {
+              description: validationError
+            })
+            return
+          }
+
+          const result = await useGoalStore.getState().setGoal({
+            sessionId,
+            objective,
+            status: 'active'
+          })
+          if (!result.success) {
+            clearPreflightIndicator()
+            toast.error(i18n.t('goal.toasts.createFailed', { ns: 'chat' }), {
+              description: result.error
+            })
+            return
+          }
+          appliedGoalObjective = objective
+        }
+
         // After a manual abort, stale tail error blocks can break the next request.
         // Tool replay consistency is sanitized later for the request payload only,
         // so visible history is not rewritten when starting a new turn.
@@ -3310,6 +3401,13 @@ export function useChatActions(): {
 
           if (isQueuedInsertion) {
             textBlocks.push({ type: 'text', text: QUEUED_MESSAGE_SYSTEM_REMIND })
+          }
+
+          if (appliedGoalObjective) {
+            textBlocks.push({
+              type: 'text',
+              text: buildGoalMessageSystemReminder(appliedGoalObjective)
+            })
           }
 
           if (effectiveResolvedCommand.command) {
@@ -4974,78 +5072,31 @@ export function useChatActions(): {
                 }
 
                 case 'context_compression_start': {
-                  // Reuse the existing placeholder if one is already in flight (e.g.
-                  // the previous attempt failed without a context_compressed event,
-                  // or the agent retried compression on the next iteration). This
-                  // avoids accumulating empty system rows in the transcript when
-                  // compression keeps failing.
-                  const existingPlaceholderId = sessionCompressionPlaceholderIds.get(sessionId!)
-                  const startedAt = Date.now()
-                  if (existingPlaceholderId) {
-                    chatStore.updateMessage(sessionId!, existingPlaceholderId, {
-                      meta: {
-                        compressionStatus: {
-                          state: 'compressing',
-                          startedAt
-                        }
-                      }
-                    })
-                    break
-                  }
-                  const placeholderId = nanoid()
-                  chatStore.addMessage(sessionId!, {
-                    id: placeholderId,
-                    role: 'system',
-                    content: '',
-                    createdAt: startedAt,
-                    meta: {
-                      compressionStatus: {
-                        state: 'compressing',
-                        startedAt
-                      }
-                    }
-                  })
-                  sessionCompressionPlaceholderIds.set(sessionId!, placeholderId)
                   break
                 }
 
                 case 'context_compressed':
                   {
                     const compressedMessages = event.messages
-                    const placeholderId = sessionCompressionPlaceholderIds.get(sessionId!)
-                    sessionCompressionPlaceholderIds.delete(sessionId!)
 
                     streamDeltaBuffer.flushNow()
                     flushRuntimeForegroundMutations()
-                    const currentMessages =
-                      useChatStore.getState().sessions.find((item) => item.id === sessionId)
-                        ?.messages ?? []
-
-                    // Keep the full prior transcript visible; insert boundary + summary at
-                    // the preserved-segment head rather than dropping the older messages.
-                    const merged = compressedMessages
-                      ? mergeCompressedMessagesKeepHistory(currentMessages, compressedMessages, {
-                          fallbackInsertBeforeIds: [assistantMsgId]
-                        })
-                      : null
-                    if (!merged) {
-                      // Nothing to merge — at least clear the placeholder so the loader
-                      // doesn't linger forever.
-                      if (placeholderId) {
-                        chatStore.updateMessage(sessionId!, placeholderId, { meta: undefined })
-                      }
+                    const sourceSession = useChatStore
+                      .getState()
+                      .sessions.find((item) => item.id === sessionId)
+                    if (!compressedMessages || !sourceSession) {
                       break
                     }
-                    // The merge always returns a freshly-constructed array, but Zustand's
-                    // immer middleware auto-freezes state. Take a copy before in-place
-                    // mutation to keep this defensive against future merge changes.
-                    const nextMessages = placeholderId
-                      ? merged.filter((message) => message.id !== placeholderId)
-                      : [...merged]
 
-                    if (!hasSameMessageIdSequence(currentMessages, nextMessages)) {
-                      chatStore.replaceSessionMessages(sessionId!, nextMessages)
-                    }
+                    const continuationSessionId = createCompressedContinuationSession({
+                      sourceSession,
+                      compressedMessages
+                    })
+                    removeEmptyAssistantPlaceholder(sessionId!, assistantMsgId)
+                    abortController.abort()
+                    queueMicrotask(() => {
+                      void sendMessage('', undefined, 'continue', continuationSessionId)
+                    })
                   }
                   break
 
@@ -5150,16 +5201,6 @@ export function useChatActions(): {
             setStreamingMessageIdWithSync(sessionId, null)
             sessionAbortControllers.delete(sessionId)
             sessionSidecarRunIds.delete(sessionId)
-            // If the run ended (completed / error / aborted) while a compression
-            // status placeholder is still mid-flight, clear its loader meta so the
-            // UI doesn't keep showing "compressing…" forever.
-            {
-              const lingeringPlaceholderId = sessionCompressionPlaceholderIds.get(sessionId)
-              if (lingeringPlaceholderId) {
-                chatStore.updateMessage(sessionId, lingeringPlaceholderId, { meta: undefined })
-                sessionCompressionPlaceholderIds.delete(sessionId)
-              }
-            }
             // Derive global isRunning from remaining running sessions
             const hasOtherRunning = Object.values(useAgentStore.getState().runningSessions).some(
               (s) => s === 'running' || s === 'retrying'
@@ -5483,155 +5524,137 @@ export function useChatActions(): {
     [stopStreaming]
   )
 
-  const manualCompressContext = useCallback(async (focusPrompt?: string) => {
-    const chatStore = useChatStore.getState()
-    const agentStore = useAgentStore.getState()
-    const sessionId = chatStore.activeSessionId
-    if (!sessionId) {
-      toast.error('Cannot compress', { description: 'No active session' })
-      return 'blocked'
-    }
-    // Limitation 1: agent must not be running
-    const sessionStatus = agentStore.runningSessions[sessionId]
-    if (sessionStatus === 'running' || sessionStatus === 'retrying') {
-      toast.error('Cannot compress', {
-        description: 'Agent is running, please wait for completion before manual compression'
-      })
-      return 'blocked'
-    }
-
-    const messages = await chatStore.getSessionMessagesForRequest(sessionId, {
-      requestContextMaxMessages: null,
-      includeTrailingAssistantPlaceholder: false
-    })
-    if (messages.length === 0) {
-      toast.error('Cannot compress', {
-        description: 'No messages to compress'
-      })
-      return 'blocked'
-    }
-
-    // Build provider config (same as sendMessage)
-    const settings = useSettingsStore.getState()
-    const providerStore = useProviderStore.getState()
-    const activeProvider = providerStore.getActiveProvider()
-    if (activeProvider) {
-      const ready = await ensureProviderAuthReady(activeProvider.id)
-      if (!ready) {
-        toast.error('Authentication missing', {
-          description: 'Please complete provider login in settings first'
+  const manualCompressContext = useCallback(
+    async (focusPrompt?: string) => {
+      const chatStore = useChatStore.getState()
+      const agentStore = useAgentStore.getState()
+      const sessionId = chatStore.activeSessionId
+      if (!sessionId) {
+        toast.error('Cannot compress', { description: 'No active session' })
+        return 'blocked'
+      }
+      // Limitation 1: agent must not be running
+      const sessionStatus = agentStore.runningSessions[sessionId]
+      if (sessionStatus === 'running' || sessionStatus === 'retrying') {
+        toast.error('Cannot compress', {
+          description: 'Agent is running, please wait for completion before manual compression'
         })
         return 'blocked'
       }
-    }
 
-    const providerConfig = providerStore.getActiveProviderConfig()
-    const effectiveMaxTokens = providerStore.getEffectiveMaxTokens(settings.maxTokens)
-    const activeModelConfig = providerStore.getActiveModelConfig()
-    const activeModelThinkingConfig = activeModelConfig?.thinkingConfig
-    const thinkingEnabled = settings.thinkingEnabled && !!activeModelThinkingConfig
-    const reasoningEffort = resolveReasoningEffortForModel({
-      reasoningEffort: settings.reasoningEffort,
-      reasoningEffortByModel: settings.reasoningEffortByModel,
-      providerId: providerConfig?.providerId,
-      modelId: activeModelConfig?.id ?? providerConfig?.model,
-      thinkingConfig: activeModelThinkingConfig
-    })
-
-    const config: ProviderConfig | null = providerConfig
-      ? {
-          ...providerConfig,
-          maxTokens: effectiveMaxTokens,
-          temperature: settings.temperature,
-          systemPrompt: settings.systemPrompt || undefined,
-          thinkingEnabled,
-          thinkingConfig: activeModelThinkingConfig,
-          reasoningEffort
-        }
-      : null
-
-    if (!config) {
-      toast.error('Cannot compress', { description: 'AI provider not configured' })
-      return 'blocked'
-    }
-
-    // Override with session-bound provider if available
-    const compressSession = chatStore.sessions.find((s) => s.id === sessionId)
-    if (compressSession?.providerId && compressSession?.modelId) {
-      const ready = await ensureProviderAuthReady(compressSession.providerId)
-      if (!ready) {
-        toast.error('Authentication missing', {
-          description: 'Please complete session provider login in settings first'
+      const messages = await chatStore.getSessionMessagesForRequest(sessionId, {
+        requestContextMaxMessages: null,
+        includeTrailingAssistantPlaceholder: false
+      })
+      if (messages.length === 0) {
+        toast.error('Cannot compress', {
+          description: 'No messages to compress'
         })
         return 'blocked'
       }
-      const sessionProviderConfig = providerStore.getProviderConfigById(
-        compressSession.providerId,
-        compressSession.modelId
-      )
-      if (sessionProviderConfig?.apiKey) {
-        config.type = sessionProviderConfig.type
-        config.apiKey = sessionProviderConfig.apiKey
-        config.baseUrl = sessionProviderConfig.baseUrl
-        config.model = sessionProviderConfig.model
-      }
-    }
 
-    // Surface a "compressing…" status card to match the agent-loop UX. The card
-    // gets promoted to a "compressed" marker (or cleared) once the request
-    // settles.
-    const placeholderId = nanoid()
-    const placeholderStartedAt = Date.now()
-    chatStore.addMessage(sessionId, {
-      id: placeholderId,
-      role: 'system',
-      content: '',
-      createdAt: placeholderStartedAt,
-      meta: {
-        compressionStatus: {
-          state: 'compressing',
-          startedAt: placeholderStartedAt
+      // Build provider config (same as sendMessage)
+      const settings = useSettingsStore.getState()
+      const providerStore = useProviderStore.getState()
+      const activeProvider = providerStore.getActiveProvider()
+      if (activeProvider) {
+        const ready = await ensureProviderAuthReady(activeProvider.id)
+        if (!ready) {
+          toast.error('Authentication missing', {
+            description: 'Please complete provider login in settings first'
+          })
+          return 'blocked'
         }
       }
-    })
 
-    try {
-      const preTokens = estimateManualCompressionInputTokens(messages, config)
-      const { messages: compressed, result } = await runSidecarContextCompression({
-        messages,
-        provider: config,
-        focusPrompt: focusPrompt || undefined,
-        preTokens
+      const providerConfig = providerStore.getActiveProviderConfig()
+      const effectiveMaxTokens = providerStore.getEffectiveMaxTokens(settings.maxTokens)
+      const activeModelConfig = providerStore.getActiveModelConfig()
+      const activeModelThinkingConfig = activeModelConfig?.thinkingConfig
+      const thinkingEnabled = settings.thinkingEnabled && !!activeModelThinkingConfig
+      const reasoningEffort = resolveReasoningEffortForModel({
+        reasoningEffort: settings.reasoningEffort,
+        reasoningEffortByModel: settings.reasoningEffortByModel,
+        providerId: providerConfig?.providerId,
+        modelId: activeModelConfig?.id ?? providerConfig?.model,
+        thinkingConfig: activeModelThinkingConfig
       })
-      if (!result.compressed) {
-        // Nothing changed — drop the placeholder's status meta so it renders as
-        // an inert system row (which MessageItem skips entirely).
-        chatStore.updateMessage(sessionId, placeholderId, { meta: undefined })
-        toast.warning('No compression needed', {
-          description: 'No compressible context found'
-        })
-        return 'skipped'
+
+      const config: ProviderConfig | null = providerConfig
+        ? {
+            ...providerConfig,
+            maxTokens: effectiveMaxTokens,
+            temperature: settings.temperature,
+            systemPrompt: settings.systemPrompt || undefined,
+            thinkingEnabled,
+            thinkingConfig: activeModelThinkingConfig,
+            reasoningEffort
+          }
+        : null
+
+      if (!config) {
+        toast.error('Cannot compress', { description: 'AI provider not configured' })
+        return 'blocked'
       }
-      // Match the agent-loop behavior: keep all prior messages visible and
-      // insert the boundary + summary at the preserved-segment head rather
-      // than dropping the older history.
-      const currentMessages =
-        useChatStore.getState().sessions.find((item) => item.id === sessionId)?.messages ?? []
-      const merged = mergeCompressedMessagesKeepHistory(currentMessages, compressed)
-      const nextMessages = (merged ? [...merged] : [...compressed]).filter(
-        (message) => message.id !== placeholderId
-      )
-      chatStore.replaceSessionMessages(sessionId, nextMessages)
-      return 'compressed'
-    } catch (err) {
-      // Clear the loader so it doesn't linger after a failure.
-      chatStore.updateMessage(sessionId, placeholderId, { meta: undefined })
-      const errMsg = err instanceof Error ? err.message : String(err)
-      console.error('[Manual Compress Error]', err)
-      toast.error('Compression failed', { description: errMsg })
-      return 'failed'
-    }
-  }, [])
+
+      // Override with session-bound provider if available
+      const compressSession = chatStore.sessions.find((s) => s.id === sessionId)
+      if (compressSession?.providerId && compressSession?.modelId) {
+        const ready = await ensureProviderAuthReady(compressSession.providerId)
+        if (!ready) {
+          toast.error('Authentication missing', {
+            description: 'Please complete session provider login in settings first'
+          })
+          return 'blocked'
+        }
+        const sessionProviderConfig = providerStore.getProviderConfigById(
+          compressSession.providerId,
+          compressSession.modelId
+        )
+        if (sessionProviderConfig?.apiKey) {
+          config.type = sessionProviderConfig.type
+          config.apiKey = sessionProviderConfig.apiKey
+          config.baseUrl = sessionProviderConfig.baseUrl
+          config.model = sessionProviderConfig.model
+        }
+      }
+
+      try {
+        const preTokens = estimateManualCompressionInputTokens(messages, config)
+        const { messages: compressed, result } = await runSidecarContextCompression({
+          messages,
+          provider: config,
+          focusPrompt: focusPrompt || undefined,
+          preTokens
+        })
+        if (!result.compressed) {
+          toast.warning('No compression needed', {
+            description: 'No compressible context found'
+          })
+          return 'skipped'
+        }
+        const sourceSession = useChatStore.getState().sessions.find((item) => item.id === sessionId)
+        if (!sourceSession) {
+          toast.error('Compression failed', { description: 'Source session not found' })
+          return 'failed'
+        }
+        const continuationSessionId = createCompressedContinuationSession({
+          sourceSession,
+          compressedMessages: compressed
+        })
+        queueMicrotask(() => {
+          void sendMessage('', undefined, 'continue', continuationSessionId)
+        })
+        return 'compressed'
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err)
+        console.error('[Manual Compress Error]', err)
+        toast.error('Compression failed', { description: errMsg })
+        return 'failed'
+      }
+    },
+    [sendMessage]
+  )
 
   return {
     sendMessage,

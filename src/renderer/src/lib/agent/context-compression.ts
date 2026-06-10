@@ -179,6 +179,73 @@ export function isCompactSummaryLikeMessage(message: UnifiedMessage): boolean {
   return isCompactSummaryMessage(message) || isLegacyCompactSummaryMessage(message)
 }
 
+export interface ActiveCompactArtifacts {
+  boundaryId: string | null
+  boundaryIndex: number
+  summaryId: string | null
+  summaryIndex: number
+}
+
+export function isCompactArtifactMessage(message: UnifiedMessage): boolean {
+  return isCompactBoundaryMessage(message) || isCompactSummaryLikeMessage(message)
+}
+
+function findCompactSummaryIndexAfterBoundary(
+  messages: UnifiedMessage[],
+  boundaryIndex: number
+): number {
+  for (let index = boundaryIndex + 1; index < messages.length; index += 1) {
+    if (isCompactBoundaryMessage(messages[index])) return -1
+    if (isCompactSummaryLikeMessage(messages[index])) return index
+  }
+  return -1
+}
+
+export function resolveActiveCompactArtifacts(
+  messages: readonly UnifiedMessage[]
+): ActiveCompactArtifacts | null {
+  const items = [...messages]
+  let active: ActiveCompactArtifacts | null = null
+  let activeScore = Number.NEGATIVE_INFINITY
+
+  for (let boundaryIndex = 0; boundaryIndex < items.length; boundaryIndex += 1) {
+    const boundary = items[boundaryIndex]
+    if (!isCompactBoundaryMessage(boundary)) continue
+
+    const summaryIndex = findCompactSummaryIndexAfterBoundary(items, boundaryIndex)
+    if (summaryIndex < 0) continue
+
+    const summary = items[summaryIndex]
+    const score = Math.max(boundary.createdAt, summary.createdAt)
+    if (score < activeScore) continue
+
+    activeScore = score
+    active = {
+      boundaryId: boundary.id,
+      boundaryIndex,
+      summaryId: summary.id,
+      summaryIndex
+    }
+  }
+
+  if (active) return active
+
+  for (let summaryIndex = 0; summaryIndex < items.length; summaryIndex += 1) {
+    const summary = items[summaryIndex]
+    if (!isCompactSummaryLikeMessage(summary)) continue
+    if (summary.createdAt < activeScore) continue
+    activeScore = summary.createdAt
+    active = {
+      boundaryId: null,
+      boundaryIndex: -1,
+      summaryId: summary.id,
+      summaryIndex
+    }
+  }
+
+  return active
+}
+
 export function extractUnifiedMessageText(message?: UnifiedMessage | null): string {
   if (!message) return ''
   if (typeof message.content === 'string') return message.content.trim()
@@ -297,10 +364,11 @@ export function mergeCompressedMessagesIntoConversation(
     return null
   }
 
-  return [
-    ...compressedMessages.slice(0, compressedTailIndex),
-    ...currentMessages.slice(currentTailIndex)
-  ]
+  const currentTail = currentMessages
+    .slice(currentTailIndex)
+    .filter((message) => !isCompactArtifactMessage(message))
+
+  return [...compressedMessages.slice(0, compressedTailIndex), ...currentTail]
 }
 
 /**
@@ -338,13 +406,24 @@ export function mergeCompressedMessagesKeepHistory(
     return null
   }
 
-  const currentIds = new Set(currentMessages.map((message) => message.id))
+  const currentMessagesWithoutCompactArtifacts = currentMessages.filter(
+    (message) => !isCompactArtifactMessage(message)
+  )
+  const currentIds = new Set(currentMessagesWithoutCompactArtifacts.map((message) => message.id))
 
   // Skip the merge entirely if the boundary is already wired into the transcript
   // (e.g. resume of a previously-compressed conversation). Return a shallow copy
   // so the caller can safely mutate the result without poking at frozen state.
-  if (currentIds.has(boundaryMessage.id) && currentIds.has(summaryMessage.id)) {
-    return [...currentMessages]
+  if (
+    currentMessages.some((message) => message.id === boundaryMessage.id) &&
+    currentMessages.some((message) => message.id === summaryMessage.id)
+  ) {
+    return currentMessages.filter(
+      (message) =>
+        !isCompactArtifactMessage(message) ||
+        message.id === boundaryMessage.id ||
+        message.id === summaryMessage.id
+    )
   }
 
   const preservedHeadId = boundaryMessage.meta?.compactBoundary?.preservedSegment?.headId ?? null
@@ -357,14 +436,18 @@ export function mergeCompressedMessagesKeepHistory(
   // end so the boundary still renders, rather than dropping the merge.
   let insertIndex = -1
   if (preservedHeadId && currentIds.has(preservedHeadId)) {
-    insertIndex = currentMessages.findIndex((message) => message.id === preservedHeadId)
+    insertIndex = currentMessagesWithoutCompactArtifacts.findIndex(
+      (message) => message.id === preservedHeadId
+    )
   }
   if (insertIndex < 0) {
     const summaryIndex = compressedMessages.indexOf(summaryMessage)
     for (let index = summaryIndex + 1; index < compressedMessages.length; index += 1) {
       const candidateId = compressedMessages[index]?.id
       if (candidateId && currentIds.has(candidateId)) {
-        insertIndex = currentMessages.findIndex((message) => message.id === candidateId)
+        insertIndex = currentMessagesWithoutCompactArtifacts.findIndex(
+          (message) => message.id === candidateId
+        )
         if (insertIndex >= 0) break
       }
     }
@@ -372,19 +455,21 @@ export function mergeCompressedMessagesKeepHistory(
   if (insertIndex < 0) {
     for (const fallbackId of options.fallbackInsertBeforeIds ?? []) {
       if (!fallbackId) continue
-      insertIndex = currentMessages.findIndex((message) => message.id === fallbackId)
+      insertIndex = currentMessagesWithoutCompactArtifacts.findIndex(
+        (message) => message.id === fallbackId
+      )
       if (insertIndex >= 0) break
     }
   }
   if (insertIndex < 0) {
-    insertIndex = currentMessages.length
+    insertIndex = currentMessagesWithoutCompactArtifacts.length
   }
 
   return [
-    ...currentMessages.slice(0, insertIndex),
+    ...currentMessagesWithoutCompactArtifacts.slice(0, insertIndex),
     boundaryMessage,
     summaryMessage,
-    ...currentMessages.slice(insertIndex)
+    ...currentMessagesWithoutCompactArtifacts.slice(insertIndex)
   ]
 }
 

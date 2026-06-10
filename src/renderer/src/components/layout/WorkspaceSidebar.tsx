@@ -1411,7 +1411,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
                               ) : null}
                             </div>
 
-                            <div className="relative flex h-6 w-[116px] shrink-0 items-center justify-end overflow-hidden">
+                            <div className="relative flex h-6 w-[88px] shrink-0 items-center justify-end overflow-hidden">
                               <div
                                 className={cn(
                                   'absolute inset-0 flex items-center justify-end gap-1 text-muted-foreground transition-opacity',
@@ -1460,18 +1460,6 @@ export function WorkspaceSidebar(): React.JSX.Element {
                                   title={t('sidebar.newChat')}
                                 >
                                   <Plus className="size-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={SIDEBAR_TREE_ACTION_BUTTON_CLASS}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    openProjectSession(project.id)
-                                  }}
-                                  title={t('sidebar.openProject')}
-                                >
-                                  <FolderOpen className="size-3.5" />
                                 </Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>

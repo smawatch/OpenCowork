@@ -368,6 +368,12 @@ export function registerDbHandlers(options: RegisterDbHandlersOptions = {}): voi
     return { success: true }
   })
 
+  ipcMain.handle('db:messages:delete', (_event, args: { sessionId: string; messageId: string }) => {
+    const deleted = messagesDao.deleteMessage(args.sessionId, args.messageId)
+    if (deleted) emitSessionUpdated(args.sessionId, 'message-deleted')
+    return { success: true, deleted }
+  })
+
   ipcMain.handle(
     'db:messages:replace',
     (

@@ -7,7 +7,8 @@ import type {
 import { isEditableUserMessage } from '@renderer/lib/image-attachments'
 import {
   isCompactBoundaryMessage,
-  isCompactSummaryLikeMessage
+  isCompactSummaryLikeMessage,
+  resolveActiveCompactArtifacts
 } from '@renderer/lib/agent/context-compression'
 
 export interface RenderableMessageMeta {
@@ -142,8 +143,12 @@ function hasVisibleAssistantStringContent(content: string): boolean {
   return false
 }
 
-function shouldRenderInMessageList(message: UnifiedMessage): boolean {
-  if (message.role === 'system') return isCompactBoundaryMessage(message)
+function shouldRenderInMessageList(
+  message: UnifiedMessage,
+  activeCompactSummaryId: string | null
+): boolean {
+  if (message.role === 'system') return false
+  if (isCompactSummaryLikeMessage(message)) return message.id === activeCompactSummaryId
   if (isToolResultOnlyUserMessage(message)) return false
   if (message.role !== 'assistant') return true
   if (typeof message.content === 'string') {
@@ -306,6 +311,8 @@ export function buildTranscriptStaticAnalysis(
     string,
     { assistant: UnifiedMessage; contributors: UnifiedMessage[] }
   >()
+  const activeCompact = resolveActiveCompactArtifacts(messages)
+  const activeCompactSummaryId = activeCompact?.summaryId ?? null
   let currentAssistantMessageId: string | null = null
   let lastRealUserMessageId: string | null = null
   let lastAssistantMessageId: string | null = null
@@ -353,7 +360,7 @@ export function buildTranscriptStaticAnalysis(
       currentAssistantMessageId = null
     }
 
-    if (!shouldRenderInMessageList(message)) continue
+    if (!shouldRenderInMessageList(message, activeCompactSummaryId)) continue
 
     renderableMessageIds.push(message.id)
     if (isRealUserMessage(message)) {

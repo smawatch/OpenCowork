@@ -240,6 +240,19 @@ export function clearMessages(sessionId: string): void {
   db.prepare('UPDATE sessions SET message_count = 0 WHERE id = ?').run(sessionId)
 }
 
+export function deleteMessage(sessionId: string, messageId: string): boolean {
+  const db = getDb()
+  const result = db
+    .prepare('DELETE FROM messages WHERE session_id = ? AND id = ?')
+    .run(sessionId, messageId)
+  if (result.changes <= 0) return false
+
+  db.prepare(
+    'UPDATE sessions SET message_count = MAX(COALESCE(message_count, 0) - 1, 0) WHERE id = ?'
+  ).run(sessionId)
+  return true
+}
+
 export function replaceMessages(
   sessionId: string,
   messages: Array<{

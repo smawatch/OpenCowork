@@ -16,7 +16,8 @@ import {
   Wand2,
   CornerDownRight,
   Ellipsis,
-  Command
+  Command,
+  Target
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -836,6 +837,7 @@ export function InputArea({
   const [autoAcceptCountdown, setAutoAcceptCountdown] = React.useState<number | null>(null)
   const [isWorkspaceAgentsMissing, setIsWorkspaceAgentsMissing] = React.useState(false)
   const [pendingPlanMode, setPendingPlanMode] = React.useState(false)
+  const [pendingGoalMode, setPendingGoalMode] = React.useState(false)
 
   React.useLayoutEffect(() => {
     if (inputHeight === null) return
@@ -1324,6 +1326,9 @@ export function InputArea({
   const activeGoal = useGoalStore((s) =>
     draftSessionId ? s.goalsBySession[draftSessionId] : undefined
   )
+  const hasActiveGoal = activeGoal?.status === 'active'
+  const hasPendingGoalMode = pendingGoalMode && !hasActiveGoal
+  const goalModeEnabled = hasActiveGoal || hasPendingGoalMode
   const pendingReviewPlanId = usePlanStore((s) =>
     draftSessionId ? (s.getPendingReviewPlan(draftSessionId)?.id ?? null) : null
   )
@@ -1332,7 +1337,14 @@ export function InputArea({
     if (draftSessionId) {
       setPendingPlanMode(false)
     }
+    setPendingGoalMode(false)
   }, [draftSessionId])
+
+  React.useEffect(() => {
+    if (hasActiveGoal) {
+      setPendingGoalMode(false)
+    }
+  }, [hasActiveGoal])
 
   React.useEffect(() => {
     let cancelled = false
@@ -1794,6 +1806,16 @@ export function InputArea({
     if (!serialized && attachedImages.length === 0) return
     if (disabled || needsWorkingFolder || pendingImageReads > 0) return
 
+    let goalObjective: string | undefined
+    if (hasPendingGoalMode && serialized) {
+      const validation = validateGoalObjective(serialized)
+      if (validation) {
+        toast.error(t('goal.toasts.objectiveInvalid'), { description: validation })
+        return
+      }
+      goalObjective = serialized
+    }
+
     cancelPromptRecommendation()
 
     const hasLeadingSlashCommand = liveEditorState.plainText.trimStart().startsWith('/')
@@ -1801,24 +1823,33 @@ export function InputArea({
       selectedSkill && !hasLeadingSlashCommand
         ? `[Skill: ${selectedSkill}]\n${serialized}`
         : serialized
-
-    onSend(message, attachedImages.length > 0 ? attachedImages : undefined, {
+    const sendOptions: SendMessageOptions = {
       clearCompletedTasksOnTurnStart: true,
       enablePlanMode: planMode || undefined
-    })
+    }
+    if (goalObjective) {
+      sendOptions.goalObjective = goalObjective
+    }
+
+    onSend(message, attachedImages.length > 0 ? attachedImages : undefined, sendOptions)
 
     resetComposer()
+    if (goalObjective) {
+      setPendingGoalMode(false)
+    }
   }, [
     getLiveEditorState,
     attachedImages,
     disabled,
     needsWorkingFolder,
     pendingImageReads,
+    hasPendingGoalMode,
     cancelPromptRecommendation,
     selectedSkill,
     onSend,
     planMode,
-    resetComposer
+    resetComposer,
+    t
   ])
 
   const handlePlanModeChange = React.useCallback(
@@ -1851,7 +1882,8 @@ export function InputArea({
       if (disabled || isStreaming || isOptimizing || pendingImageReads > 0) return
 
       if (!enabled) {
-        if (draftSessionId && activeGoal?.status === 'active') {
+        setPendingGoalMode(false)
+        if (draftSessionId && hasActiveGoal) {
           void useGoalStore
             .getState()
             .loadGoalForSession(draftSessionId, true)
@@ -1867,37 +1899,20 @@ export function InputArea({
         return
       }
 
-      const liveEditorState = getLiveEditorState()
-      const objective = liveEditorState.serializedText.trim() || activeGoal?.objective.trim() || ''
-      const validation = validateGoalObjective(objective)
-      if (validation) {
-        toast.error(t('goal.toasts.objectiveInvalid'), { description: validation })
-        return
-      }
-
-      cancelPromptRecommendation()
-      onSend('', undefined, {
-        clearCompletedTasksOnTurnStart: true,
-        enablePlanMode: planMode || undefined,
-        goalObjective: objective
+      if (hasActiveGoal) return
+      setPendingGoalMode(true)
+      requestAnimationFrame(() => {
+        focusInputAtEnd()
       })
-
-      if (liveEditorState.serializedText.trim()) {
-        resetComposer()
-      }
     },
     [
-      activeGoal,
-      cancelPromptRecommendation,
       disabled,
       draftSessionId,
-      getLiveEditorState,
+      focusInputAtEnd,
+      hasActiveGoal,
       isOptimizing,
       isStreaming,
-      onSend,
       pendingImageReads,
-      planMode,
-      resetComposer,
       t
     ]
   )
@@ -2315,15 +2330,9 @@ export function InputArea({
       menuClassName="composer-flyout"
       showModeToggles={!hideModeSwitch}
       planModeEnabled={planMode}
-      goalModeEnabled={activeGoal?.status === 'active'}
+      goalModeEnabled={goalModeEnabled}
       planModeDisabled={disabled || isStreaming || !projectScoped}
-      goalModeDisabled={
-        disabled ||
-        isStreaming ||
-        isOptimizing ||
-        pendingImageReads > 0 ||
-        (!finalSerializedText.trim() && !activeGoal)
-      }
+      goalModeDisabled={disabled || isStreaming || isOptimizing || pendingImageReads > 0}
       onPlanModeChange={handlePlanModeChange}
       onGoalModeChange={handleGoalModeChange}
     />
@@ -2736,6 +2745,18 @@ export function InputArea({
         <GoalSessionBar sessionId={draftSessionId} className="mb-2" />
       )}
 
+      {hasPendingGoalMode && (
+        <div className="mx-auto mb-2 flex w-full max-w-[820px] items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-xs text-emerald-700 dark:text-emerald-300">
+          <Target className="size-3.5 shrink-0" />
+          <span>
+            {t('input.pendingGoalBanner', {
+              defaultValue:
+                'Goal is ready: your next text message will be sent normally and set as the session goal.'
+            })}
+          </span>
+        </div>
+      )}
+
       <div className="mx-auto w-full max-w-[820px]">
         <div
           ref={containerRef}
@@ -2969,10 +2990,14 @@ export function InputArea({
                         defaultValue:
                           'Enter suggestions for this plan, or click the card above to implement it...'
                       })
-                    : (effectivePlaceholder ??
-                      (shouldRecommendInit
-                        ? t('input.placeholderInitWorkspace')
-                        : t(placeholderKeys[mode] ?? 'input.placeholder')))
+                    : hasPendingGoalMode
+                      ? t('input.placeholderPendingGoal', {
+                          defaultValue: 'Enter the goal and send it as a normal message...'
+                        })
+                      : (effectivePlaceholder ??
+                        (shouldRecommendInit
+                          ? t('input.placeholderInitWorkspace')
+                          : t(placeholderKeys[mode] ?? 'input.placeholder')))
                 }
                 suggestionText={suggestionText}
                 showSuggestion={Boolean(

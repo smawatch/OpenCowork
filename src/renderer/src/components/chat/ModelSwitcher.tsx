@@ -305,11 +305,6 @@ function ModelSettingsPopover({
     thinkingConfig: model?.thinkingConfig
   })
 
-  useEffect(() => {
-    if (!supportsThinking || reasoningEffort === effectiveReasoningEffort) return
-    useSettingsStore.getState().updateSettings({ reasoningEffort: effectiveReasoningEffort })
-  }, [supportsThinking, reasoningEffort, effectiveReasoningEffort])
-
   const toggleThinking = useCallback(() => {
     const store = useSettingsStore.getState()
     if (!store.thinkingEnabled && levels) {

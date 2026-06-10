@@ -422,11 +422,18 @@ export const useSettingsStore = create<SettingsStore>()(
       recentWorkingTargets: [],
 
       updateSettings: (patch) =>
-        set({
-          ...patch,
-          ...(patch.maxParallelToolCalls === undefined
-            ? {}
-            : { maxParallelToolCalls: clampMaxParallelToolCalls(patch.maxParallelToolCalls) })
+        set((state) => {
+          const nextPatch = {
+            ...patch,
+            ...(patch.maxParallelToolCalls === undefined
+              ? {}
+              : { maxParallelToolCalls: clampMaxParallelToolCalls(patch.maxParallelToolCalls) })
+          }
+
+          const hasChanges = (Object.keys(nextPatch) as Array<keyof SettingsStoreData>).some(
+            (key) => !Object.is(state[key], nextPatch[key])
+          )
+          return hasChanges ? nextPatch : state
         }),
       pushRecentWorkingTarget: (target) =>
         set((state) => ({

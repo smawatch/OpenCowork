@@ -2,10 +2,14 @@ import type { ContentBlock } from '../api/types'
 import type { Session } from '../../stores/chat-store'
 import { getBillableInputTokens, getBillableTotalTokens } from '../format-tokens'
 import { parseSystemCommandTag } from '../commands/system-command'
+import { stripSystemReminders } from '../image-attachments'
 
-function formatTextContent(text: string): string {
-  const parsed = parseSystemCommandTag(text)
-  if (!parsed) return text
+function formatTextContent(text: string, removeSystemReminders = false): string {
+  const visibleText = removeSystemReminders ? stripSystemReminders(text) : text
+  if (!visibleText) return ''
+
+  const parsed = parseSystemCommandTag(visibleText)
+  if (!parsed) return visibleText
 
   const parts = [`**System Command: \`/${parsed.command.name}\`**`]
   if (parsed.command.content) {
@@ -17,14 +21,17 @@ function formatTextContent(text: string): string {
   return parts.join('\n\n')
 }
 
-function contentToMarkdown(content: string | ContentBlock[]): string {
-  if (typeof content === 'string') return formatTextContent(content)
+function contentToMarkdown(
+  content: string | ContentBlock[],
+  removeSystemReminders = false
+): string {
+  if (typeof content === 'string') return formatTextContent(content, removeSystemReminders)
 
   return content
     .map((block) => {
       switch (block.type) {
         case 'text':
-          return formatTextContent(block.text)
+          return formatTextContent(block.text, removeSystemReminders)
         case 'tool_use': {
           if (block.name === 'Task') {
             const inp = block.input as Record<string, unknown>
@@ -85,7 +92,7 @@ export function sessionToMarkdown(session: Session): string {
     })
     lines.push(`${label} <sub>${time}</sub>`)
     lines.push('')
-    lines.push(contentToMarkdown(msg.content))
+    lines.push(contentToMarkdown(msg.content, msg.role === 'user'))
     if (msg.usage) {
       lines.push('')
       const extras: string[] = []
