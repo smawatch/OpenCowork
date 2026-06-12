@@ -15,6 +15,7 @@ import {
 } from '@renderer/components/ui/select'
 import { toast } from 'sonner'
 import { IPC } from '@renderer/lib/ipc/channels'
+import type { WebSearchProvider } from '@renderer/lib/tools/web-search-tool'
 
 export function WebSearchPanel(): React.JSX.Element {
   const { t } = useTranslation('settings')
@@ -111,7 +112,9 @@ export function WebSearchPanel(): React.JSX.Element {
             </div>
             <Select
               value={settings.webSearchProvider}
-              onValueChange={(value: any) => settings.updateSettings({ webSearchProvider: value })}
+              onValueChange={(value) =>
+                settings.updateSettings({ webSearchProvider: value as WebSearchProvider })
+              }
             >
               <SelectTrigger className="w-full text-xs">
                 <SelectValue placeholder={t('websearch.selectProvider')} />

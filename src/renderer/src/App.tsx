@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Layout } from './components/layout/Layout'
 import { DetachedSessionPage } from './components/layout/DetachedSessionPage'
 import { SshPage } from './components/ssh/SshPage'
+import { OnboardingPage } from './components/onboarding/OnboardingPage'
 import { Toaster } from './components/ui/sonner'
 import { Button } from './components/ui/button'
 import { ConfirmDialogProvider } from './components/ui/confirm-dialog'
@@ -57,6 +58,7 @@ import type { UnifiedMessage } from './lib/api/types'
 import { NotifyToastContainer } from './components/notify/NotifyWindow'
 import { ChangelogDialog } from './components/changelog/ChangelogDialog'
 import { parseChatRoute, readPersistedChatRoute, replaceChatRoute } from './lib/chat-route'
+import { parseSettingsRoute } from './lib/settings-route'
 import {
   installAgentRuntimeSyncListener,
   withAgentRuntimeSyncSuppressed,
@@ -235,9 +237,24 @@ function App(): React.JSX.Element {
   const rendererOomRecoveryRef = useRef(consumeRendererOomRecoveryFlag())
   const cronLogBufferRef = useRef<CronAgentLogEntry[]>([])
   const cronLogFlushTimerRef = useRef<number | null>(null)
+  const onboardingCompleted = useSettingsStore((s) => s.onboardingCompleted)
+  const [settingsHydrated, setSettingsHydrated] = useState(() =>
+    useSettingsStore.persist.hasHydrated()
+  )
 
   // Initialize plugin auto-reply agent loop listener only in the main app window.
   usePluginAutoReply(!sessionWindowView && !sshWindowView && !teamWorkerParams)
+
+  useEffect(() => {
+    if (useSettingsStore.persist.hasHydrated()) {
+      setSettingsHydrated(true)
+      return
+    }
+
+    return useSettingsStore.persist.onFinishHydration(() => {
+      setSettingsHydrated(true)
+    })
+  }, [])
 
   useEffect(() => {
     if (!teamWorkerParams || workerBootStartedRef.current) return
@@ -281,11 +298,15 @@ function App(): React.JSX.Element {
   useEffect(() => {
     void (async () => {
       if (!sessionWindowView) {
-        const currentRoute = parseChatRoute(window.location.hash)
+        const currentSettingsRoute = parseSettingsRoute(window.location.hash)
+        const currentRoute = currentSettingsRoute ? null : parseChatRoute(window.location.hash)
         const currentRouteIsDefaultHome =
-          currentRoute.chatView === 'home' && !currentRoute.projectId && !currentRoute.sessionId
+          !!currentRoute &&
+          currentRoute.chatView === 'home' &&
+          !currentRoute.projectId &&
+          !currentRoute.sessionId
 
-        if (currentRouteIsDefaultHome) {
+        if (!currentSettingsRoute && currentRouteIsDefaultHome) {
           const persistedRoute = await readPersistedChatRoute()
           if (persistedRoute) {
             replaceChatRoute(persistedRoute)
@@ -305,7 +326,7 @@ function App(): React.JSX.Element {
           useUIStore.getState().navigateToSession(detachedSessionId)
         }
       } else {
-        useUIStore.getState().applyChatRouteFromLocation()
+        useUIStore.getState().applyRouteFromLocation()
       }
 
       const activeSessionId = useChatStore.getState().activeSessionId
@@ -353,7 +374,7 @@ function App(): React.JSX.Element {
     if (sessionWindowView) return
 
     const syncFromLocation = (): void => {
-      useUIStore.getState().applyChatRouteFromLocation()
+      useUIStore.getState().applyRouteFromLocation()
     }
 
     window.addEventListener('hashchange', syncFromLocation)
@@ -908,6 +929,31 @@ function App(): React.JSX.Element {
           <Toaster position="bottom-left" theme="system" richColors />
           <ConfirmDialogProvider />
           <NotifyToastContainer />
+        </ThemeProvider>
+      </ErrorBoundary>
+    )
+  }
+
+  if (!settingsHydrated) {
+    return (
+      <ErrorBoundary>
+        <ThemeProvider defaultTheme={theme}>
+          <ThemeRuntimeSync />
+          <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        </ThemeProvider>
+      </ErrorBoundary>
+    )
+  }
+
+  if (!onboardingCompleted) {
+    return (
+      <ErrorBoundary>
+        <ThemeProvider defaultTheme={theme}>
+          <ThemeRuntimeSync />
+          <OnboardingPage />
+          <Toaster position="bottom-left" theme="system" richColors />
         </ThemeProvider>
       </ErrorBoundary>
     )

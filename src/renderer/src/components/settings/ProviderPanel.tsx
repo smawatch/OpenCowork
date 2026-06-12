@@ -3193,7 +3193,7 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
                   : t('provider.noMatchResults')}
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto divide-y">
+              <div className="flex-1 overflow-y-auto">
                 {filteredModels.map((model) => {
                   const capabilityIndicators: Array<{
                     key: string
@@ -3273,30 +3273,50 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
                           {model.contextLength && (
-                            <span>{Math.round(model.contextLength / 1024)}K context</span>
+                            <span className="rounded-full bg-muted/45 px-2 py-0.5">
+                              {t('provider.modelMetaContext', {
+                                count: Math.round(model.contextLength / 1024)
+                              })}
+                            </span>
+                          )}
+                          {model.maxOutputTokens && (
+                            <span className="rounded-full bg-muted/45 px-2 py-0.5">
+                              {t('provider.modelMetaOutput', {
+                                count: Math.round(model.maxOutputTokens / 1024)
+                              })}
+                            </span>
                           )}
                           {(model.inputPrice != null || model.outputPrice != null) && (
-                            <span>
-                              ${model.inputPrice ?? '?'} → ${model.outputPrice ?? '?'}
+                            <span className="rounded-full bg-muted/45 px-2 py-0.5">
+                              {t('provider.modelMetaPricing', {
+                                input: model.inputPrice ?? '?',
+                                output: model.outputPrice ?? '?'
+                              })}
                             </span>
                           )}
                           {(model.cacheCreationPrice != null || model.cacheHitPrice != null) && (
-                            <span className="text-emerald-500/60">
-                              cache:{' '}
-                              {model.cacheCreationPrice != null
-                                ? `写 $${model.cacheCreationPrice}`
-                                : ''}
+                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
                               {model.cacheCreationPrice != null && model.cacheHitPrice != null
-                                ? ' / '
-                                : ''}
-                              {model.cacheHitPrice != null ? `读 $${model.cacheHitPrice}` : ''}
+                                ? t('provider.modelMetaCachePair', {
+                                    write: model.cacheCreationPrice,
+                                    read: model.cacheHitPrice
+                                  })
+                                : model.cacheCreationPrice != null
+                                  ? t('provider.modelMetaCacheWrite', {
+                                      write: model.cacheCreationPrice
+                                    })
+                                  : t('provider.modelMetaCacheRead', {
+                                      read: model.cacheHitPrice
+                                    })}
                             </span>
                           )}
                           {(model.premiumRequestMultiplier != null ||
                             model.availablePlans?.length) && (
-                            <span className="text-sky-500/70">
+                            <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-600 dark:text-sky-400">
                               {model.premiumRequestMultiplier != null
-                                ? `${model.premiumRequestMultiplier}x premium`
+                                ? t('provider.modelMetaPremium', {
+                                    multiplier: model.premiumRequestMultiplier
+                                  })
                                 : t('provider.availablePlans')}
                               {model.availablePlans?.length
                                 ? ` · ${model.availablePlans.join('/')}`
@@ -3308,7 +3328,7 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
                               {capabilityIndicators.map(({ key, icon: Icon, label }) => (
                                 <Tooltip key={`${model.id}-${key}`}>
                                   <TooltipTrigger asChild>
-                                    <span className="inline-flex items-center justify-center rounded-full bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted/80">
+                                    <span className="inline-flex size-5 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                                       <Icon className="size-3" />
                                     </span>
                                   </TooltipTrigger>
@@ -3462,6 +3482,10 @@ export function ModelManagementPanel(): React.JSX.Element {
       : ALL_PROVIDER_FILTER
 
   const enabledModelCount = managedModels.filter((model) => model.enabled).length
+  const configuredProviderSourceCount = providerFilterOptions.filter(
+    (source) => source.configured
+  ).length
+  const presetProviderSourceCount = providerFilterOptions.length - configuredProviderSourceCount
   const filteredModels = useMemo(() => {
     const query = modelSearch.toLowerCase()
     return managedModels.filter((model) => {
@@ -3503,56 +3527,88 @@ export function ModelManagementPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Layers className="size-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold">{t('provider.modelManagement')}</h3>
-            <p className="text-[11px] text-muted-foreground">{t('provider.modelManagementDesc')}</p>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={() => setAddModelOpen(true)}
-        >
-          <Plus className="size-3.5" />
-        </Button>
-      </div>
-
-      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden px-5 pt-4 pb-20">
-        <section className="flex flex-col space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <label className="text-sm font-medium">{t('provider.modelManagementList')}</label>
-              <p className="text-[11px] text-muted-foreground">
-                {t('provider.modelManagementCount', {
-                  total: managedModels.length,
-                  enabled: enabledModelCount
-                })}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                {t('provider.modelManagementHint')}
-              </p>
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border bg-background shadow-sm">
+      <div className="shrink-0 border-b bg-muted/10 px-5 py-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border bg-background text-primary shadow-xs">
+                <Layers className="size-4" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-semibold">
+                  {t('provider.modelManagement')}
+                </h3>
+                <p className="mt-0.5 max-w-2xl text-xs leading-5 text-muted-foreground">
+                  {t('provider.modelManagementDesc')}
+                </p>
+              </div>
             </div>
-            <div className="flex basis-full flex-col gap-2 sm:basis-auto sm:flex-row">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 rounded-lg px-3 text-xs"
+              onClick={() => setAddModelOpen(true)}
+            >
+              <Plus className="size-3.5" />
+              {t('provider.addModel')}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {[
+              {
+                label: t('provider.modelManagementStatTotal'),
+                value: managedModels.length.toLocaleString()
+              },
+              {
+                label: t('provider.modelManagementStatEnabled'),
+                value: enabledModelCount.toLocaleString()
+              },
+              {
+                label: t('provider.modelManagementStatProviders'),
+                value: providerFilterOptions.length.toLocaleString()
+              },
+              {
+                label: t('provider.modelManagementStatMatches'),
+                value: filteredModels.length.toLocaleString()
+              }
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border bg-background px-3 py-2">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                  {item.label}
+                </div>
+                <div className="mt-1 text-lg font-semibold leading-none">{item.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 text-xs text-muted-foreground">
+              {t('provider.modelManagementCount', {
+                total: managedModels.length,
+                enabled: enabledModelCount
+              })}
+              <span className="mx-2 text-muted-foreground/40">/</span>
+              {t('provider.modelManagementSourceSummary', {
+                configured: configuredProviderSourceCount,
+                preset: presetProviderSourceCount
+              })}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
               <Select value={resolvedProviderFilter} onValueChange={setProviderFilter}>
-                <SelectTrigger className="h-7 w-full sm:w-44 text-[11px]">
+                <SelectTrigger className="h-8 w-full bg-background text-xs sm:w-52">
                   <SelectValue placeholder={t('provider.allModelProviders')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_PROVIDER_FILTER} className="text-[11px]">
+                  <SelectItem value={ALL_PROVIDER_FILTER} className="text-xs">
                     <span className="flex items-center gap-2">
                       <Layers className="size-3.5" />
                       {t('provider.allModelProviders')}
                     </span>
                   </SelectItem>
                   {providerFilterOptions.map((source) => (
-                    <SelectItem key={source.key} value={source.key} className="text-[11px]">
+                    <SelectItem key={source.key} value={source.key} className="text-xs">
                       <span className="flex min-w-0 items-center gap-2">
                         <ProviderIcon builtinId={source.builtinId} size={14} />
                         <span className="truncate">{source.name}</span>
@@ -3562,259 +3618,304 @@ export function ModelManagementPanel(): React.JSX.Element {
                 </SelectContent>
               </Select>
               <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
                 <Input
                   placeholder={t('provider.searchManagedModels')}
                   value={modelSearch}
                   onChange={(e) => setModelSearch(e.target.value)}
-                  className="h-7 w-full sm:w-44 pl-7 text-[11px]"
+                  className="h-8 w-full bg-background pl-8 text-xs sm:w-64"
                 />
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="flex min-h-[240px] max-h-[520px] flex-col rounded-lg border overflow-hidden">
-            {filteredModels.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground">
-                {managedModels.length === 0
-                  ? t('provider.noManagedModels')
-                  : t('provider.noMatchResults')}
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto divide-y">
-                {filteredModels.map((model) => {
-                  const capabilityIndicators: Array<{
-                    key: string
-                    icon: React.ComponentType<{ className?: string }>
-                    label: string
-                  }> = []
-                  if (model.category === 'image') {
-                    capabilityIndicators.push({
-                      key: 'category-image',
-                      icon: ImageIcon,
-                      label: t('provider.modelCategoryImage')
-                    })
-                  } else if (model.category === 'speech') {
-                    capabilityIndicators.push({
-                      key: 'category-speech',
-                      icon: Mic,
-                      label: t('provider.modelCategorySpeech')
-                    })
-                  } else if (model.category === 'embedding') {
-                    capabilityIndicators.push({
-                      key: 'category-embedding',
-                      icon: Shapes,
-                      label: t('provider.modelCategoryEmbedding')
-                    })
-                  }
-                  if (modelSupportsVision(model, model.type)) {
-                    capabilityIndicators.push({
-                      key: 'vision',
-                      icon: Eye,
-                      label: t('provider.supportsVision')
-                    })
-                  }
-                  if (model.supportsFunctionCall !== false) {
-                    capabilityIndicators.push({
-                      key: 'function',
-                      icon: Code2,
-                      label: t('provider.supportsFunctionCall')
-                    })
-                  }
-                  if (modelSupportsComputerUse(model, model.type)) {
-                    capabilityIndicators.push({
-                      key: 'computer-use',
-                      icon: MonitorSmartphone,
-                      label: model.enableComputerUse
-                        ? t('provider.computerUseEnabled')
-                        : t('provider.supportsComputerUse')
-                    })
-                  }
-                  if (model.supportsThinking) {
-                    capabilityIndicators.push({
-                      key: 'thinking',
-                      icon: Sparkles,
-                      label: t('provider.supportsThinking')
-                    })
-                  }
-                  const providerSources = providerSourceIndex.get(model.normalizedKey) ?? []
-                  const primaryProviderSource = providerSources[0]
-                  const visibleProviderSources = providerSources.slice(0, 4)
-                  const hiddenProviderCount = Math.max(0, providerSources.length - 4)
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b bg-background/95 px-5 py-2">
+          <div className="truncate text-xs font-medium">{t('provider.modelManagementList')}</div>
+          <div className="shrink-0 text-[11px] text-muted-foreground">
+            {t('provider.modelManagementShowing', {
+              shown: filteredModels.length,
+              total: managedModels.length
+            })}
+          </div>
+        </div>
 
-                  return (
-                    <div
-                      key={model.normalizedKey}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 transition-colors group"
-                    >
-                      <div className="relative flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/50 ring-1 ring-border/50">
-                        <ModelIcon
-                          icon={model.icon}
-                          modelId={model.id}
-                          providerBuiltinId={primaryProviderSource?.builtinId}
-                          size={16}
-                          className="shrink-0 opacity-70"
-                        />
-                        {primaryProviderSource && (
-                          <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full border border-background bg-background shadow-sm">
-                            <ProviderIcon builtinId={primaryProviderSource.builtinId} size={11} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {filteredModels.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground">
+              {managedModels.length === 0
+                ? t('provider.noManagedModels')
+                : t('provider.noMatchResults')}
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto">
+              {filteredModels.map((model) => {
+                const capabilityIndicators: Array<{
+                  key: string
+                  icon: React.ComponentType<{ className?: string }>
+                  label: string
+                }> = []
+                if (model.category === 'image') {
+                  capabilityIndicators.push({
+                    key: 'category-image',
+                    icon: ImageIcon,
+                    label: t('provider.modelCategoryImage')
+                  })
+                } else if (model.category === 'speech') {
+                  capabilityIndicators.push({
+                    key: 'category-speech',
+                    icon: Mic,
+                    label: t('provider.modelCategorySpeech')
+                  })
+                } else if (model.category === 'embedding') {
+                  capabilityIndicators.push({
+                    key: 'category-embedding',
+                    icon: Shapes,
+                    label: t('provider.modelCategoryEmbedding')
+                  })
+                }
+                if (modelSupportsVision(model, model.type)) {
+                  capabilityIndicators.push({
+                    key: 'vision',
+                    icon: Eye,
+                    label: t('provider.supportsVision')
+                  })
+                }
+                if (model.supportsFunctionCall !== false) {
+                  capabilityIndicators.push({
+                    key: 'function',
+                    icon: Code2,
+                    label: t('provider.supportsFunctionCall')
+                  })
+                }
+                if (modelSupportsComputerUse(model, model.type)) {
+                  capabilityIndicators.push({
+                    key: 'computer-use',
+                    icon: MonitorSmartphone,
+                    label: model.enableComputerUse
+                      ? t('provider.computerUseEnabled')
+                      : t('provider.supportsComputerUse')
+                  })
+                }
+                if (model.supportsThinking) {
+                  capabilityIndicators.push({
+                    key: 'thinking',
+                    icon: Sparkles,
+                    label: t('provider.supportsThinking')
+                  })
+                }
+                const providerSources = providerSourceIndex.get(model.normalizedKey) ?? []
+                const primaryProviderSource = providerSources[0]
+                const visibleProviderSources = providerSources.slice(0, 4)
+                const hiddenProviderCount = Math.max(0, providerSources.length - 4)
+
+                return (
+                  <div
+                    key={model.normalizedKey}
+                    className={`group flex items-center gap-3 border-b border-border/60 px-5 py-3 transition-colors last:border-b-0 hover:bg-muted/25 ${
+                      model.enabled ? '' : 'bg-muted/10 opacity-75'
+                    }`}
+                  >
+                    <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted/45 ring-1 ring-border/60">
+                      <ModelIcon
+                        icon={model.icon}
+                        modelId={model.id}
+                        providerBuiltinId={primaryProviderSource?.builtinId}
+                        size={20}
+                        className="shrink-0 opacity-80"
+                      />
+                      {primaryProviderSource && (
+                        <span className="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full border border-background bg-background shadow-sm">
+                          <ProviderIcon builtinId={primaryProviderSource.builtinId} size={13} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-sm font-medium">{model.name}</p>
+                        {!model.enabled && (
+                          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {t('provider.disabled')}
+                          </span>
+                        )}
+                        <span className="truncate font-mono text-[10px] text-muted-foreground/50">
+                          {model.id}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/60">
+                        {providerSources.length > 0 ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border bg-muted/20 px-2 py-1 text-muted-foreground/80">
+                                <span className="flex -space-x-1.5">
+                                  {visibleProviderSources.map((source) => (
+                                    <span
+                                      key={source.key}
+                                      className={`flex size-5 items-center justify-center rounded-full border border-background bg-background shadow-xs ${
+                                        source.configured && source.enabled === false
+                                          ? 'opacity-45'
+                                          : ''
+                                      }`}
+                                    >
+                                      <ProviderIcon builtinId={source.builtinId} size={13} />
+                                    </span>
+                                  ))}
+                                </span>
+                                <span className="truncate">
+                                  {t('provider.modelManagementSourceCount', {
+                                    count: providerSources.length
+                                  })}
+                                </span>
+                                {hiddenProviderCount > 0 && (
+                                  <span className="shrink-0">+{hiddenProviderCount}</span>
+                                )}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-[11px]">
+                              <div className="flex max-w-64 flex-col gap-1">
+                                {providerSources.map((source) => (
+                                  <div key={source.key} className="flex items-center gap-1.5">
+                                    <ProviderIcon builtinId={source.builtinId} size={12} />
+                                    <span className="min-w-0 flex-1 truncate">{source.name}</span>
+                                    <span className="text-muted-foreground/70">
+                                      {source.configured
+                                        ? source.enabled
+                                          ? t('provider.enabled')
+                                          : t('provider.disabled')
+                                        : t('provider.modelManagementPresetProvider')}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-lg border bg-muted/20 px-2 py-1 text-muted-foreground/80">
+                            <ProviderIcon size={13} />
+                            {t('provider.modelManagementNoSource')}
+                          </span>
+                        )}
+                        {model.contextLength && (
+                          <span className="rounded-full bg-muted/45 px-2 py-0.5">
+                            {t('provider.modelMetaContext', {
+                              count: Math.round(model.contextLength / 1024)
+                            })}
+                          </span>
+                        )}
+                        {model.maxOutputTokens && (
+                          <span className="rounded-full bg-muted/45 px-2 py-0.5">
+                            {t('provider.modelMetaOutput', {
+                              count: Math.round(model.maxOutputTokens / 1024)
+                            })}
+                          </span>
+                        )}
+                        {(model.inputPrice != null || model.outputPrice != null) && (
+                          <span className="rounded-full bg-muted/45 px-2 py-0.5">
+                            {t('provider.modelMetaPricing', {
+                              input: model.inputPrice ?? '?',
+                              output: model.outputPrice ?? '?'
+                            })}
+                          </span>
+                        )}
+                        {(model.cacheCreationPrice != null || model.cacheHitPrice != null) && (
+                          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
+                            {model.cacheCreationPrice != null && model.cacheHitPrice != null
+                              ? t('provider.modelMetaCachePair', {
+                                  write: model.cacheCreationPrice,
+                                  read: model.cacheHitPrice
+                                })
+                              : model.cacheCreationPrice != null
+                                ? t('provider.modelMetaCacheWrite', {
+                                    write: model.cacheCreationPrice
+                                  })
+                                : t('provider.modelMetaCacheRead', {
+                                    read: model.cacheHitPrice
+                                  })}
+                          </span>
+                        )}
+                        {(model.premiumRequestMultiplier != null ||
+                          model.availablePlans?.length) && (
+                          <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-600 dark:text-sky-400">
+                            {model.premiumRequestMultiplier != null
+                              ? t('provider.modelMetaPremium', {
+                                  multiplier: model.premiumRequestMultiplier
+                                })
+                              : t('provider.availablePlans')}
+                            {model.availablePlans?.length
+                              ? ` · ${model.availablePlans.join('/')}`
+                              : ''}
+                          </span>
+                        )}
+                        {capabilityIndicators.length > 0 && (
+                          <span className="flex items-center gap-1 text-muted-foreground/60">
+                            {capabilityIndicators.map(({ key, icon: Icon, label }) => (
+                              <Tooltip key={`${model.normalizedKey}-${key}`}>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                                    <Icon className="size-3" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-[11px]">
+                                  {label}
+                                </TooltipContent>
+                              </Tooltip>
+                            ))}
                           </span>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium truncate">{model.name}</p>
-                          <span className="text-[10px] text-muted-foreground/50 truncate">
-                            {model.id}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground/40">
-                          {providerSources.length > 0 ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted/60 px-1.5 py-0.5 text-muted-foreground/70">
-                                  <span className="flex -space-x-1">
-                                    {visibleProviderSources.map((source) => (
-                                      <span
-                                        key={source.key}
-                                        className={`flex size-4 items-center justify-center rounded-full border border-background bg-background ${
-                                          source.configured && source.enabled === false
-                                            ? 'opacity-45'
-                                            : ''
-                                        }`}
-                                      >
-                                        <ProviderIcon builtinId={source.builtinId} size={11} />
-                                      </span>
-                                    ))}
-                                  </span>
-                                  <span className="truncate">{primaryProviderSource?.name}</span>
-                                  {hiddenProviderCount > 0 && (
-                                    <span className="shrink-0">+{hiddenProviderCount}</span>
-                                  )}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-[11px]">
-                                <div className="flex max-w-64 flex-col gap-1">
-                                  {providerSources.map((source) => (
-                                    <div key={source.key} className="flex items-center gap-1.5">
-                                      <ProviderIcon builtinId={source.builtinId} size={12} />
-                                      <span className="min-w-0 flex-1 truncate">{source.name}</span>
-                                      <span className="text-muted-foreground/70">
-                                        {source.configured
-                                          ? source.enabled
-                                            ? t('provider.enabled')
-                                            : t('provider.disabled')
-                                          : t('provider.modelManagementPresetProvider')}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-1.5 py-0.5 text-muted-foreground/70">
-                              <ProviderIcon size={11} />
-                              {t('provider.modelManagementCustomProvider')}
-                            </span>
-                          )}
-                          {model.contextLength && (
-                            <span>{Math.round(model.contextLength / 1024)}K context</span>
-                          )}
-                          {(model.inputPrice != null || model.outputPrice != null) && (
-                            <span>
-                              ${model.inputPrice ?? '?'} → ${model.outputPrice ?? '?'}
-                            </span>
-                          )}
-                          {(model.cacheCreationPrice != null || model.cacheHitPrice != null) && (
-                            <span className="text-emerald-500/60">
-                              cache:{' '}
-                              {model.cacheCreationPrice != null
-                                ? `写 $${model.cacheCreationPrice}`
-                                : ''}
-                              {model.cacheCreationPrice != null && model.cacheHitPrice != null
-                                ? ' / '
-                                : ''}
-                              {model.cacheHitPrice != null ? `读 $${model.cacheHitPrice}` : ''}
-                            </span>
-                          )}
-                          {(model.premiumRequestMultiplier != null ||
-                            model.availablePlans?.length) && (
-                            <span className="text-sky-500/70">
-                              {model.premiumRequestMultiplier != null
-                                ? `${model.premiumRequestMultiplier}x premium`
-                                : t('provider.availablePlans')}
-                              {model.availablePlans?.length
-                                ? ` · ${model.availablePlans.join('/')}`
-                                : ''}
-                            </span>
-                          )}
-                          {capabilityIndicators.length > 0 && (
-                            <span className="flex items-center gap-1 text-muted-foreground/60">
-                              {capabilityIndicators.map(({ key, icon: Icon, label }) => (
-                                <Tooltip key={`${model.normalizedKey}-${key}`}>
-                                  <TooltipTrigger asChild>
-                                    <span className="inline-flex items-center justify-center rounded-full bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted/80">
-                                      <Icon className="size-3" />
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-[11px]">
-                                    {label}
-                                  </TooltipContent>
-                                </Tooltip>
-                              ))}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="size-5 flex items-center justify-center rounded transition-colors text-muted-foreground/20 hover:text-muted-foreground/70 hover:bg-muted/40 opacity-0 group-hover:opacity-100"
-                            onClick={() => setEditingModel(model)}
-                          >
-                            <Pencil className="size-3" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-[11px]">
-                          {t('provider.editModel')}
-                        </TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className={`size-5 flex items-center justify-center rounded transition-colors ${
-                              model.supportsThinking
-                                ? 'text-violet-500 hover:bg-violet-500/10'
-                                : 'text-muted-foreground/20 hover:text-muted-foreground/50 hover:bg-muted/40'
-                            } opacity-0 group-hover:opacity-100`}
-                            onClick={() => setEditingThinkingModel(model)}
-                          >
-                            <Brain className="size-3" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-[11px]">
-                          {model.supportsThinking
-                            ? t('provider.editThinkConfig')
-                            : t('provider.configThinkSupport')}
-                        </TooltipContent>
-                      </Tooltip>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                        onClick={async () => {
-                          const ok = await confirm({
-                            title: t('provider.modelManagementDeleteConfirm', { name: model.name }),
-                            variant: 'destructive'
-                          })
-                          if (!ok) return
-                          removeManagedModel(model.id)
-                        }}
-                      >
-                        <Trash2 className="size-3" />
-                      </Button>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex size-7 items-center justify-center rounded-lg text-muted-foreground/45 opacity-100 transition-colors hover:bg-muted hover:text-foreground lg:opacity-0 lg:group-hover:opacity-100"
+                          onClick={() => setEditingModel(model)}
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-[11px]">
+                        {t('provider.editModel')}
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className={`flex size-7 items-center justify-center rounded-lg opacity-100 transition-colors hover:bg-muted lg:opacity-0 lg:group-hover:opacity-100 ${
+                            model.supportsThinking
+                              ? 'text-violet-500'
+                              : 'text-muted-foreground/45 hover:text-foreground'
+                          }`}
+                          onClick={() => setEditingThinkingModel(model)}
+                        >
+                          <Brain className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-[11px]">
+                        {model.supportsThinking
+                          ? t('provider.editThinkConfig')
+                          : t('provider.configThinkSupport')}
+                      </TooltipContent>
+                    </Tooltip>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground/45 opacity-100 transition-all hover:text-destructive lg:opacity-0 lg:group-hover:opacity-100"
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: t('provider.modelManagementDeleteConfirm', { name: model.name }),
+                          variant: 'destructive'
+                        })
+                        if (!ok) return
+                        removeManagedModel(model.id)
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                    <div className="rounded-full border bg-background px-1 py-0.5">
                       <Switch
                         checked={model.enabled}
                         onCheckedChange={() => {
@@ -3825,12 +3926,12 @@ export function ModelManagementPanel(): React.JSX.Element {
                         }}
                       />
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </section>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <ModelFormDialog
@@ -4142,6 +4243,15 @@ export function ProviderPanel(): React.JSX.Element {
   const selectedProvider = resolvedSelectedId
     ? (providers.find((p) => p.id === resolvedSelectedId) ?? null)
     : null
+  const enabledProviderCount = providers.filter((provider) => provider.enabled).length
+  const totalProviderModelCount = providers.reduce(
+    (count, provider) => count + provider.models.length,
+    0
+  )
+  const enabledProviderModelCount = providers.reduce(
+    (count, provider) => count + provider.models.filter((model) => model.enabled).length,
+    0
+  )
 
   const enabledProviders = useMemo(
     () =>
@@ -4177,25 +4287,52 @@ export function ProviderPanel(): React.JSX.Element {
   }
 
   const renderProviderListItem = (provider: AIProvider, muted: boolean): React.JSX.Element => {
+    const enabledModelCount = provider.models.filter((model) => model.enabled).length
+    const authReady =
+      provider.requiresApiKey === false ||
+      Boolean(provider.apiKey || provider.oauth?.accessToken || provider.channel?.accessToken)
     const item = (
       <button
         type="button"
         onClick={() => setSelectedId(provider.id)}
-        className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 mt-0.5 text-left transition-colors ${
+        className={`group/provider relative mt-1 flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors ${
           resolvedSelectedId === provider.id
-            ? 'bg-accent text-accent-foreground'
+            ? 'bg-primary/10 text-foreground ring-1 ring-primary/15'
             : muted
               ? 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-              : 'text-foreground/80 hover:bg-muted/60'
+              : 'text-foreground/85 hover:bg-muted/60'
         }`}
       >
-        <ProviderIcon
-          builtinId={provider.builtinId}
-          size={16}
-          className={muted ? 'opacity-50' : undefined}
+        <span
+          className={`absolute bottom-2 left-0 top-2 w-0.5 rounded-full ${
+            resolvedSelectedId === provider.id ? 'bg-primary' : 'bg-transparent'
+          }`}
         />
-        <span className="flex-1 truncate text-xs">{provider.name}</span>
-        {!muted && <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />}
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border/60">
+          <ProviderIcon
+            builtinId={provider.builtinId}
+            size={18}
+            className={muted ? 'opacity-50' : undefined}
+          />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-medium">{provider.name}</span>
+          <span className="mt-0.5 block truncate text-[10px] text-muted-foreground/70">
+            {t('provider.providerModelSummary', {
+              enabled: enabledModelCount,
+              total: provider.models.length
+            })}
+          </span>
+        </span>
+        <span
+          className={`size-2 shrink-0 rounded-full ${
+            provider.enabled && authReady
+              ? 'bg-emerald-500'
+              : provider.enabled
+                ? 'bg-amber-500'
+                : 'bg-muted-foreground/30'
+          }`}
+        />
       </button>
     )
 
@@ -4217,30 +4354,48 @@ export function ProviderPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="mb-3 shrink-0">
-        <h2 className="text-lg font-semibold">{t('provider.title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('provider.subtitle')}</p>
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border bg-background shadow-sm">
+      <div className="shrink-0 border-b bg-muted/10 px-5 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold">{t('provider.title')}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t('provider.subtitle')}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="rounded-full border bg-background px-2 py-1">
+              {t('provider.providerSummary', {
+                total: providers.length,
+                enabled: enabledProviderCount
+              })}
+            </span>
+            <span className="rounded-full border bg-background px-2 py-1">
+              {t('provider.providerModelSummary', {
+                enabled: enabledProviderModelCount,
+                total: totalProviderModelCount
+              })}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left: Provider list */}
-        <div className="w-52 shrink-0 border-r flex flex-col">
+        <div className="flex w-60 shrink-0 flex-col border-r bg-muted/10">
           {/* Search + Add */}
-          <div className="flex items-center gap-1 p-2 border-b">
+          <div className="flex items-center gap-1.5 border-b p-2.5">
             <div className="relative flex-1">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/50" />
               <Input
                 placeholder={t('provider.searchProviders')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 pl-7 text-[11px] bg-transparent border-0 shadow-none focus-visible:ring-0"
+                className="h-8 bg-background pl-7 text-xs shadow-none"
               />
             </div>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 shrink-0 rounded-lg p-0 text-muted-foreground hover:text-foreground"
               onClick={() => setDialogOpen(true)}
               title={t('provider.addCustomProvider')}
             >
@@ -4249,11 +4404,11 @@ export function ProviderPanel(): React.JSX.Element {
           </div>
 
           {/* List */}
-          <div className="flex-1 overflow-y-auto py-1">
+          <div className="flex-1 overflow-y-auto py-2">
             <div className="pb-20">
               {enabledProviders.length > 0 && (
-                <div className="px-2 pt-1.5 pb-1">
-                  <p className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider px-1">
+                <div className="px-2 pb-1 pt-1">
+                  <p className="px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/55">
                     {t('provider.enabled')}
                   </p>
                   {enabledProviders.map((p) => renderProviderListItem(p, false))}
@@ -4261,11 +4416,16 @@ export function ProviderPanel(): React.JSX.Element {
               )}
 
               {disabledProviders.length > 0 && (
-                <div className="px-2 pt-2 pb-1">
-                  <p className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider px-1">
+                <div className="px-2 pb-1 pt-3">
+                  <p className="px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/55">
                     {t('provider.disabled')}
                   </p>
                   {disabledProviders.map((p) => renderProviderListItem(p, true))}
+                </div>
+              )}
+              {enabledProviders.length === 0 && disabledProviders.length === 0 && (
+                <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                  {t('provider.providerNoSearchResults')}
                 </div>
               )}
             </div>

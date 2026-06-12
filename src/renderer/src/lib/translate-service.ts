@@ -6,6 +6,7 @@ import type {
   TokenUsage,
   UnifiedMessage
 } from '@renderer/lib/api/types'
+import { resolveLanguageName as resolveAppLanguageName } from '@renderer/lib/i18n-language'
 
 export interface StreamAiTranslationOptions {
   text: string
@@ -21,29 +22,12 @@ export interface StreamAiTranslationOptions {
   }) => void
 }
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  zh: 'Chinese',
-  en: 'English',
-  ja: 'Japanese',
-  ko: 'Korean',
-  fr: 'French',
-  de: 'German',
-  es: 'Spanish',
-  pt: 'Portuguese',
-  ru: 'Russian',
-  ar: 'Arabic'
-}
-
-function resolveLanguageName(code: string): string {
-  return LANGUAGE_NAMES[code] ?? code
-}
-
 function buildTranslationSystemPrompt(sourceLanguage: string, targetLanguage: string): string {
-  const targetName = resolveLanguageName(targetLanguage)
+  const targetName = resolveAppLanguageName(targetLanguage)
   const detectionInstruction =
     sourceLanguage === 'auto'
       ? 'Automatically detect the source language.'
-      : `Source language: ${resolveLanguageName(sourceLanguage)}.`
+      : `Source language: ${resolveAppLanguageName(sourceLanguage)}.`
 
   return `<role>
 You are a professional, faithful translator.

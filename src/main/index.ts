@@ -47,6 +47,7 @@ import { registerDbHandlers } from './ipc/db-handlers'
 import { registerGoalRuntimeHandlers } from './ipc/goal-runtime-handlers'
 import { registerMemoryAutomationHandlers } from './ipc/memory-automation-handlers'
 import { registerConfigHandlers } from './ipc/secure-key-store'
+import { registerExtensionHandlers } from './ipc/extension-handlers'
 import { registerChannelHandlers, autoStartChannels } from './ipc/channel-handlers'
 import { ChannelManager } from './channels/channel-manager'
 import { autoConnectMcpServers, registerMcpHandlers } from './ipc/mcp-handlers'
@@ -68,6 +69,7 @@ import { registerTeamWorkerHandlers, stopAllIsolatedTeamWorkers } from './ipc/te
 import { loadPersistedJobs, cancelAllJobs } from './cron/cron-scheduler'
 import { McpManager } from './mcp/mcp-manager'
 import { closeDb } from './db/database'
+import { cleanupExpiredUsageEvents } from './db/usage-events-dao'
 import { registerSshHandlers, closeAllSshSessions } from './ipc/ssh-handlers'
 import { writeCrashLog, getCrashLogDir } from './crash-logger'
 import { setupAutoUpdater } from './updater'
@@ -125,6 +127,7 @@ const visibleSessionWindowIds = new Map<string, Set<number>>()
 const GENERATED_IMAGES_DIR = 'open-cowork'
 const GENERATED_IMAGES_SUBDIR = 'image'
 const MACOS_SHELL_ENV_TIMEOUT_MS = 4000
+const USAGE_EVENTS_STARTUP_CLEANUP_DELAY_MS = 5000
 const SHELL_ENV_LINE_RE = /^[A-Za-z_][A-Za-z0-9_]*=/
 const SHELL_ENV_SKIP_KEYS = new Set(['PWD', 'OLDPWD', 'SHLVL', '_'])
 const SYSTEM_PROXY_ENV_KEYS = [
@@ -447,6 +450,26 @@ function configureRendererHeapLimit(): void {
   } catch (error) {
     console.warn('[Main] Failed to set renderer heap limit:', error)
   }
+}
+
+function scheduleUsageEventsStartupCleanup(): void {
+  setTimeout(() => {
+    if (isQuiting) return
+
+    void cleanupExpiredUsageEvents()
+      .then((result) => {
+        if (result.deleted <= 0) return
+
+        console.log(
+          `[UsageEvents] Cleaned ${result.deleted} analytics log entries older than ${new Date(
+            result.cutoff
+          ).toISOString()}`
+        )
+      })
+      .catch((error) => {
+        console.warn('[UsageEvents] Failed to clean expired analytics logs:', error)
+      })
+  }, USAGE_EVENTS_STARTUP_CLEANUP_DELAY_MS)
 }
 
 function showMainWindow(): void {
@@ -1112,6 +1135,7 @@ if (gotSingleInstanceLock) {
     registerGoalRuntimeHandlers()
     registerMemoryAutomationHandlers()
     registerConfigHandlers()
+    registerExtensionHandlers()
     registerSshHandlers()
     registerChannelHandlers(channelManager)
     registerMcpHandlers(mcpManager)
@@ -1264,6 +1288,7 @@ if (gotSingleInstanceLock) {
 
     setMacDockIcon()
     createWindow()
+    scheduleUsageEventsStartupCleanup()
 
     createTray()
 

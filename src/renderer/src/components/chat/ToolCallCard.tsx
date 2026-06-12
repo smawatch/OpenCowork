@@ -55,11 +55,13 @@ import { inputSummary } from './tool-call-summary'
 import { useChatActions } from '@renderer/hooks/use-chat-actions'
 import { LocalTerminal } from '@renderer/components/terminal/LocalTerminal'
 import { ImagePreview } from './ImagePreview'
+import { ExtensionToolResultCard } from './ExtensionToolResultCard'
 import {
   CompactToolCallHeader,
   type CompactToolHeaderBadge,
   type CompactToolHeaderModel
 } from './CompactToolCallHeader'
+import { parseExtensionToolResult } from '@renderer/lib/extensions/extension-result'
 
 interface ToolCallCardProps {
   toolUseId?: string
@@ -3151,6 +3153,7 @@ function ToolCallCardInner({
     prevIsActiveRef.current = isActive
   }, [hasVisualOutput, isActive])
   const outputText = React.useMemo(() => outputAsString(output), [output])
+  const extensionToolResult = React.useMemo(() => parseExtensionToolResult(output), [output])
   const summary = React.useMemo(
     () => inputSummary(name, input, outputText),
     [input, name, outputText]
@@ -3483,8 +3486,12 @@ function ToolCallCardInner({
                         </div>
                       )
                     })()}
+                  {shouldRenderOutputPanels && output && extensionToolResult && (
+                    <ExtensionToolResultCard output={output} />
+                  )}
                   {shouldRenderOutputPanels &&
                     output &&
+                    !extensionToolResult &&
                     ![
                       'Read',
                       'Bash',

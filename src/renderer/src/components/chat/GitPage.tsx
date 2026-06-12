@@ -68,6 +68,7 @@ import {
 import { useGitPanelSplit } from '@renderer/hooks/use-git-panel-split'
 import { generateCommitMessageFromStagedDiff } from '@renderer/lib/git/generate-commit-message'
 import { useChatStore } from '@renderer/stores/chat-store'
+import { normalizeLanguageCode } from '@renderer/lib/i18n-language'
 
 type ScmFileSection = 'staged' | 'unstaged' | 'untracked' | 'conflicted'
 
@@ -671,7 +672,7 @@ export function GitPage(): React.JSX.Element {
       toast.error(t('aiCommitEmptyStaged'))
       return
     }
-    const lang = i18n.language.startsWith('zh') ? 'zh' : 'en'
+    const lang = normalizeLanguageCode(i18n.language)
     const msg = await generateCommitMessageFromStagedDiff(
       bundle.stat,
       bundle.patch,

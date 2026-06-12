@@ -21,7 +21,8 @@ import {
   resetCompressionFailures,
   shouldCompress,
   shouldPreCompress,
-  preCompressMessages
+  preCompressMessages,
+  isCompactSummaryLikeMessage
 } from './context-compression'
 import { trySwitchProviderAccount } from '../auth/provider-auth'
 import { ConcurrencyLimiter } from './concurrency-limiter'
@@ -76,6 +77,23 @@ function findRecentContextUsage(messages: UnifiedMessage[]): number {
     if (tokens > 0) return tokens
   }
   return 0
+}
+
+function shouldPreserveInitialUserMessage(message: UnifiedMessage | undefined): boolean {
+  if (!message || message.role !== 'user') return false
+  if (isCompactSummaryLikeMessage(message)) return false
+  if (
+    Array.isArray(message.content) &&
+    message.content.length > 0 &&
+    message.content.every((block) => block.type === 'tool_result')
+  ) {
+    return false
+  }
+  return true
+}
+
+function getInitialCompressionPreserveCount(messages: UnifiedMessage[]): number {
+  return shouldPreserveInitialUserMessage(messages[messages.length - 1]) ? 1 : 0
 }
 
 /**
@@ -140,7 +158,11 @@ export async function* runAgentLoop(
           }
           try {
             const originalCount = conversationMessages.length
-            const compressedMessages = await cc.compressFn(conversationMessages)
+            const preserveCount =
+              iteration === 0 ? getInitialCompressionPreserveCount(conversationMessages) : 0
+            const compressedMessages = await cc.compressFn(conversationMessages, {
+              preserveCount
+            })
             // Keep loop-local history mutable even if external stores freeze shared arrays.
             conversationMessages = [...compressedMessages]
             fullCompressionApplied = true

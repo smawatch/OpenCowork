@@ -2,7 +2,7 @@
   "contextCompression": {
     "clearedToolResult": "[Tool result cleared to free context space]",
     "clearedThinking": "[Thinking cleared]",
-    "summaryMessage": "[Context Memory Compressed Summary]\n\nThis session is being continued from a previous conversation that ran out of context. The following summary covers {{count}} earlier messages. Recent messages are preserved verbatim after this summary.\n\n{{summary}}",
+    "summaryMessage": "[Context Memory Compressed Summary]\n\nThis session is being continued from a previous conversation that ran out of context. The following summary covers {{count}} earlier messages. Continue from this summary plus any messages that appear after the compression point.\n\n{{summary}}",
     "boundaryTitle": "Context Compression",
     "boundaryAuto": "Automatic",
     "boundaryManual": "Manual",
@@ -10,7 +10,7 @@
     "summaryTitle": "Compressed Context Summary",
     "continuationSessionTitle": "{{title}} · Compressed",
     "summaryMessages": "{{count}} earlier messages",
-    "summaryRecentPreserved": "Recent messages preserved",
+    "summaryRecentPreserved": "Transcript kept in chat",
     "summaryExpand": "Expand summary",
     "summaryCollapse": "Collapse summary",
     "compressing": "Compressing context…",

@@ -125,7 +125,17 @@ export function AccountListEditor({ provider }: Props): ReactElement {
 
   async function handleImportFromFile(): Promise<void> {
     try {
-      const api = (window as unknown as { api?: { fs?: { selectFile?: Function } } }).api
+      const api = (
+        window as unknown as {
+          api?: {
+            fs?: {
+              selectFile?: (args: {
+                filters?: Array<{ name: string; extensions: string[] }>
+              }) => Promise<unknown>
+            }
+          }
+        }
+      ).api
       const selectFile = api?.fs?.selectFile
       if (!selectFile) {
         toast.error(t('provider.accounts.toasts.fileApiMissing'))

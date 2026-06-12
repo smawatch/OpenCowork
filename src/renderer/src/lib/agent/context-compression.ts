@@ -40,7 +40,7 @@ export const CONTEXT_COMPRESSION_PRE_BUFFER_TOKENS = 20_000
 export const CONTEXT_COMPRESSION_PRE_GAP_TOKENS = 8_000
 
 const DEFAULT_PRECOMPRESS_THRESHOLD = 0.65
-const PRESERVE_RECENT_COUNT = 4
+const PRESERVE_RECENT_COUNT = 0
 const TOOL_RESULT_KEEP_RECENT = 6
 const MAX_COMPRESS_RETRIES = 2
 const MAX_CONSECUTIVE_FAILURES = 3
@@ -378,18 +378,19 @@ export function mergeCompressedMessagesIntoConversation(
  * pair just acts as an inline divider that says "from this point on the model only
  * sees the summary".
  *
- * Layout produced:
- *   [...all old messages, boundary, summary, ...preserved-recent (already in current)]
- *
- * Anything currentMessages contains AFTER the preserved-recent head (e.g. the
- * compression status placeholder appended at compression_start) is kept in place,
- * so the placeholder ends up trailing the preserved tail and serves as a visual
- * marker for the most recent compression event.
+ * By default this inserts at the compact boundary used by the request view.
+ * Callers may pass an explicit display insertion point so the UI can show the
+ * summary at the chronological moment compression happened while the request
+ * builder still reconstructs the reduced model view from compact metadata.
  */
 export function mergeCompressedMessagesKeepHistory(
   currentMessages: UnifiedMessage[],
   compressedMessages?: UnifiedMessage[] | null,
-  options: { fallbackInsertBeforeIds?: readonly string[] } = {}
+  options: {
+    insertAtEnd?: boolean
+    insertBeforeIds?: readonly string[]
+    fallbackInsertBeforeIds?: readonly string[]
+  } = {}
 ): UnifiedMessage[] | null {
   if (!compressedMessages || compressedMessages.length === 0) {
     return null
@@ -428,27 +429,44 @@ export function mergeCompressedMessagesKeepHistory(
 
   const preservedHeadId = boundaryMessage.meta?.compactBoundary?.preservedSegment?.headId ?? null
 
+  // Prefer an explicit UI insertion point when supplied. Otherwise fall back to
+  // the preserved tail's head so any current user message kept outside the
+  // summary stays after the compact boundary in both UI and request order.
+  let insertIndex = -1
+  if (options.insertAtEnd) {
+    insertIndex = currentMessagesWithoutCompactArtifacts.length
+  }
+  if (insertIndex < 0) {
+    for (const insertBeforeId of options.insertBeforeIds ?? []) {
+      if (!insertBeforeId) continue
+      insertIndex = currentMessagesWithoutCompactArtifacts.findIndex(
+        (message) => message.id === insertBeforeId
+      )
+      if (insertIndex >= 0) break
+    }
+  }
   // Locate the preserved tail's head inside the current transcript. When the
   // boundary's preservedSegment is missing or stale, fall back to the first
   // message after the boundary/summary pair in the compressed payload that the
   // current transcript still knows about. As a last resort (no preserved tail at
   // all — e.g. manual /compress that summarized everything), append at the very
   // end so the boundary still renders, rather than dropping the merge.
-  let insertIndex = -1
-  if (preservedHeadId && currentIds.has(preservedHeadId)) {
-    insertIndex = currentMessagesWithoutCompactArtifacts.findIndex(
-      (message) => message.id === preservedHeadId
-    )
-  }
   if (insertIndex < 0) {
-    const summaryIndex = compressedMessages.indexOf(summaryMessage)
-    for (let index = summaryIndex + 1; index < compressedMessages.length; index += 1) {
-      const candidateId = compressedMessages[index]?.id
-      if (candidateId && currentIds.has(candidateId)) {
-        insertIndex = currentMessagesWithoutCompactArtifacts.findIndex(
-          (message) => message.id === candidateId
-        )
-        if (insertIndex >= 0) break
+    if (preservedHeadId && currentIds.has(preservedHeadId)) {
+      insertIndex = currentMessagesWithoutCompactArtifacts.findIndex(
+        (message) => message.id === preservedHeadId
+      )
+    }
+    if (insertIndex < 0) {
+      const summaryIndex = compressedMessages.indexOf(summaryMessage)
+      for (let index = summaryIndex + 1; index < compressedMessages.length; index += 1) {
+        const candidateId = compressedMessages[index]?.id
+        if (candidateId && currentIds.has(candidateId)) {
+          insertIndex = currentMessagesWithoutCompactArtifacts.findIndex(
+            (message) => message.id === candidateId
+          )
+          if (insertIndex >= 0) break
+        }
       }
     }
   }
@@ -478,9 +496,9 @@ export function mergeCompressedMessagesKeepHistory(
  * the renderer's kept-history transcript without dropping the older messages.
  *
  * The agent loop only carries the post-compression view ([boundary, summary,
- * ...preserved, ...newTurns]). The renderer transcript carries the full history
+ * ...newTurns]). The renderer transcript carries the full history
  * with the boundary inserted in the middle ([...oldHistory, boundary, summary,
- * ...preserved, ...newTurns, ...trailingMarkers]). To keep the older messages
+ * ...newTurns, ...trailingMarkers]). To keep the older messages
  * we splice agentMessages[boundaryIdx..] over currentMessages[boundaryIdx..]
  * while preserving any trailing items the agent never had (e.g. the persistent
  * compression status marker).
@@ -516,7 +534,7 @@ export function mergeLoopEndMessagesKeepHistory(
   // of currentMessages looking for the most recent overlap with agentMessages.
   // Bound is `> boundaryIdxCurrent` (not `>=`) — a boundary-only overlap means
   // the renderer view past the boundary diverged completely, so treat it as no
-  // tail overlap rather than slicing in the renderer's existing summary/preserved
+  // tail overlap rather than slicing in the renderer's existing summary
   // tail and duplicating it.
   let agentLastIdxInCurrent = -1
   for (let i = currentMessages.length - 1; i > boundaryIdxCurrent; i -= 1) {
@@ -729,7 +747,7 @@ export async function compressMessages(
 }
 
 function findSafeCompactBoundary(messages: UnifiedMessage[], initialBoundary: number): number {
-  let boundary = Math.max(1, Math.min(initialBoundary, messages.length - 1))
+  let boundary = Math.max(1, Math.min(initialBoundary, messages.length))
 
   for (let attempts = 0; attempts < SAFE_BOUNDARY_SCAN_LIMIT; attempts += 1) {
     const compressedToolUseIds = new Set<string>()

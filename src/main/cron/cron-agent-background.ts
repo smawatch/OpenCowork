@@ -89,7 +89,7 @@ const CONTEXT_COMPRESSION_DEFAULT_RESERVED_OUTPUT_TOKENS = 20_000
 const CONTEXT_COMPRESSION_AUTO_BUFFER_TOKENS = 13_000
 const CONTEXT_COMPRESSION_PRE_BUFFER_TOKENS = 20_000
 const CONTEXT_COMPRESSION_PRE_GAP_TOKENS = 8_000
-const CONTEXT_COMPRESSION_PRESERVE_RECENT_COUNT = 4
+const CONTEXT_COMPRESSION_PRESERVE_RECENT_COUNT = 0
 const CONTEXT_COMPRESSION_TOOL_RESULT_KEEP_RECENT = 6
 const CONTEXT_COMPRESSION_MAX_RETRIES = 2
 const CONTEXT_COMPRESSION_MAX_CONSECUTIVE_FAILURES = 3
@@ -3941,6 +3941,23 @@ function findRecentContextUsage(messages: UnifiedMessage[]): number {
   return 0
 }
 
+function shouldPreserveInitialContextUserMessage(message: UnifiedMessage | undefined): boolean {
+  if (!message || message.role !== 'user') return false
+  if (isContextSummaryLikeMessage(message)) return false
+  if (
+    Array.isArray(message.content) &&
+    message.content.length > 0 &&
+    message.content.every((block) => block.type === 'tool_result')
+  ) {
+    return false
+  }
+  return true
+}
+
+function getInitialContextCompressionPreserveCount(messages: UnifiedMessage[]): number {
+  return shouldPreserveInitialContextUserMessage(messages[messages.length - 1]) ? 1 : 0
+}
+
 function getEffectiveCompressionWindow(config: CompressionConfig): number {
   if (!config.enabled || config.contextLength <= 0) return 0
   const reserved = Math.max(
@@ -4036,7 +4053,7 @@ function findSafeContextCompressionBoundary(
   messages: UnifiedMessage[],
   initialBoundary: number
 ): number {
-  let boundary = Math.max(1, Math.min(initialBoundary, messages.length - 1))
+  let boundary = Math.max(1, Math.min(initialBoundary, messages.length))
 
   for (let attempts = 0; attempts < CONTEXT_COMPRESSION_SAFE_BOUNDARY_SCAN_LIMIT; attempts += 1) {
     const compressedToolUseIds = new Set<string>()
@@ -4257,7 +4274,7 @@ function createContextCompressionSummaryMessage(args: {
     content:
       `[Context Memory Compressed Summary]\n\n` +
       `The following summary covers ${args.messagesSummarized} earlier messages. ` +
-      `Recent messages are preserved after this summary.\n\n${args.summary}`,
+      `Continue from this summary plus any messages that appear after the compression point.\n\n${args.summary}`,
     createdAt: Date.now(),
     meta: {
       compactSummary: {
@@ -4475,7 +4492,9 @@ async function* runAgentLoop(
             conversationMessages,
             config.provider,
             config.signal,
-            CONTEXT_COMPRESSION_PRESERVE_RECENT_COUNT,
+            iteration === 0
+              ? getInitialContextCompressionPreserveCount(conversationMessages)
+              : CONTEXT_COMPRESSION_PRESERVE_RECENT_COUNT,
             undefined,
             'auto',
             lastInputTokens

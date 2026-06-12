@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { nanoid } from 'nanoid'
 import { toast } from 'sonner'
 import i18n from '@renderer/locales'
-import { useChatStore } from '@renderer/stores/chat-store'
+import { useChatStore, type Session } from '@renderer/stores/chat-store'
 import {
   clampMaxParallelToolCalls,
   resolveReasoningEffortForModel,
@@ -61,7 +61,10 @@ import type {
   RequestTiming,
   AIModelConfig,
   ToolDefinition,
-  ToolResultContent
+  ToolResultContent,
+  SelectedFileReadItemMeta,
+  SelectedFileReadsMeta,
+  SelectedFileReference
 } from '@renderer/lib/api/types'
 import { setLastDebugInfo, setRequestTraceInfo } from '@renderer/lib/debug-store'
 import { estimateTokens } from '@renderer/lib/format-tokens'
@@ -82,6 +85,7 @@ import {
   serializeSystemCommand,
   type SystemCommandSnapshot
 } from '@renderer/lib/commands/system-command'
+import { parseSelectFileText } from '@renderer/lib/select-file-tags'
 import {
   type AgentEvent,
   type AgentLoopConfig,
@@ -384,6 +388,8 @@ function summarizeActiveTeamForPromptCache(activeTeam: ActiveTeam | null | undef
 }
 
 type MessageSource = 'team' | 'queued' | 'continue'
+type PendingSessionDispatchMode = 'after_loop' | 'interrupt_next'
+const SELECTED_FILE_READ_MAX_LINES = 1_000
 
 export interface SendMessageOptions {
   longRunningMode?: boolean
@@ -392,6 +398,7 @@ export interface SendMessageOptions {
   skipAutoContextCompression?: boolean
   enablePlanMode?: boolean
   goalObjective?: string
+  selectedFileReferences?: SelectedFileReference[]
   imageEdit?: {
     maskDataUrl?: string
   }
@@ -404,6 +411,7 @@ interface QueuedSessionMessage {
   command?: SystemCommandSnapshot | null
   source?: MessageSource
   options?: SendMessageOptions
+  dispatchMode?: PendingSessionDispatchMode
   createdAt: number
 }
 
@@ -433,14 +441,209 @@ function cloneOptionalImageAttachments(images?: ImageAttachment[]): ImageAttachm
   return cloned.length > 0 ? cloned : undefined
 }
 
+function normalizeFilePath(value: string): string {
+  return value.replace(/\\/g, '/').trim()
+}
+
+function normalizeFilePathKey(value: string): string {
+  return normalizeFilePath(value).toLowerCase()
+}
+
+function isAbsoluteFilePath(value: string): boolean {
+  return /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith('\\\\') || value.startsWith('/')
+}
+
+function getBaseNameFromPath(value: string): string {
+  const normalized = normalizeFilePath(value)
+  const parts = normalized.split('/').filter(Boolean)
+  return parts[parts.length - 1] || normalized || 'file'
+}
+
+function resolvePreviewPath(sendPath: string, workingFolder?: string): string {
+  const normalized = normalizeFilePath(sendPath)
+  if (!normalized || isAbsoluteFilePath(normalized) || !workingFolder) return normalized
+  return `${normalizeFilePath(workingFolder).replace(/\/+$/, '')}/${normalized.replace(/^\/+/, '')}`
+}
+
+function sanitizeSelectedFileReference(value: SelectedFileReference): SelectedFileReference | null {
+  const sendPath = normalizeFilePath(value.sendPath)
+  const previewPath = normalizeFilePath(value.previewPath || value.originalPath || sendPath)
+  const originalPath = normalizeFilePath(value.originalPath || previewPath || sendPath)
+  const name = value.name.trim() || getBaseNameFromPath(sendPath || previewPath || originalPath)
+
+  if (!sendPath && !previewPath && !originalPath) return null
+
+  return {
+    id: value.id,
+    name,
+    originalPath,
+    sendPath,
+    previewPath,
+    isWorkspaceFile: Boolean(value.isWorkspaceFile)
+  }
+}
+
+function resolveSelectedFileReferences(
+  text: string,
+  options: SendMessageOptions | undefined,
+  session: Session | undefined
+): SelectedFileReference[] {
+  const explicit = (options?.selectedFileReferences ?? [])
+    .map(sanitizeSelectedFileReference)
+    .filter((file): file is SelectedFileReference => Boolean(file))
+  if (explicit.length > 0) return explicit
+
+  const workingFolder = session?.workingFolder
+  const byPath = new Map<string, SelectedFileReference>()
+  for (const segment of parseSelectFileText(text)) {
+    if (segment.type !== 'file') continue
+    const sendPath = normalizeFilePath(segment.text)
+    if (!sendPath) continue
+    const previewPath = resolvePreviewPath(sendPath, workingFolder)
+    const key = normalizeFilePathKey(previewPath || sendPath)
+    if (byPath.has(key)) continue
+    byPath.set(key, {
+      id: `file-${byPath.size + 1}`,
+      name: getBaseNameFromPath(sendPath),
+      originalPath: previewPath || sendPath,
+      sendPath,
+      previewPath: previewPath || sendPath,
+      isWorkspaceFile: !isAbsoluteFilePath(sendPath) && Boolean(workingFolder)
+    })
+  }
+
+  return Array.from(byPath.values())
+}
+
+type ReadTextFileLinesResult = {
+  content?: string
+  name?: string
+  path?: string
+  lineCount?: number
+  maxLines?: number
+  truncated?: boolean
+  error?: string
+}
+
+function formatReadError(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error || 'Failed to read file')
+}
+
+function sanitizeSelectedFileContextContent(content: string): string {
+  return content.replace(/<\/system-reminder>/gi, '<\\/system-reminder>')
+}
+
+async function buildSelectedFileReadContext(args: {
+  text: string
+  options?: SendMessageOptions
+  session?: Session
+}): Promise<{ meta?: SelectedFileReadsMeta; contextText?: string }> {
+  const files = resolveSelectedFileReferences(args.text, args.options, args.session)
+  if (files.length === 0) return {}
+
+  const metaFiles: SelectedFileReadItemMeta[] = []
+  const contextSections: string[] = []
+  const sshConnectionId = args.session?.sshConnectionId
+
+  for (const file of files) {
+    const displayPath = file.sendPath || file.previewPath || file.originalPath
+    const readPath = file.previewPath || file.originalPath || file.sendPath
+    const baseMeta: SelectedFileReadItemMeta = {
+      id: file.id,
+      name: file.name || getBaseNameFromPath(displayPath),
+      path: displayPath,
+      readPath,
+      lineCount: 0,
+      maxLines: SELECTED_FILE_READ_MAX_LINES,
+      truncated: false
+    }
+
+    try {
+      const result = (await ipcClient.invoke(
+        sshConnectionId ? IPC.SSH_FS_READ_TEXT_FILE_LINES : IPC.FS_READ_TEXT_FILE_LINES,
+        sshConnectionId
+          ? {
+              connectionId: sshConnectionId,
+              path: readPath,
+              maxLines: SELECTED_FILE_READ_MAX_LINES
+            }
+          : { path: readPath, maxLines: SELECTED_FILE_READ_MAX_LINES }
+      )) as ReadTextFileLinesResult
+
+      if (result?.error) {
+        metaFiles.push({ ...baseMeta, error: result.error })
+        continue
+      }
+
+      const content = typeof result.content === 'string' ? result.content : ''
+      const lineCount =
+        typeof result.lineCount === 'number'
+          ? result.lineCount
+          : content
+            ? content.split('\n').length
+            : 0
+      const maxLines =
+        typeof result.maxLines === 'number' ? result.maxLines : SELECTED_FILE_READ_MAX_LINES
+      const truncated = Boolean(result.truncated)
+      const name = result.name || baseMeta.name
+      const resultPath = result.path || readPath
+
+      metaFiles.push({
+        ...baseMeta,
+        name,
+        readPath: resultPath,
+        lineCount,
+        maxLines,
+        truncated
+      })
+
+      contextSections.push(
+        [
+          `## ${displayPath}`,
+          sanitizeSelectedFileContextContent(content),
+          truncated ? `[Only the first ${lineCount} lines were read.]` : ''
+        ]
+          .filter(Boolean)
+          .join('\n')
+      )
+    } catch (error) {
+      metaFiles.push({ ...baseMeta, error: formatReadError(error) })
+    }
+  }
+
+  const meta: SelectedFileReadsMeta = {
+    maxLines: SELECTED_FILE_READ_MAX_LINES,
+    files: metaFiles
+  }
+
+  const contextText =
+    contextSections.length > 0
+      ? [
+          '<system-reminder>',
+          'The user selected file references in this message. The application read the following file contents directly before sending. Use this as user-provided context.',
+          '<selected_files>',
+          ...contextSections,
+          '</selected_files>',
+          '</system-reminder>'
+        ].join('\n')
+      : undefined
+
+  return { meta, contextText }
+}
+
 async function mergeCompressedMessagesIntoSession(args: {
   sessionId: string
   compressedMessages: UnifiedMessage[]
+  insertAtEnd?: boolean
+  insertBeforeIds?: readonly string[]
   fallbackInsertBeforeIds?: readonly string[]
 }): Promise<boolean> {
   const chatStore = useChatStore.getState()
   const currentMessages = await chatStore.getFullSessionMessagesForMutation(args.sessionId)
   const merged = mergeCompressedMessagesKeepHistory(currentMessages, args.compressedMessages, {
+    insertAtEnd: args.insertAtEnd,
+    insertBeforeIds: args.insertBeforeIds,
     fallbackInsertBeforeIds: args.fallbackInsertBeforeIds
   })
 
@@ -1398,15 +1601,24 @@ function updateQueuedGoalObjectiveOption(
   options: SendMessageOptions | undefined,
   text: string
 ): SendMessageOptions | undefined {
-  if (options?.goalObjective === undefined) return options
+  if (!options) return options
 
-  const next = { ...options }
-  const objective = text.trim()
-  if (objective) {
-    next.goalObjective = objective
-  } else {
-    delete next.goalObjective
+  let next: SendMessageOptions = options
+  if (options.goalObjective !== undefined) {
+    next = { ...next }
+    const objective = text.trim()
+    if (objective) {
+      next.goalObjective = objective
+    } else {
+      delete next.goalObjective
+    }
   }
+
+  if (next.selectedFileReferences) {
+    next = { ...next }
+    delete next.selectedFileReferences
+  }
+
   return next
 }
 
@@ -1475,11 +1687,39 @@ export function removePendingSessionMessage(sessionId: string, messageId: string
 function hasActiveSessionRun(sessionId: string): boolean {
   const hasAbortController = sessionAbortControllers.has(sessionId)
   const hasStreamingMessage = Boolean(useChatStore.getState().streamingMessages[sessionId])
-  return hasAbortController || hasStreamingMessage
+  const sessionRunStatus = useAgentStore.getState().runningSessions[sessionId]
+  const statusIsRunning = sessionRunStatus === 'running' || sessionRunStatus === 'retrying'
+  return hasAbortController || hasStreamingMessage || statusIsRunning
 }
 
 export function hasActiveSessionRunForSession(sessionId: string): boolean {
   return hasActiveSessionRun(sessionId)
+}
+
+export function promotePendingSessionMessageForImmediateDispatch(
+  sessionId: string,
+  messageId: string
+): boolean {
+  const queue = pendingSessionMessages.get(sessionId)
+  if (!queue || queue.length === 0) return false
+
+  const index = queue.findIndex((msg) => msg.id === messageId)
+  if (index < 0) return false
+
+  const promoted: QueuedSessionMessage = {
+    ...queue[index],
+    dispatchMode: 'interrupt_next'
+  }
+  const next = [promoted, ...queue.slice(0, index), ...queue.slice(index + 1)]
+
+  replaceSessionPendingMessages(sessionId, next)
+  setPendingSessionDispatchPaused(sessionId, false)
+
+  if (!hasActiveSessionRun(sessionId)) {
+    dispatchNextQueuedMessage(sessionId)
+  }
+
+  return true
 }
 
 function enqueuePendingSessionMessage(
@@ -1496,7 +1736,8 @@ function enqueuePendingSessionMessage(
       images: cloneOptionalImageAttachments(msg.images),
       command: msg.command ?? null,
       source: msg.source,
-      options: msg.options ? { ...msg.options } : undefined
+      options: msg.options ? { ...msg.options } : undefined,
+      dispatchMode: msg.dispatchMode ?? 'after_loop'
     }
   ]
   replaceSessionPendingMessages(sessionId, next)
@@ -1513,13 +1754,21 @@ function dequeuePendingSessionMessage(sessionId: string): QueuedSessionMessage |
     text: head.text,
     images: cloneOptionalImageAttachments(head.images),
     command: head.command ?? null,
-    options: head.options ? { ...head.options } : undefined
+    options: head.options ? { ...head.options } : undefined,
+    dispatchMode: head.dispatchMode ?? 'after_loop'
   }
 }
 
 function hasPendingSessionMessages(sessionId: string): boolean {
   const queue = pendingSessionMessages.get(sessionId)
   return !!queue && queue.length > 0
+}
+
+function hasImmediatePendingSessionMessage(sessionId: string): boolean {
+  return (
+    pendingSessionMessages.get(sessionId)?.some((msg) => msg.dispatchMode === 'interrupt_next') ??
+    false
+  )
 }
 
 export function hasPendingSessionMessagesForSession(sessionId: string): boolean {
@@ -3306,6 +3555,14 @@ export function useChatActions(): {
 
         const sessionSnapshot = useChatStore.getState().sessions.find((s) => s.id === sessionId)
         const sessionMode = sessionSnapshot?.mode ?? uiStore.mode
+        const selectedFileReadContext =
+          source !== 'continue' && source !== 'team'
+            ? await buildSelectedFileReadContext({
+                text: effectiveResolvedCommand.userText || text,
+                options,
+                session: sessionSnapshot
+              })
+            : {}
 
         // Add user message (multi-modal when images attached)
         const isQueuedInsertion = source === 'queued'
@@ -3332,6 +3589,10 @@ export function useChatActions(): {
             })
           }
 
+          if (selectedFileReadContext.contextText) {
+            textBlocks.push({ type: 'text', text: selectedFileReadContext.contextText })
+          }
+
           if (effectiveResolvedCommand.command) {
             textBlocks.push({
               type: 'text',
@@ -3356,6 +3617,9 @@ export function useChatActions(): {
             role: 'user',
             content: userContent,
             createdAt: Date.now(),
+            ...(selectedFileReadContext.meta
+              ? { meta: { selectedFileReads: selectedFileReadContext.meta } }
+              : {}),
             ...(source && { source })
           }
           expectedUserRequestMessage = userMsg
@@ -4098,11 +4362,12 @@ export function useChatActions(): {
                   ? {
                       contextCompression: {
                         config: compressionConfig,
-                        compressFn: async (msgs: UnifiedMessage[]) => {
+                        compressFn: async (msgs: UnifiedMessage[], compressionOptions) => {
                           const { messages: compressed } = await compressMessages(
                             msgs,
                             agentProviderConfig,
-                            abortController.signal
+                            abortController.signal,
+                            compressionOptions?.preserveCount
                           )
                           return compressed
                         }
@@ -4766,9 +5031,9 @@ export function useChatActions(): {
                       console.log(
                         `[ChatActions] Queued message detected at iteration_end, but dispatch is paused for session ${sessionId}`
                       )
-                    } else {
+                    } else if (hasImmediatePendingSessionMessage(sessionId!)) {
                       console.log(
-                        `[ChatActions] Queued message detected at iteration_end, interrupting current run at the turn boundary for session ${sessionId}`
+                        `[ChatActions] Promoted queued message detected at iteration_end, interrupting current run at the turn boundary for session ${sessionId}`
                       )
                       queueMicrotask(() => {
                         const activeAbortController = sessionAbortControllers.get(sessionId!)
@@ -4777,6 +5042,10 @@ export function useChatActions(): {
                         }
                         void cancelSidecarRun(sessionId!)
                       })
+                    } else {
+                      console.log(
+                        `[ChatActions] Queued message detected at iteration_end; waiting for current run to finish for session ${sessionId}`
+                      )
                     }
                   }
                   break
@@ -4895,7 +5164,7 @@ export function useChatActions(): {
                         ?.messages ?? []
                     // The agent loop only emits messages on loop_end when compression
                     // ran during this run. The agent carries the reduced view
-                    // ([boundary, summary, ...preserved, ...newTurns]) but the
+                    // ([boundary, summary, ...newTurns]) but the
                     // renderer holds the full transcript with old messages intact —
                     // splice the agent's tail over the renderer's tail instead of
                     // overwriting the prefix.
@@ -5010,9 +5279,13 @@ export function useChatActions(): {
                       break
                     }
 
+                    // Display compression where it happened in wall-clock time.
+                    // Request reconstruction now uses compact metadata instead of
+                    // relying on the boundary living ahead of the preserved tail.
                     const merged = await mergeCompressedMessagesIntoSession({
                       sessionId,
                       compressedMessages,
+                      insertAtEnd: true,
                       fallbackInsertBeforeIds: [assistantMsgId]
                     })
                     if (!merged) {
@@ -5130,14 +5403,16 @@ export function useChatActions(): {
               (s) => s === 'running' || s === 'retrying'
             )
             agentStore.setRunning(hasOtherRunning)
-            dispatchNextQueuedMessage(sessionId)
+            const dispatchedQueuedMessage = dispatchNextQueuedMessage(sessionId)
 
-            if (shouldAutoContinueLongRunning) {
+            if (shouldAutoContinueLongRunning && !dispatchedQueuedMessage) {
               queueMicrotask(() => {
                 void sendMessage('', undefined, 'continue', sessionId, null, assistantMsgId)
               })
             } else {
-              tryDispatchPendingGoalContinuation(sessionId)
+              if (!dispatchedQueuedMessage) {
+                tryDispatchPendingGoalContinuation(sessionId)
+              }
               if (sessionScope === 'main' && !abortController.signal.aborted) {
                 void runMemoryAutomationForSession({
                   sessionId,
@@ -5558,7 +5833,8 @@ export function useChatActions(): {
       }
       const merged = await mergeCompressedMessagesIntoSession({
         sessionId,
-        compressedMessages: compressed
+        compressedMessages: compressed,
+        insertAtEnd: true
       })
       if (!merged) {
         toast.error('Compression failed', { description: 'Could not merge compressed context' })

@@ -1,4 +1,5 @@
 import { resolvePromptEnvironmentContext } from '../system-prompt'
+import { resolveLanguageName } from '../../i18n-language'
 
 /**
  * Build the default system prompt used for "custom" sub-agents spawned via
@@ -16,7 +17,7 @@ export function buildDefaultSubAgentSystemPrompt(options: {
 }): string {
   const { workingFolder, language } = options
   const environmentContext = resolvePromptEnvironmentContext({ workingFolder })
-  const languageLabel = language === 'zh' ? 'Chinese (中文)' : 'English'
+  const languageLabel = language === 'zh' ? 'Chinese (中文)' : resolveLanguageName(language)
 
   const parts: string[] = []
 

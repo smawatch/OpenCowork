@@ -1,8 +1,13 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { getDefaultApiUserAgent } from '../lib/api-user-agent'
+import {
+  BUILTIN_SOUL_TEMPLATES,
+  type BuiltinSoulTemplate,
+  type BuiltinSoulTemplateWithContent
+} from '../../shared/builtin-souls'
 
 export interface SoulMarketInfo {
   id: string
@@ -134,7 +139,39 @@ function resolveProjectSoulPath(projectRootPath?: string): string | null {
   return path.join(root, '.agents', 'SOUL.md')
 }
 
+function getBundledSoulsDir(): string {
+  if (!app.isPackaged) {
+    return path.join(app.getAppPath(), 'resources', 'souls')
+  }
+
+  const unpackedDir = path.join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'souls')
+  if (fs.existsSync(unpackedDir)) {
+    return unpackedDir
+  }
+
+  return path.join(process.resourcesPath, 'resources', 'souls')
+}
+
+function readBuiltinSoulTemplate(template: BuiltinSoulTemplate): BuiltinSoulTemplateWithContent {
+  const filePath = path.join(getBundledSoulsDir(), template.filename)
+  const content = fs.readFileSync(filePath, 'utf-8')
+  return { ...template, content }
+}
+
 export function registerSoulsHandlers(): void {
+  ipcMain.handle(
+    'souls:builtin-list',
+    async (): Promise<{ templates: BuiltinSoulTemplateWithContent[]; error?: string }> => {
+      try {
+        return {
+          templates: BUILTIN_SOUL_TEMPLATES.map((template) => readBuiltinSoulTemplate(template))
+        }
+      } catch (err) {
+        return { templates: [], error: getErrorMessage(err) }
+      }
+    }
+  )
+
   ipcMain.handle(
     'souls:market-list',
     async (

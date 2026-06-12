@@ -108,9 +108,9 @@
     "queueQuote": "Quote",
     "queueImageCount": "{{count}} images",
     "queueImageOnly": "[Images only]",
-    "slashSuggestions": "Command & skill suggestions",
-    "loadingSlashSuggestions": "Loading commands and skills...",
-    "noSlashSuggestionsFound": "No matching commands or skills",
+    "slashSuggestions": "Command, plugin & skill suggestions",
+    "loadingSlashSuggestions": "Loading commands, plugins, and skills...",
+    "noSlashSuggestionsFound": "No matching commands, plugins, or skills",
     "queueCleared": "Queued messages cleared",
     "queueClearConfirmTitle": "Clear queued messages?",
     "queueClearConfirmDesc": "This will remove {{count}} queued messages in the current session.",
@@ -841,7 +841,11 @@
     "copyImage": "Copy image",
     "removeImage": "Remove image",
     "imagePreview": "Image preview",
-    "saveAndResend": "Save & Resend"
+    "saveAndResend": "Save & Resend",
+    "selectedFileReadsTitle": "Read files",
+    "selectedFileReadLines": "Read {{count}} lines",
+    "selectedFileReadTruncated": "Read first {{count}} lines",
+    "selectedFileReadFailed": "Read failed"
   },
   "assistantMessage": {
     "changedFiles_one": "Edited {{count}} file",
@@ -1009,6 +1013,15 @@
   },
   "error": {
     "label": "Error"
+  },
+  "extensionResult": {
+    "title": "Extension result",
+    "rendererMissing": "Renderer not found",
+    "loadingRenderer": "Loading renderer...",
+    "rendererTitle": "Extension renderer",
+    "tableTitle": "Table",
+    "emptyTable": "No rows to display",
+    "chartItem": "Item {{index}}"
   },
   "git": {
     "title": "Source Control",

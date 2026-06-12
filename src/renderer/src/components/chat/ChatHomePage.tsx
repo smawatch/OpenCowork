@@ -53,11 +53,9 @@ export function ChatHomePage(): React.JSX.Element {
   const activeProjectId = useChatStore((s) => s.activeProjectId)
   const { projects, activeProject, workingFolder, sshConnectionId } = useChatStore(
     useShallow((s) => {
-      const project =
-        s.projects.find((item) => item.id === s.activeProjectId) ??
-        s.projects.find((item) => !item.pluginId) ??
-        s.projects[0] ??
-        null
+      const project = s.activeProjectId
+        ? (s.projects.find((item) => item.id === s.activeProjectId) ?? null)
+        : null
       return {
         projects: s.projects,
         activeProject: project,
@@ -70,9 +68,11 @@ export function ChatHomePage(): React.JSX.Element {
     () => projects.filter((project) => !project.pluginId),
     [projects]
   )
-  const defaultSelectedProjectId = activeProjectId ?? selectableProjects[0]?.id ?? null
+  const defaultSelectedProjectId =
+    activeProjectId && selectableProjects.some((project) => project.id === activeProjectId)
+      ? activeProjectId
+      : null
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null)
-  const projectSelectionTouchedRef = React.useRef(false)
   const selectedProject =
     selectableProjects.find((project) => project.id === selectedProjectId) ?? null
   const homeProject = selectedProject ?? activeProject
@@ -89,14 +89,13 @@ export function ChatHomePage(): React.JSX.Element {
   const [createProjectDialogOpen, setCreateProjectDialogOpen] = React.useState(false)
 
   React.useEffect(() => {
-    if (projectSelectionTouchedRef.current) return
     setSelectedProjectId(defaultSelectedProjectId)
   }, [defaultSelectedProjectId])
 
   React.useEffect(() => {
     if (!selectedProjectId) return
     if (selectableProjects.some((project) => project.id === selectedProjectId)) return
-    setSelectedProjectId(selectableProjects[0]?.id ?? null)
+    setSelectedProjectId(null)
   }, [selectableProjects, selectedProjectId])
 
   React.useEffect(() => {
@@ -107,9 +106,14 @@ export function ChatHomePage(): React.JSX.Element {
   }, [activeProjectId, mode, selectableProjects, selectedProjectId])
 
   const handleSelectHomeProject = React.useCallback((projectId: string | null): void => {
-    projectSelectionTouchedRef.current = true
     setSelectedProjectId(projectId)
     useChatStore.getState().setActiveProject(projectId)
+    const uiStore = useUIStore.getState()
+    if (projectId && uiStore.mode === 'chat') {
+      uiStore.setMode('cowork')
+    } else if (!projectId) {
+      uiStore.setMode('chat')
+    }
   }, [])
 
   const handleCreateProjectWithDirectory = React.useCallback(
@@ -123,9 +127,11 @@ export function ChatHomePage(): React.JSX.Element {
         workingFolder: folderPath,
         sshConnectionId: connectionId ?? undefined
       })
-      projectSelectionTouchedRef.current = true
       setSelectedProjectId(projectId)
       chatStore.setActiveProject(projectId)
+      if (useUIStore.getState().mode === 'chat') {
+        useUIStore.getState().setMode('cowork')
+      }
       setCreateProjectDialogOpen(false)
     },
     [t]

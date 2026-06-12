@@ -4,6 +4,7 @@ import {
   editorDocumentToPlainText,
   type EditorDocumentNode,
   type EditorFileNode,
+  type EditorPluginNode,
   type SelectedFileItem
 } from '@renderer/lib/select-file-editor'
 
@@ -79,7 +80,7 @@ function buildFileChip(
   wrapper.setAttribute('data-fallback-text', node.fallbackText)
   wrapper.setAttribute('contenteditable', 'false')
   wrapper.className = cn(
-    'composer-file-ref group/file-ref mx-0.5 inline-flex max-w-full items-center gap-1 rounded-lg px-2.5 py-1 align-baseline text-[12px] font-medium',
+    'composer-file-ref group/file-ref mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md px-2 py-0.5 align-baseline text-[12px] font-medium',
     highlightedFileId && highlightedFileId === node.fileId ? 'composer-file-ref--highlighted' : ''
   )
 
@@ -157,6 +158,54 @@ function buildFileChip(
   return wrapper
 }
 
+function buildPluginChip(
+  node: EditorPluginNode,
+  handlers: Pick<FileAwareEditorProps, 'onReferenceDelete'>
+): HTMLElement {
+  const wrapper = document.createElement('span')
+  wrapper.setAttribute('data-plugin-ref', 'true')
+  wrapper.setAttribute('data-node-id', node.id)
+  wrapper.setAttribute('data-plugin-id', node.pluginId)
+  wrapper.setAttribute('data-label', node.label)
+  wrapper.setAttribute('data-prompt', node.prompt)
+  wrapper.setAttribute('data-fallback-text', node.label || node.pluginId)
+  wrapper.setAttribute('contenteditable', 'false')
+  wrapper.className =
+    'composer-file-ref group/file-ref mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md px-2 py-0.5 align-baseline text-[12px] font-medium'
+  wrapper.title = node.prompt
+
+  const icon = document.createElement('span')
+  icon.className = 'pointer-events-none inline-flex items-center'
+  icon.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3"><path d="M19.4 7.34 16.66 4.6a2 2 0 0 0-2.82 0l-1.08 1.08 5.56 5.56 1.08-1.08a2 2 0 0 0 0-2.82Z"></path><path d="m14.5 7.5-8 8"></path><path d="m5 19 3.5-1 8-8L14 7.5l-8 8L5 19Z"></path></svg>'
+
+  const label = document.createElement('span')
+  label.className = 'truncate max-w-[240px]'
+  label.textContent = node.label || node.pluginId
+
+  wrapper.append(icon, label)
+
+  if (handlers.onReferenceDelete) {
+    const deleteBtn = document.createElement('button')
+    deleteBtn.type = 'button'
+    deleteBtn.className =
+      'composer-file-ref-action hidden size-4 items-center justify-center rounded-sm group-hover/file-ref:inline-flex'
+    deleteBtn.title = 'Delete plugin reference'
+    deleteBtn.addEventListener('mousedown', (event) => {
+      event.preventDefault()
+    })
+    deleteBtn.addEventListener('click', (event) => {
+      event.preventDefault()
+      handlers.onReferenceDelete?.(node.id)
+    })
+    deleteBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>'
+    wrapper.append(deleteBtn)
+  }
+
+  return wrapper
+}
+
 function renderDocument(
   root: HTMLDivElement,
   documentNodes: EditorDocumentNode[],
@@ -174,11 +223,16 @@ function renderDocument(
       continue
     }
 
-    const file = files.find((item) => item.id === node.fileId)
-    root.append(
-      buildFileChip(node, file, props, props.highlightedFileId),
-      document.createTextNode('')
-    )
+    if (node.type === 'file') {
+      const file = files.find((item) => item.id === node.fileId)
+      root.append(
+        buildFileChip(node, file, props, props.highlightedFileId),
+        document.createTextNode('')
+      )
+      continue
+    }
+
+    root.append(buildPluginChip(node, props), document.createTextNode(''))
   }
 
   if (documentNodes.length === 0) {
@@ -201,6 +255,10 @@ function collectTextContent(node: Node): string {
 
   const element = node as HTMLElement
   if (element.matches('[data-file-ref="true"]')) {
+    return element.dataset.fallbackText || ''
+  }
+
+  if (element.matches('[data-plugin-ref="true"]')) {
     return element.dataset.fallbackText || ''
   }
 
@@ -229,6 +287,17 @@ function isSameDocument(left: EditorDocumentNode[], right: EditorDocumentNode[])
         leftNode.id !== rightNode.id ||
         leftNode.fileId !== rightNode.fileId ||
         leftNode.fallbackText !== rightNode.fallbackText
+      ) {
+        return false
+      }
+    }
+
+    if (leftNode?.type === 'plugin' && rightNode?.type === 'plugin') {
+      if (
+        leftNode.id !== rightNode.id ||
+        leftNode.pluginId !== rightNode.pluginId ||
+        leftNode.label !== rightNode.label ||
+        leftNode.prompt !== rightNode.prompt
       ) {
         return false
       }
@@ -275,6 +344,23 @@ function parseDomToDocument(root: HTMLDivElement): EditorDocumentNode[] {
       return
     }
 
+    if (element.matches('[data-plugin-ref="true"]')) {
+      const nodeId = element.dataset.nodeId
+      const pluginId = element.dataset.pluginId
+      const label = element.dataset.label || pluginId || ''
+      const prompt = element.dataset.prompt || ''
+      if (nodeId && pluginId && prompt) {
+        nextDocument.push({
+          type: 'plugin',
+          id: nodeId,
+          pluginId,
+          label,
+          prompt
+        })
+      }
+      return
+    }
+
     if (element.tagName === 'BR') {
       appendText('\n')
       return
@@ -288,7 +374,7 @@ function parseDomToDocument(root: HTMLDivElement): EditorDocumentNode[] {
 
   Array.from(root.childNodes).forEach(visit)
 
-  return nextDocument.filter((node) => node.type === 'file' || node.text.length > 0)
+  return nextDocument.filter((node) => node.type !== 'text' || node.text.length > 0)
 }
 
 function getSelectionOffsets(
@@ -383,7 +469,7 @@ function setSelectionOffsets(root: HTMLDivElement, start: number, end: number): 
 
       if (current.nodeType === Node.ELEMENT_NODE) {
         const element = current as HTMLElement
-        if (element.matches('[data-file-ref="true"]')) {
+        if (element.matches('[data-file-ref="true"], [data-plugin-ref="true"]')) {
           const fallbackText = element.dataset.fallbackText || ''
           const nextCursor = cursor + fallbackText.length
           const parent = element.parentNode || root

@@ -118,6 +118,39 @@ function ensureBuiltinSkills(): void {
   }
 }
 
+function ensureBuiltinSkill(name: string): { success: boolean; name?: string; error?: string } {
+  try {
+    const normalizedName = name.trim()
+    if (!/^[a-z0-9-]+$/.test(normalizedName)) {
+      return { success: false, error: 'Invalid built-in skill name' }
+    }
+
+    const bundledDir = getBundledSkillsDir()
+    const sourceDir = path.join(bundledDir, normalizedName)
+    const sourceManifest = path.join(sourceDir, SKILLS_FILENAME)
+    if (!fs.existsSync(sourceManifest)) {
+      return { success: false, error: `Built-in skill "${normalizedName}" was not found` }
+    }
+
+    if (!fs.existsSync(SKILLS_DIR)) {
+      fs.mkdirSync(SKILLS_DIR, { recursive: true })
+    }
+
+    const targetDir = path.join(SKILLS_DIR, normalizedName)
+    const targetManifest = path.join(targetDir, SKILLS_FILENAME)
+    if (!fs.existsSync(targetManifest)) {
+      if (fs.existsSync(targetDir)) {
+        fs.rmSync(targetDir, { recursive: true, force: true })
+      }
+      copyDirRecursive(sourceDir, targetDir)
+    }
+
+    return { success: true, name: normalizedName }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+}
+
 export interface SkillInfo {
   name: string
   description: string
@@ -275,6 +308,16 @@ async function extractZipArchive(zipPath: string, destinationDir: string): Promi
 export function registerSkillsHandlers(): void {
   // Initialize builtin skills on startup
   ensureBuiltinSkills()
+
+  ipcMain.handle(
+    'skills:ensure-builtin',
+    async (
+      _event,
+      args: { name: string }
+    ): Promise<{ success: boolean; name?: string; error?: string }> => {
+      return ensureBuiltinSkill(args.name)
+    }
+  )
 
   /**
    * skills:list — scan ~/.agents/skills/ and return all available skills.

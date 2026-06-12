@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import { createSelectFileTag, parseSelectFileText } from './select-file-tags'
+import { createSelectFileTag, createSelectPluginTag, parseSelectFileText } from './select-file-tags'
 
 export interface SelectedFileItem {
   id: string
@@ -23,10 +23,19 @@ export interface EditorFileNode {
   fallbackText: string
 }
 
-export type EditorDocumentNode = EditorTextNode | EditorFileNode
+export interface EditorPluginNode {
+  type: 'plugin'
+  id: string
+  pluginId: string
+  label: string
+  prompt: string
+}
+
+export type EditorDocumentNode = EditorTextNode | EditorFileNode | EditorPluginNode
 
 interface SerializeOptions {
   appendUnreferencedFiles?: boolean
+  expandPluginPrompts?: boolean
 }
 
 function normalizePath(value: string): string {
@@ -77,6 +86,16 @@ function createFileNode(fileId: string, fallbackText: string): EditorFileNode {
     id: nanoid(),
     fileId,
     fallbackText
+  }
+}
+
+function createPluginNode(pluginId: string, label: string, prompt: string): EditorPluginNode {
+  return {
+    type: 'plugin',
+    id: nanoid(),
+    pluginId,
+    label,
+    prompt
   }
 }
 
@@ -180,7 +199,9 @@ export function getFilePlainText(node: EditorFileNode, files: SelectedFileItem[]
 }
 
 export function getNodePlainText(node: EditorDocumentNode, files: SelectedFileItem[]): string {
-  return node.type === 'text' ? node.text : getFilePlainText(node, files)
+  if (node.type === 'text') return node.text
+  if (node.type === 'file') return getFilePlainText(node, files)
+  return node.label || node.pluginId
 }
 
 export function getNodePlainTextLength(
@@ -206,6 +227,14 @@ export function serializeEditorDocument(
   const base = document
     .map((node) => {
       if (node.type === 'text') return node.text
+      if (node.type === 'plugin') {
+        if (options?.expandPluginPrompts) return node.prompt
+        return createSelectPluginTag({
+          pluginId: node.pluginId,
+          label: node.label,
+          prompt: node.prompt
+        })
+      }
       const file = files.find((item) => item.id === node.fileId)
       if (!file) return node.fallbackText
       referencedFileIds.add(file.id)
@@ -242,6 +271,11 @@ export function deserializeEditorState(
   for (const segment of parseSelectFileText(text)) {
     if (segment.type === 'text') {
       if (segment.text) document.push(createTextNode(segment.text))
+      continue
+    }
+
+    if (segment.type === 'plugin') {
+      document.push(createPluginNode(segment.pluginId, segment.label, segment.prompt))
       continue
     }
 
@@ -328,7 +362,7 @@ export function removeReferenceNode(
   const nextNodes: EditorDocumentNode[] = []
 
   for (const node of currentDocument) {
-    if (node.type === 'file' && node.id === nodeId) {
+    if (node.id === nodeId && node.type !== 'text') {
       continue
     }
 
@@ -337,7 +371,11 @@ export function removeReferenceNode(
       continue
     }
 
-    nextNodes.push({ ...node, fallbackText: getFilePlainText(node, files) })
+    if (node.type === 'file') {
+      nextNodes.push({ ...node, fallbackText: getFilePlainText(node, files) })
+    } else {
+      nextNodes.push({ ...node })
+    }
   }
 
   return mergeTextNodes(nextNodes)
@@ -359,7 +397,7 @@ export function normalizeSelectionToFileBoundaries(
     const nodeEnd = cursor + length
     cursor = nodeEnd
 
-    if (node.type !== 'file' || length === 0) continue
+    if (node.type === 'text' || length === 0) continue
 
     if (nextStart > nodeStart && nextStart < nodeEnd) {
       nextStart = nextStart - nodeStart <= nodeEnd - nextStart ? nodeStart : nodeEnd
@@ -439,6 +477,14 @@ export function createTextReplacementNode(text: string): EditorTextNode {
 
 export function createFileReferenceNode(fileId: string, fallbackText: string): EditorFileNode {
   return createFileNode(fileId, fallbackText)
+}
+
+export function createPluginReferenceNode(
+  pluginId: string,
+  label: string,
+  prompt: string
+): EditorPluginNode {
+  return createPluginNode(pluginId, label, prompt)
 }
 
 export function documentHasFileReferences(

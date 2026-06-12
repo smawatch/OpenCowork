@@ -207,9 +207,36 @@ export interface CompressionStatusMeta {
   newCount?: number
 }
 
+export interface SelectedFileReference {
+  id: string
+  name: string
+  originalPath: string
+  sendPath: string
+  previewPath: string
+  isWorkspaceFile: boolean
+}
+
+export interface SelectedFileReadItemMeta {
+  id?: string
+  name: string
+  path: string
+  readPath?: string
+  lineCount: number
+  maxLines: number
+  truncated: boolean
+  error?: string
+}
+
+export interface SelectedFileReadsMeta {
+  maxLines: number
+  files: SelectedFileReadItemMeta[]
+}
+
 export interface MessageMeta {
   compactBoundary?: CompactBoundaryMeta
   compactSummary?: CompactSummaryMeta
+  /** Files explicitly selected by the user and read into the hidden turn context. */
+  selectedFileReads?: SelectedFileReadsMeta
   /** Inline compression status card — present on the synthetic system placeholder, not on real messages. */
   compressionStatus?: CompressionStatusMeta
 }

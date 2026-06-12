@@ -30,7 +30,8 @@ import {
 import {
   isCompactArtifactMessage,
   isCompactBoundaryMessage,
-  resolveActiveCompactArtifacts
+  resolveActiveCompactArtifacts,
+  type ActiveCompactArtifacts
 } from '../lib/agent/context-compression'
 
 export type SessionMode = 'chat' | 'clarify' | 'cowork' | 'code' | 'acp'
@@ -1218,19 +1219,106 @@ function isUiOnlyRequestMessage(message: UnifiedMessage): boolean {
   return Array.isArray(message.content) && message.content.length === 0
 }
 
+function stripThinkingBlocksForCompactRequest(message: UnifiedMessage): UnifiedMessage {
+  if (!Array.isArray(message.content)) return message
+
+  const content = message.content.filter((block) => block.type !== 'thinking')
+  if (content.length === message.content.length) return message
+
+  return { ...message, content }
+}
+
+function appendCompactRequestMessage(
+  result: UnifiedMessage[],
+  seenIds: Set<string>,
+  message: UnifiedMessage | undefined,
+  activeCompact: ActiveCompactArtifacts
+): void {
+  if (!message || seenIds.has(message.id) || isUiOnlyRequestMessage(message)) return
+  if (isCompactArtifactMessage(message)) {
+    if (isCompactBoundaryMessage(message)) {
+      if (message.id !== activeCompact.boundaryId) return
+    } else if (message.id !== activeCompact.summaryId) {
+      return
+    }
+  }
+
+  result.push(stripThinkingBlocksForCompactRequest(message))
+  seenIds.add(message.id)
+}
+
+function collectCompactPreservedMessages(
+  messages: UnifiedMessage[],
+  boundaryMessage: UnifiedMessage | undefined,
+  activeCompact: ActiveCompactArtifacts
+): UnifiedMessage[] {
+  const preservedSegment = boundaryMessage?.meta?.compactBoundary?.preservedSegment
+  const preservedHeadId = preservedSegment?.headId?.trim() ?? ''
+  const preservedTailId = preservedSegment?.tailId?.trim() ?? ''
+  if (!preservedHeadId || !preservedTailId) return []
+
+  const headIndex = messages.findIndex((message) => message.id === preservedHeadId)
+  if (headIndex < 0) return []
+
+  let tailIndex = -1
+  for (let index = headIndex; index < messages.length; index += 1) {
+    if (messages[index]?.id === preservedTailId) {
+      tailIndex = index
+      break
+    }
+  }
+  if (tailIndex < headIndex) return []
+
+  const preservedMessages: UnifiedMessage[] = []
+  const seenIds = new Set<string>()
+  for (const message of messages.slice(headIndex, tailIndex + 1)) {
+    appendCompactRequestMessage(preservedMessages, seenIds, message, activeCompact)
+  }
+  return preservedMessages
+}
+
 function applyLatestCompactRequestView(messages: UnifiedMessage[]): UnifiedMessage[] {
   const activeCompact = resolveActiveCompactArtifacts(messages)
-  const compactView =
-    activeCompact && activeCompact.boundaryIndex >= 0
-      ? messages.slice(activeCompact.boundaryIndex)
-      : messages
+  if (!activeCompact || activeCompact.boundaryIndex < 0) {
+    return messages.filter((message) => {
+      if (isUiOnlyRequestMessage(message)) return false
+      if (!isCompactArtifactMessage(message)) return true
+      return false
+    })
+  }
 
-  return compactView.filter((message) => {
-    if (isUiOnlyRequestMessage(message)) return false
-    if (!isCompactArtifactMessage(message)) return true
-    if (isCompactBoundaryMessage(message)) return message.id === activeCompact?.boundaryId
-    return message.id === activeCompact?.summaryId
-  })
+  const compactMessages: UnifiedMessage[] = []
+  const seenIds = new Set<string>()
+  const boundaryMessage = activeCompact.boundaryId
+    ? messages.find((message) => message.id === activeCompact.boundaryId)
+    : undefined
+  const summaryMessage = activeCompact.summaryId
+    ? messages.find((message) => message.id === activeCompact.summaryId)
+    : undefined
+
+  appendCompactRequestMessage(compactMessages, seenIds, boundaryMessage, activeCompact)
+  appendCompactRequestMessage(compactMessages, seenIds, summaryMessage, activeCompact)
+
+  const preservedMessages = collectCompactPreservedMessages(
+    messages,
+    boundaryMessage,
+    activeCompact
+  )
+  for (const message of preservedMessages) {
+    appendCompactRequestMessage(compactMessages, seenIds, message, activeCompact)
+  }
+
+  const trailingStartIndex =
+    activeCompact.summaryIndex >= 0
+      ? activeCompact.summaryIndex + 1
+      : activeCompact.boundaryIndex + 1
+
+  for (const message of messages.slice(Math.max(0, trailingStartIndex))) {
+    if (seenIds.has(message.id)) continue
+    appendCompactRequestMessage(compactMessages, seenIds, message, activeCompact)
+  }
+
+  return compactMessages
 }
 
 function mergeResidentTailWithFetchedPrefix(

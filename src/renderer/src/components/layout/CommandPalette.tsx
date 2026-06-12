@@ -91,7 +91,7 @@ export function CommandPalette(): React.JSX.Element {
   const setMode = useUIStore((s) => s.setMode)
   const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar)
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel)
-  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
+  const openSettingsPage = useUIStore((s) => s.openSettingsPage)
   const setShortcutsOpen = useUIStore((s) => s.setShortcutsOpen)
 
   const { theme, setTheme } = useTheme()
@@ -171,7 +171,7 @@ export function CommandPalette(): React.JSX.Element {
             <span>{t('commandPalette.newChat')}</span>
             <CommandShortcut>Ctrl+N</CommandShortcut>
           </CommandItem>
-          <CommandItem onSelect={() => runAndClose(() => setSettingsOpen(true))}>
+          <CommandItem onSelect={() => runAndClose(() => openSettingsPage())}>
             <Settings className="size-4" />
             <span>{t('commandPalette.openSettings')}</span>
             <CommandShortcut>Ctrl+,</CommandShortcut>

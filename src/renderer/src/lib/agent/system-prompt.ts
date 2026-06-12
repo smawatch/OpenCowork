@@ -4,6 +4,7 @@ import { toolRegistry } from './tool-registry'
 import { getRegisteredSkills } from '../tools/skill-tool'
 import { buildLeadCoordinatorPrompt } from './teams/prompts'
 import type { ActiveTeam } from '../../stores/team-store'
+import { resolveLanguageName } from '../i18n-language'
 
 export type PromptEnvironmentContext = {
   target: 'local' | 'ssh'
@@ -284,7 +285,7 @@ export function buildSystemPrompt(options: {
     )
   }
   parts.push(
-    `\n**IMPORTANT: You MUST respond in ${language === 'zh' ? 'Chinese' : 'English'} unless the user explicitly requests otherwise.**`
+    `\n**IMPORTANT: You MUST respond in ${resolveLanguageName(language)} unless the user explicitly requests otherwise.**`
   )
 
   parts.push(`\n${buildModePromptBody(options.mode, environmentContext)}`)

@@ -2,7 +2,7 @@
   "contextCompression": {
     "clearedToolResult": "[工具结果已清除以释放上下文空间]",
     "clearedThinking": "[思考已清除]",
-    "summaryMessage": "[上下文记忆压缩摘要]\n\n此会话从之前的对话继续，上下文已接近上限。以下摘要涵盖 {{count}} 条早期消息。近期消息在摘要之后原样保留。\n\n{{summary}}",
+    "summaryMessage": "[上下文记忆压缩摘要]\n\n此会话从之前的对话继续，上下文已接近上限。以下摘要涵盖 {{count}} 条早期消息。请基于此摘要以及压缩点之后的新消息继续。\n\n{{summary}}",
     "boundaryTitle": "上下文压缩",
     "boundaryAuto": "自动",
     "boundaryManual": "手动",
@@ -10,7 +10,7 @@
     "summaryTitle": "压缩上下文摘要",
     "continuationSessionTitle": "{{title}} · 压缩上下文",
     "summaryMessages": "早期 {{count}} 条消息",
-    "summaryRecentPreserved": "近期消息已保留",
+    "summaryRecentPreserved": "原文仍可查看",
     "summaryExpand": "展开摘要",
     "summaryCollapse": "收起摘要",
     "compressing": "正在压缩上下文…",

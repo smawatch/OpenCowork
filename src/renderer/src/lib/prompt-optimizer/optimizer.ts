@@ -1,6 +1,7 @@
 import type { UnifiedMessage } from '../api/types'
 import { createProvider } from '../api/provider'
 import type { ProviderConfig } from '../api/types'
+import { resolveLanguageName, type AppLanguage } from '../i18n-language'
 
 export interface OptimizationOption {
   title: string
@@ -79,7 +80,7 @@ export interface OptimizerToolCall {
 export async function* optimizePrompt(
   userInput: string,
   providerConfig: ProviderConfig,
-  language: 'en' | 'zh',
+  language: AppLanguage,
   signal?: AbortSignal
 ): AsyncGenerator<{
   type: 'text' | 'thinking' | 'tool_call' | 'result'
@@ -87,10 +88,7 @@ export async function* optimizePrompt(
   options?: OptimizationOption[]
   toolCall?: OptimizerToolCall
 }> {
-  const languageInstruction =
-    language === 'zh'
-      ? '\n\n**CRITICAL LANGUAGE REQUIREMENT**: You MUST respond in Chinese (中文). All analysis text, option titles, focus descriptions, and optimized prompt content MUST be in Chinese.'
-      : '\n\n**CRITICAL LANGUAGE REQUIREMENT**: You MUST respond in English. All analysis text, option titles, focus descriptions, and optimized prompt content MUST be in English.'
+  const languageInstruction = `\n\n**CRITICAL LANGUAGE REQUIREMENT**: You MUST respond in ${resolveLanguageName(language)}. All analysis text, option titles, focus descriptions, and optimized prompt content MUST be in ${resolveLanguageName(language)}.`
 
   const messages: UnifiedMessage[] = [
     {

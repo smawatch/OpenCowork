@@ -40,19 +40,19 @@ export function SelectedFileBar({
 
   return (
     <div className="px-1 pb-2">
-      <div className="overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-blue-500/6 to-background shadow-sm">
-        <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5">
+      <div className="overflow-hidden rounded-lg border border-border/60 bg-muted/20">
+        <div className="flex items-center justify-between gap-2 border-b border-border/60 px-2.5 py-1.5">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
-              <FileCode2 className="size-3.5 text-blue-500" />
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/70">
+              <FileCode2 className="size-3.5 text-muted-foreground" />
             </div>
             <div className="min-w-0">
               <div className="truncate text-xs font-medium text-foreground">Selected files</div>
-              <div className="text-[10px] text-muted-foreground">
+              <div className="truncate text-[10px] text-muted-foreground">
                 Drag into input to display as inline file component
               </div>
             </div>
-            <span className="rounded-full border border-border/60 bg-background/90 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <span className="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground tabular-nums">
               {files.length}
             </span>
           </div>
@@ -62,7 +62,7 @@ export function SelectedFileBar({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 gap-1 rounded-lg px-2 text-[10px]"
+                className="h-6 gap-1 rounded-md px-1.5 text-[10px]"
                 onClick={() => setExpanded((prev) => !prev)}
               >
                 {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
@@ -73,7 +73,7 @@ export function SelectedFileBar({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 gap-1 rounded-lg px-2 text-[10px] text-muted-foreground hover:text-destructive"
+              className="h-6 gap-1 rounded-md px-1.5 text-[10px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               onClick={onClear}
             >
               <Trash2 className="size-3" />
@@ -82,7 +82,7 @@ export function SelectedFileBar({
           </div>
         </div>
 
-        <div className="grid gap-2 p-2">
+        <div className="grid gap-1 p-1.5">
           {visibleFiles.map((file) => {
             const isHighlighted = highlightedFileId === file.id
             return (
@@ -90,10 +90,10 @@ export function SelectedFileBar({
                 key={file.id}
                 id={`selected-file-bar-item-${file.id}`}
                 className={cn(
-                  'group/file-item flex items-center gap-2 rounded-xl border px-2.5 py-2 transition-all',
+                  'group/file-item flex items-center gap-2 rounded-md border px-2 py-1.5 transition-colors',
                   isHighlighted
-                    ? 'border-blue-500/25 bg-blue-500/10 ring-2 ring-blue-400/30 ring-offset-1 ring-offset-background'
-                    : 'border-border/50 bg-background/80 hover:border-blue-500/20 hover:bg-blue-500/5'
+                    ? 'border-primary/35 bg-primary/10 ring-2 ring-primary/15'
+                    : 'border-border/50 bg-background/55 hover:border-border hover:bg-background/80'
                 )}
               >
                 <button
@@ -102,12 +102,12 @@ export function SelectedFileBar({
                   onClick={() => onPreview(file)}
                   title={file.previewPath}
                 >
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-blue-500/15 bg-blue-500/8 text-blue-600 dark:text-blue-300">
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/35 text-muted-foreground">
                     <FileCode2 className="size-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-medium text-foreground">{file.name}</div>
-                    <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    <div className="truncate font-mono text-[10px] text-muted-foreground">
                       {file.sendPath}
                     </div>
                   </div>
@@ -117,7 +117,7 @@ export function SelectedFileBar({
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-blue-500/10 hover:text-blue-600"
+                        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         onClick={() => onLocate(file.id)}
                       >
                         <LocateFixed className="size-3.5" />
@@ -129,7 +129,7 @@ export function SelectedFileBar({
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => onRemove(file.id)}
                       >
                         <X className="size-3.5" />

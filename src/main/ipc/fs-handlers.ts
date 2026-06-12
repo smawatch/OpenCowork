@@ -1,7 +1,9 @@
 import { ipcMain, dialog, BrowserWindow, app } from 'electron'
 import { spawn } from 'child_process'
+import { randomUUID } from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { Glob } from 'glob'
 import { createInterface } from 'readline'
 import { recordLocalTextWriteChange } from './agent-change-handlers'
@@ -36,12 +38,32 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
   '.heif': 'image/heif'
 }
 
+const TEXT_READ_BLOCKED_EXTENSIONS = new Set([
+  ...IMAGE_EXTENSIONS,
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.ppt',
+  '.pptx',
+  '.zip',
+  '.gz',
+  '.tgz',
+  '.rar',
+  '.7z',
+  '.tar'
+])
+
 const MAX_FILE_READ_BYTES = 50 * 1024 * 1024 // 50 MB
 const MAX_IMAGE_READ_BYTES = 20 * 1024 * 1024 // 20 MB
+const MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024 // 2 MB
+const DEFAULT_TEXT_LINE_READ_LIMIT = 1_000
 const MAX_LIST_DIR_ITEMS = 1_000
 const MAX_GLOB_MATCHES = 1_000
 const SEARCH_TOOL_MAX_RESULTS = 100
 const MAX_RECURSIVE_DIR_WATCHERS = 2_000
+const PROFILE_AVATAR_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])
 
 async function assertFileSize(filePath: string, limit: number): Promise<number> {
   const stat = await fs.promises.stat(filePath)
@@ -108,6 +130,48 @@ type GlobToolResult = {
   matches: Array<{ path: string; type?: 'file' | 'directory' }>
   meta: SearchMeta
   error?: string
+}
+
+interface ReadTextFileLinesResult {
+  content: string
+  name: string
+  path: string
+  lineCount: number
+  maxLines: number
+  truncated: boolean
+}
+
+function clampTextLineReadLimit(maxLines?: number): number {
+  if (typeof maxLines !== 'number' || !Number.isFinite(maxLines)) {
+    return DEFAULT_TEXT_LINE_READ_LIMIT
+  }
+  return Math.max(1, Math.min(DEFAULT_TEXT_LINE_READ_LIMIT, Math.floor(maxLines)))
+}
+
+async function readTextLinesFromStream(
+  stream: NodeJS.ReadableStream,
+  maxLines: number
+): Promise<{ content: string; lineCount: number; truncated: boolean }> {
+  const lines: string[] = []
+  let truncated = false
+  const reader = createInterface({ input: stream, crlfDelay: Infinity })
+
+  for await (const line of reader) {
+    if (lines.length >= maxLines) {
+      truncated = true
+      reader.close()
+      const destroy = (stream as { destroy?: () => void }).destroy
+      if (destroy) destroy.call(stream)
+      break
+    }
+    lines.push(line)
+  }
+
+  return {
+    content: lines.join('\n'),
+    lineCount: lines.length,
+    truncated
+  }
 }
 
 type GrepToolResult = {
@@ -255,6 +319,26 @@ function formatLocalDateFolderName(date = new Date()): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function isPathInside(parentPath: string, candidatePath: string): boolean {
+  const relativePath = path.relative(parentPath, candidatePath)
+  return Boolean(relativePath) && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)
+}
+
+async function deletePreviousProfileAvatar(
+  previousUrl: string | null | undefined,
+  avatarDir: string
+): Promise<void> {
+  if (!previousUrl?.startsWith('file://')) return
+
+  try {
+    const previousPath = fileURLToPath(previousUrl)
+    if (!isPathInside(avatarDir, previousPath)) return
+    await fs.promises.unlink(previousPath)
+  } catch {
+    // Ignore cleanup failures; replacing the avatar should still succeed.
+  }
 }
 
 function includesDefaultIgnoredDir(filePath: string, searchRoot: string): boolean {
@@ -2678,6 +2762,31 @@ export function registerFsHandlers(): void {
   )
 
   ipcMain.handle(
+    'fs:read-text-file-lines',
+    async (_event, args: { path: string; maxLines?: number }) => {
+      try {
+        const maxLines = clampTextLineReadLimit(args.maxLines)
+        const ext = path.extname(args.path).toLowerCase()
+        if (TEXT_READ_BLOCKED_EXTENSIONS.has(ext)) {
+          return { error: 'This file type cannot be read as plain text' }
+        }
+        await assertFileSize(args.path, MAX_FILE_READ_BYTES)
+        const stream = fs.createReadStream(args.path, { encoding: 'utf-8' })
+        const result = await readTextLinesFromStream(stream, maxLines)
+
+        return {
+          ...result,
+          name: path.basename(args.path),
+          path: args.path,
+          maxLines
+        } satisfies ReadTextFileLinesResult
+      } catch (err) {
+        return { error: String(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'fs:write-file',
     async (
       _event,
@@ -3558,6 +3667,49 @@ export function registerFsHandlers(): void {
       return {
         path: result.filePaths[0],
         paths: result.filePaths
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'fs:import-profile-avatar',
+    async (_event, args?: { previousUrl?: string | null }) => {
+      const win = BrowserWindow.getFocusedWindow()
+      if (!win) return { canceled: true }
+
+      const result = await dialog.showOpenDialog(win, {
+        properties: ['openFile'],
+        filters: [
+          {
+            name: 'Images',
+            extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif']
+          }
+        ]
+      })
+      if (result.canceled || result.filePaths.length === 0) return { canceled: true }
+
+      const sourcePath = result.filePaths[0]
+      const extension = path.extname(sourcePath).toLowerCase()
+      if (!PROFILE_AVATAR_EXTENSIONS.has(extension)) {
+        return { error: `Unsupported image type: ${extension || 'unknown'}` }
+      }
+
+      try {
+        await assertFileSize(sourcePath, MAX_PROFILE_AVATAR_BYTES)
+
+        const avatarDir = path.join(app.getPath('userData'), 'profile-avatars')
+        await fs.promises.mkdir(avatarDir, { recursive: true })
+        const targetPath = path.join(avatarDir, `avatar-${Date.now()}-${randomUUID()}${extension}`)
+
+        await fs.promises.copyFile(sourcePath, targetPath)
+        await deletePreviousProfileAvatar(args?.previousUrl, avatarDir)
+
+        return {
+          path: targetPath,
+          url: pathToFileURL(targetPath).toString()
+        }
+      } catch (err) {
+        return { error: String(err) }
       }
     }
   )

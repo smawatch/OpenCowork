@@ -18,6 +18,11 @@ import {
   normalizeBrowserUserDataSource,
   type BrowserUserDataSource
 } from '../../../shared/browser-plugin'
+import {
+  detectSystemLanguage,
+  normalizeLanguageCode,
+  type AppLanguage
+} from '@renderer/lib/i18n-language'
 
 export interface ModelBinding {
   providerId: string
@@ -42,6 +47,7 @@ export type ClarifyPlanModeAutoSwitchTarget = 'off' | 'code' | 'acp'
 export type ProjectDefaultDirectoryMode = 'last-used' | 'custom'
 export type FileDiffViewMode = 'split' | 'inline'
 export type LiveOutputAnimationStyle = 'agile' | 'elegant'
+export type OnboardingLanguage = AppLanguage
 export type ShellExecutionEndpoint =
   | 'auto'
   | 'zsh'
@@ -126,11 +132,6 @@ function sanitizeRecentWorkingTargets(targets: unknown): RecentWorkingTarget[] {
 
 function isThemeSetting(value: unknown): value is 'light' | 'dark' | 'system' {
   return value === 'light' || value === 'dark' || value === 'system'
-}
-
-function getSystemLanguage(): 'en' | 'zh' {
-  const lang = navigator.language || navigator.languages?.[0] || 'en'
-  return lang.startsWith('zh') ? 'zh' : 'en'
 }
 
 export function clampMaxParallelToolCalls(value: number): number {
@@ -231,7 +232,7 @@ interface SettingsStore {
   theme: 'light' | 'dark' | 'system'
   themePreset: AppThemePreset
   sshTerminalThemePreset: SshTerminalThemePreset
-  language: 'en' | 'zh'
+  language: AppLanguage
   autoApprove: boolean
   autoUpdateEnabled: boolean
   clarifyAutoAcceptRecommended: boolean
@@ -256,6 +257,10 @@ interface SettingsStore {
   shellEnvironmentVariablesText: string
   userName: string
   userAvatar: string
+  onboardingCompleted: boolean
+  onboardingCompletedAt: number | null
+  onboardingInterests: string[]
+  defaultSoulTemplateId: string
   conversationGuideSeen: boolean
   memoryAutomationEnabled: boolean
   memoryAutomationWritePolicy: MemoryAutomationWritePolicy
@@ -341,7 +346,7 @@ export const useSettingsStore = create<SettingsStore>()(
       theme: DEFAULT_THEME_MODE,
       themePreset: DEFAULT_APP_THEME_PRESET,
       sshTerminalThemePreset: DEFAULT_SSH_TERMINAL_THEME_PRESET,
-      language: getSystemLanguage(),
+      language: detectSystemLanguage(),
       autoApprove: false,
       autoUpdateEnabled: true,
       clarifyAutoAcceptRecommended: false,
@@ -366,6 +371,10 @@ export const useSettingsStore = create<SettingsStore>()(
       shellEnvironmentVariablesText: '',
       userName: '',
       userAvatar: '',
+      onboardingCompleted: false,
+      onboardingCompletedAt: null,
+      onboardingInterests: [],
+      defaultSoulTemplateId: '',
       conversationGuideSeen: false,
       memoryAutomationEnabled: true,
       memoryAutomationWritePolicy: 'auto',
@@ -450,7 +459,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'opencowork-settings',
-      version: 23,
+      version: 24,
       storage: createJSONStorage(() => ipcStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
@@ -470,8 +479,10 @@ export const useSettingsStore = create<SettingsStore>()(
           (state.themePreset === undefined || state.themePreset === V18_DEFAULT_APP_THEME_PRESET) &&
           (state.sshTerminalThemePreset === undefined ||
             state.sshTerminalThemePreset === V18_DEFAULT_SSH_TERMINAL_THEME_PRESET)
-        if (version === 0) {
-          state.language = getSystemLanguage()
+        if (typeof state.language === 'string') {
+          state.language = normalizeLanguageCode(state.language)
+        } else {
+          state.language = detectSystemLanguage()
         }
         // Add web search settings if missing
         if (state.webSearchEnabled === undefined) {
@@ -619,6 +630,25 @@ export const useSettingsStore = create<SettingsStore>()(
         if (typeof state.shellEnvironmentVariablesText !== 'string') {
           state.shellEnvironmentVariablesText = ''
         }
+        if (state.onboardingCompleted === undefined) {
+          state.onboardingCompleted = false
+        }
+        if (
+          state.onboardingCompletedAt !== null &&
+          typeof state.onboardingCompletedAt !== 'number'
+        ) {
+          state.onboardingCompletedAt = null
+        }
+        if (!Array.isArray(state.onboardingInterests)) {
+          state.onboardingInterests = []
+        } else {
+          state.onboardingInterests = state.onboardingInterests.filter(
+            (item): item is string => typeof item === 'string' && item.trim().length > 0
+          )
+        }
+        if (typeof state.defaultSoulTemplateId !== 'string') {
+          state.defaultSoulTemplateId = ''
+        }
         if (state.conversationGuideSeen === undefined) {
           state.conversationGuideSeen = false
         }
@@ -713,6 +743,10 @@ export const useSettingsStore = create<SettingsStore>()(
         shellEnvironmentVariablesText: state.shellEnvironmentVariablesText,
         userName: state.userName,
         userAvatar: state.userAvatar,
+        onboardingCompleted: state.onboardingCompleted,
+        onboardingCompletedAt: state.onboardingCompletedAt,
+        onboardingInterests: state.onboardingInterests,
+        defaultSoulTemplateId: state.defaultSoulTemplateId,
         conversationGuideSeen: state.conversationGuideSeen,
         memoryAutomationEnabled: state.memoryAutomationEnabled,
         memoryAutomationWritePolicy: 'auto' as const,

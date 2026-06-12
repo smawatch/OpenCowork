@@ -11,7 +11,8 @@ import {
   Check,
   Cable,
   ClipboardList,
-  Target
+  Target,
+  Puzzle
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Switch } from '@renderer/components/ui/switch'
@@ -34,10 +35,17 @@ import { useChannelStore } from '@renderer/stores/channel-store'
 import { useMcpStore } from '@renderer/stores/mcp-store'
 import { useUIStore } from '@renderer/stores/ui-store'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
+import { useAppPluginStore } from '@renderer/stores/app-plugin-store'
+import {
+  APP_PLUGIN_DESCRIPTORS,
+  isAppPluginEnabledByDefault,
+  type AppPluginId
+} from '@renderer/lib/app-plugin/types'
 
 interface SkillsMenuProps {
   onSelectSkill: (skillName: string) => void
   onSelectCommand?: (commandName: string) => void
+  onSelectPlugin?: (pluginId: AppPluginId) => void
   onAttachMedia?: () => void
   disabled?: boolean
   projectId?: string | null
@@ -56,6 +64,7 @@ interface SkillsMenuProps {
 export function SkillsMenu({
   onSelectSkill,
   onSelectCommand,
+  onSelectPlugin,
   onAttachMedia,
   disabled = false,
   projectId,
@@ -98,6 +107,45 @@ export function SkillsMenu({
   const refreshAllMcpServers = useMcpStore((s) => s.refreshAllServers)
   const mcpStatuses = useMcpStore((s) => s.serverStatuses)
   const mcpTools = useMcpStore((s) => s.serverTools)
+  const pluginsByProject = useAppPluginStore((s) => s.pluginsByProject)
+  const availablePlugins = React.useMemo(() => {
+    const projectPlugins = pluginsByProject[projectId ?? '__global__'] ?? []
+
+    return APP_PLUGIN_DESCRIPTORS.filter((descriptor) => !descriptor.hidden)
+      .map((descriptor) => {
+        const plugin = projectPlugins.find((item) => item.id === descriptor.id)
+        const enabled = plugin?.enabled ?? isAppPluginEnabledByDefault(descriptor.id)
+        if (!enabled) return null
+
+        return {
+          id: descriptor.id,
+          title: t(`plugin.items.${descriptor.id}.title`, {
+            ns: 'settings',
+            defaultValue: descriptor.id
+          }),
+          description: t(`plugin.items.${descriptor.id}.description`, {
+            ns: 'settings',
+            defaultValue: ''
+          })
+        }
+      })
+      .filter(
+        (item): item is { id: AppPluginId; title: string; description: string } => item !== null
+      )
+  }, [pluginsByProject, projectId, t])
+  const pluginBackedSkillNames = React.useMemo(
+    () =>
+      new Set(
+        APP_PLUGIN_DESCRIPTORS.filter((descriptor) => !descriptor.hidden).map(
+          (descriptor) => descriptor.id
+        )
+      ),
+    []
+  )
+  const visibleSkills = React.useMemo(
+    () => skills.filter((skill) => !pluginBackedSkillNames.has(skill.name as AppPluginId)),
+    [pluginBackedSkillNames, skills]
+  )
   const connectedMcpServers = React.useMemo(
     () =>
       mcpServers.filter(
@@ -294,13 +342,13 @@ export function SkillsMenu({
                     <Loader2 className="mr-1.5 size-3.5 animate-spin" />
                     {t('skills.loadingSkills')}
                   </div>
-                ) : skills.length === 0 ? (
+                ) : visibleSkills.length === 0 ? (
                   <div className="px-2 py-4 text-center text-xs text-muted-foreground">
                     <p>{t('skills.noSkills')}</p>
                     <p className="mt-1 text-[10px] opacity-70">~/.open-cowork/skills/</p>
                   </div>
                 ) : (
-                  skills.map((skill) => (
+                  visibleSkills.map((skill) => (
                     <DropdownMenuItem
                       key={skill.name}
                       onClick={() => {
@@ -388,6 +436,65 @@ export function SkillsMenu({
                     >
                       <Settings2 className="mr-2 size-3.5" />
                       {t('skills.configureChannels')}
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
+
+        {onSelectPlugin && (
+          <>
+            <DropdownMenuGroup>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Puzzle className="mr-2 size-4" />
+                  <span>{t('skills.pluginsLabel')}</span>
+                  {availablePlugins.length > 0 && (
+                    <span className="ml-auto text-[10px] text-muted-foreground">
+                      {availablePlugins.length}
+                    </span>
+                  )}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent
+                    className={cn('w-64 max-h-80 overflow-y-auto', menuClassName)}
+                  >
+                    <DropdownMenuLabel>{t('skills.availablePlugins')}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {availablePlugins.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                        <p>{t('skills.noPlugins')}</p>
+                      </div>
+                    ) : (
+                      availablePlugins.map((plugin) => (
+                        <DropdownMenuItem
+                          key={plugin.id}
+                          onClick={() => {
+                            onSelectPlugin(plugin.id)
+                            setOpen(false)
+                          }}
+                          className="flex flex-col items-start gap-1 py-2"
+                        >
+                          <span className="font-medium">{plugin.title}</span>
+                          <span className="line-clamp-2 text-xs text-muted-foreground">
+                            {plugin.description}
+                          </span>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setOpen(false)
+                        openSettingsPage('plugin')
+                      }}
+                      className="text-xs"
+                    >
+                      <Settings2 className="mr-2 size-3.5" />
+                      {t('skills.configurePlugins')}
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>

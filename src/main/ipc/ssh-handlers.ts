@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow, app } from 'electron'
 import { Client, type ConnectConfig, type ClientChannel, type SFTPWrapper } from 'ssh2'
 import * as fs from 'fs'
 import * as path from 'path'
+import { createInterface } from 'readline'
 import archiver from 'archiver'
 import {
   startSshConfigWatcher,
@@ -79,6 +80,32 @@ const SFTP_LIST_DIR_CACHE_TTL_MS = 30000
 const SFTP_LIST_DIR_CURSOR_TTL_MS = 30000
 const SFTP_CLOSE_TIMEOUT_MS = 5000
 const MAX_EMPTY_READDIR_ROUNDS = 5
+const DEFAULT_TEXT_LINE_READ_LIMIT = 1_000
+const TEXT_READ_BLOCKED_EXTENSIONS = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.bmp',
+  '.webp',
+  '.ico',
+  '.tiff',
+  '.heic',
+  '.heif',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.ppt',
+  '.pptx',
+  '.zip',
+  '.gz',
+  '.tgz',
+  '.rar',
+  '.7z',
+  '.tar'
+])
 let sshConfigWatcherAttached = false
 
 interface FileSession {
@@ -119,6 +146,48 @@ type SftpDirCacheEntry = {
   complete: boolean
   createdAt: number
   lastAccess: number
+}
+
+interface ReadTextFileLinesResult {
+  content: string
+  name: string
+  path: string
+  lineCount: number
+  maxLines: number
+  truncated: boolean
+}
+
+function clampTextLineReadLimit(maxLines?: number): number {
+  if (typeof maxLines !== 'number' || !Number.isFinite(maxLines)) {
+    return DEFAULT_TEXT_LINE_READ_LIMIT
+  }
+  return Math.max(1, Math.min(DEFAULT_TEXT_LINE_READ_LIMIT, Math.floor(maxLines)))
+}
+
+async function readTextLinesFromStream(
+  stream: NodeJS.ReadableStream,
+  maxLines: number
+): Promise<{ content: string; lineCount: number; truncated: boolean }> {
+  const lines: string[] = []
+  let truncated = false
+  const reader = createInterface({ input: stream, crlfDelay: Infinity })
+
+  for await (const line of reader) {
+    if (lines.length >= maxLines) {
+      truncated = true
+      reader.close()
+      const destroy = (stream as { destroy?: () => void }).destroy
+      if (destroy) destroy.call(stream)
+      break
+    }
+    lines.push(line)
+  }
+
+  return {
+    content: lines.join('\n'),
+    lineCount: lines.length,
+    truncated
+  }
 }
 
 type SftpDirCursor =
@@ -3402,6 +3471,37 @@ export function registerSshHandlers(): void {
           .slice(start, end)
           .map((line, i) => `${String(start + i + 1).padStart(lineNoWidth)}\t${line}`)
           .join('\n')
+      } catch (err) {
+        return { error: String(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'ssh:fs:read-text-file-lines',
+    async (_event, args: { connectionId: string; path: string; maxLines?: number }) => {
+      try {
+        const maxLines = clampTextLineReadLimit(args.maxLines)
+        if (TEXT_READ_BLOCKED_EXTENSIONS.has(path.extname(args.path).toLowerCase())) {
+          return { error: 'This file type cannot be read as plain text' }
+        }
+        return await withFileSession(args.connectionId, async (session) => {
+          const sftp = await getSftp(session)
+          const resolvedPath = await resolveSftpPath(session, args.path)
+          const stream = sftp.createReadStream(resolvedPath, { encoding: 'utf-8' })
+          const result = await withTimeout(
+            readTextLinesFromStream(stream, maxLines),
+            SFTP_LIST_DIR_TIMEOUT_MS,
+            'SFTP read-text-file-lines timeout'
+          )
+
+          return {
+            ...result,
+            name: path.basename(resolvedPath),
+            path: resolvedPath,
+            maxLines
+          } satisfies ReadTextFileLinesResult
+        })
       } catch (err) {
         return { error: String(err) }
       }

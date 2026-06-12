@@ -18,6 +18,7 @@ export const IPC = {
   FS_SELECT_SAVE_FILE: 'fs:select-save-file',
   FS_READ_DOCUMENT: 'fs:read-document',
   FS_READ_FILE: 'fs:read-file',
+  FS_READ_TEXT_FILE_LINES: 'fs:read-text-file-lines',
   FS_STAT_PATH: 'fs:stat-path',
   FS_WRITE_FILE: 'fs:write-file',
   FS_LIST_DIR: 'fs:list-dir',
@@ -38,6 +39,7 @@ export const IPC = {
   FS_DIR_CHANGED: 'fs:dir-changed',
   FS_READ_FILE_BINARY: 'fs:read-file-binary',
   FS_WRITE_FILE_BINARY: 'fs:write-file-binary',
+  FS_IMPORT_PROFILE_AVATAR: 'fs:import-profile-avatar',
 
   // Shell
   SHELL_EXEC: 'shell:exec',
@@ -90,7 +92,20 @@ export const IPC = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
 
+  // Extensions
+  EXTENSION_LIST: 'extension:list',
+  EXTENSION_INSTALL_FROM_FOLDER: 'extension:install-from-folder',
+  EXTENSION_UPDATE: 'extension:update',
+  EXTENSION_REMOVE: 'extension:remove',
+  EXTENSION_OPEN_FOLDER: 'extension:open-folder',
+  EXTENSION_READ_ASSET: 'extension:read-asset',
+  EXTENSION_FETCH: 'extension:fetch',
+  EXTENSION_STORAGE_GET: 'extension:storage-get',
+  EXTENSION_STORAGE_SET: 'extension:storage-set',
+  EXTENSION_STORAGE_DELETE: 'extension:storage-delete',
+
   // SOUL Market
+  SOULS_BUILTIN_LIST: 'souls:builtin-list',
   SOULS_MARKET_LIST: 'souls:market-list',
   SOULS_CATEGORIES: 'souls:categories',
   SOULS_DOWNLOAD_REMOTE: 'souls:download-remote',
@@ -123,6 +138,10 @@ export const IPC = {
   USAGE_EVENTS_BY_PROVIDER: 'usage-events:by-provider',
   USAGE_EVENTS_LIST: 'usage-events:list',
   USAGE_EVENTS_CLEAR: 'usage-events:clear',
+  USAGE_ACTIVITY_OVERVIEW: 'usage-activity:overview',
+  USAGE_ACTIVITY_DAILY: 'usage-activity:daily',
+  USAGE_ACTIVITY_BY_MODEL: 'usage-activity:by-model',
+  USAGE_ACTIVITY_BY_PROVIDER: 'usage-activity:by-provider',
 
   // Plugins
   PLUGIN_LIST_PROVIDERS: 'plugin:list-providers',
@@ -279,6 +298,7 @@ export const IPC = {
   // Skills
   SKILLS_LIST: 'skills:list',
   SKILLS_LOAD: 'skills:load',
+  SKILLS_ENSURE_BUILTIN: 'skills:ensure-builtin',
   SKILLS_DELETE: 'skills:delete',
   SKILLS_OPEN_FOLDER: 'skills:open-folder',
   SKILLS_ADD_FROM_FOLDER: 'skills:add-from-folder',
@@ -365,6 +385,7 @@ export const IPC = {
 
   // SSH File Operations (SFTP)
   SSH_FS_READ_FILE: 'ssh:fs:read-file',
+  SSH_FS_READ_TEXT_FILE_LINES: 'ssh:fs:read-text-file-lines',
   SSH_FS_STAT_PATH: 'ssh:fs:stat-path',
   SSH_FS_WRITE_FILE: 'ssh:fs:write-file',
   SSH_FS_READ_FILE_BINARY: 'ssh:fs:read-file-binary',

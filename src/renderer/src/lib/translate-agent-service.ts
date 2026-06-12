@@ -8,25 +8,9 @@ import type {
   ToolUseBlock,
   TextBlock
 } from '@renderer/lib/api/types'
+import { resolveLanguageName as resolveAppLanguageName } from '@renderer/lib/i18n-language'
 
 // ── Language helpers (shared with simple service) ──────────────────────────
-
-const LANGUAGE_NAMES: Record<string, string> = {
-  zh: 'Chinese',
-  en: 'English',
-  ja: 'Japanese',
-  ko: 'Korean',
-  fr: 'French',
-  de: 'German',
-  es: 'Spanish',
-  pt: 'Portuguese',
-  ru: 'Russian',
-  ar: 'Arabic'
-}
-
-function resolveLanguageName(code: string): string {
-  return LANGUAGE_NAMES[code] ?? code
-}
 
 function isLikelyCompletionStatus(content: string): boolean {
   const normalized = content.trim().toLowerCase()
@@ -136,9 +120,9 @@ export interface RunTranslationAgentOptions {
 // ── System prompt ────────────────────────────────────────────────────────────
 
 function buildAgentSystemPrompt(sourceLanguage: string, targetLanguage: string): string {
-  const targetName = resolveLanguageName(targetLanguage)
+  const targetName = resolveAppLanguageName(targetLanguage)
   const sourceName =
-    sourceLanguage === 'auto' ? 'auto-detected' : resolveLanguageName(sourceLanguage)
+    sourceLanguage === 'auto' ? 'auto-detected' : resolveAppLanguageName(sourceLanguage)
 
   return `<role>
 You are a senior professional translator specializing in producing accurate, natural, and publication-quality translations.
@@ -191,11 +175,11 @@ function buildUserMessage(
   targetLanguage: string,
   iteration: number
 ): UnifiedMessage {
-  const targetName = resolveLanguageName(targetLanguage)
+  const targetName = resolveAppLanguageName(targetLanguage)
   const sourceName =
     sourceLanguage === 'auto'
       ? 'auto-detect the source language'
-      : `the source language is ${resolveLanguageName(sourceLanguage)}`
+      : `the source language is ${resolveAppLanguageName(sourceLanguage)}`
 
   const systemRemind: TextBlock = {
     type: 'text',

@@ -1,4 +1,5 @@
 import type { ActiveTeam } from '../../../stores/team-store'
+import { resolveLanguageName } from '../../i18n-language'
 
 export interface TeamPromptSnapshot {
   teamName: string
@@ -58,7 +59,7 @@ export function buildTeammateAddendum(options: {
   const parts: string[] = [
     `You are "${memberName}", a worker agent in the "${teamName}" team.`,
     'You are not the user-facing assistant. The user primarily interacts with the lead coordinator.',
-    `You MUST respond in ${language === 'zh' ? 'Chinese (中文)' : 'English'} unless explicitly instructed otherwise.`,
+    `You MUST respond in ${resolveLanguageName(language)} unless explicitly instructed otherwise.`,
     'Plain assistant text is not a reliable inter-agent communication channel. Use SendMessage or the team runtime protocol when coordination is required.',
     'Do not spawn another background teammate. If parallel help is needed, message the lead instead.',
     'Keep your work scoped to your assigned task and avoid unrelated files.'

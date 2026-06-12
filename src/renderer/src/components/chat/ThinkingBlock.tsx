@@ -4,6 +4,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import Markdown from 'react-markdown'
 import { MONO_FONT } from '@renderer/lib/constants'
 import { useSettingsStore } from '@renderer/stores/settings-store'
+import { normalizeLanguageCode } from '@renderer/lib/i18n-language'
 import {
   getLiveOutputComponentClass,
   getLiveOutputCursorClass,
@@ -67,6 +68,7 @@ export const ThinkingBlock = memo(function ThinkingBlock({
   }
 
   const expanded = isThinking || (hasThinkingContent && !collapsed)
+  const compactLanguage = normalizeLanguageCode(i18n.language)
 
   // Compute duration label from persisted timestamps
   const persistedDuration =
@@ -83,9 +85,11 @@ export const ThinkingBlock = memo(function ThinkingBlock({
 
   const compactElapsedLabel =
     liveElapsed > 0
-      ? i18n.language.startsWith('zh')
-        ? `${liveElapsed} 秒`
-        : `${liveElapsed}s`
+      ? compactLanguage === 'ko'
+        ? `${liveElapsed}초`
+        : compactLanguage === 'zh' || compactLanguage === 'ja'
+          ? `${liveElapsed} 秒`
+          : `${liveElapsed}s`
       : ''
 
   return (

@@ -74,6 +74,7 @@ import type { UnifiedMessage } from '@renderer/lib/api/types'
 import { useAgentStore } from '@renderer/stores/agent-store'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useGitStore, type GitBranchItem, type GitStatusFile } from '@renderer/stores/git-store'
+import { normalizeLanguageCode } from '@renderer/lib/i18n-language'
 import {
   useUIStore,
   type AgentFilesChangeSource,
@@ -935,7 +936,7 @@ export function AgentFilesPanel({
       const message = await generateCommitMessageFromStagedDiff(
         bundle.stat,
         bundle.patch,
-        i18n.language.startsWith('zh') ? 'zh' : 'en',
+        normalizeLanguageCode(i18n.language),
         status?.branch,
         undefined
       )

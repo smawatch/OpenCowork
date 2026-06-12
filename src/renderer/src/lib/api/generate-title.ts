@@ -4,6 +4,7 @@ import { runSidecarTextRequest } from '@renderer/lib/ipc/agent-bridge'
 import { RESPONSES_SESSION_SCOPE_GENERATE_TITLE } from './responses-session-policy'
 import type { ProviderConfig, UnifiedMessage } from './types'
 import { SESSION_ICONS_PROMPT_LIST } from '@renderer/lib/constants/session-icons'
+import { type AppLanguage } from '@renderer/lib/i18n-language'
 
 export interface SessionTitleResult {
   title: string
@@ -12,7 +13,10 @@ export interface SessionTitleResult {
 
 export type FriendlyStatus = 'idle' | 'pending' | 'error' | 'streaming' | 'agents' | 'background'
 
-const FRIENDLY_MESSAGES: Record<FriendlyStatus, { zh: string[]; en: string[] }> = {
+const FRIENDLY_MESSAGES: Record<
+  FriendlyStatus,
+  { zh: string[]; en: string[]; ja: string[]; ko: string[] }
+> = {
   idle: {
     zh: [
       '随时准备为你效劳',
@@ -33,6 +37,26 @@ const FRIENDLY_MESSAGES: Record<FriendlyStatus, { zh: string[]; en: string[] }> 
       'Inspiration awaits',
       "Let's get things done",
       'At your service'
+    ],
+    ja: [
+      'いつでもお手伝いできます',
+      '今日は何を作りましょうか？',
+      'アイデアをお待ちしています',
+      '準備はできています',
+      'あなたのひらめきを待っています',
+      'ひらめきを形にしましょう',
+      'いつでもどうぞ',
+      'お任せください'
+    ],
+    ko: [
+      '언제든 도와드릴 준비가 되어 있어요',
+      '오늘은 무엇을 만들까요?',
+      '아이디어를 기다리고 있어요',
+      '준비 완료',
+      '언제든 말씀만 주세요',
+      '함께 시작해볼까요',
+      '대기 중입니다',
+      '맡겨 주세요'
     ]
   },
   streaming: {
@@ -44,6 +68,22 @@ const FRIENDLY_MESSAGES: Record<FriendlyStatus, { zh: string[]; en: string[] }> 
       'Processing your request',
       'Crafting a response',
       'On it'
+    ],
+    ja: [
+      '考え中です…',
+      '回答をまとめています',
+      'もうすぐです',
+      '応答を生成中',
+      '整理しています',
+      '処理中です'
+    ],
+    ko: [
+      '생각 중…',
+      '답변을 정리하는 중',
+      '거의 다 됐어요',
+      '응답을 생성 중',
+      '정리하고 있어요',
+      '처리 중입니다'
     ]
   },
   pending: {
@@ -53,26 +93,43 @@ const FRIENDLY_MESSAGES: Record<FriendlyStatus, { zh: string[]; en: string[] }> 
       'Action needs confirmation',
       'Please review',
       'Approval needed'
-    ]
+    ],
+    ja: ['承認を待っています', '確認をお願いします', '操作の承認が必要です', '保留中です'],
+    ko: ['승인을 기다리는 중', '확인이 필요해요', '작업 승인 필요', '대기 중입니다']
   },
   error: {
     zh: ['遇到了一点问题', '出了点小状况', '别担心，我们来看看', '需要你关注一下'],
-    en: ['Something went wrong', 'Hit a snag', "Let's take a look", 'Needs your attention']
+    en: ['Something went wrong', 'Hit a snag', "Let's take a look", 'Needs your attention'],
+    ja: ['問題が発生しました', '少しつまずきました', '一緒に確認しましょう', '対応が必要です'],
+    ko: ['문제가 발생했어요', '조금 막혔습니다', '같이 살펴봐요', '확인이 필요합니다']
   },
   agents: {
     zh: ['子任务进行中', '团队协作中', '多个助手协同工作中', '正在并行处理'],
-    en: ['Sub-agents at work', 'Team is collaborating', 'Working in parallel', 'Agents are on it']
+    en: ['Sub-agents at work', 'Team is collaborating', 'Working in parallel', 'Agents are on it'],
+    ja: [
+      'サブタスクが進行中',
+      'チームで協力しています',
+      '複数のエージェントが並行作業中',
+      '分担して処理しています'
+    ],
+    ko: ['하위 작업이 진행 중', '팀이 협업 중', '여러 에이전트가 병렬 처리 중', '분담해서 작업 중']
   },
   background: {
     zh: ['后台任务运行中', '命令执行中', '后台进程工作中'],
-    en: ['Background tasks running', 'Commands in progress', 'Working in the background']
+    en: ['Background tasks running', 'Commands in progress', 'Working in the background'],
+    ja: ['バックグラウンドで実行中', 'コマンドを実行中', 'バックグラウンド処理が進行中'],
+    ko: ['백그라운드 작업 실행 중', '명령 실행 중', '백그라운드에서 처리 중']
   }
 }
 
 const lastPickIndex: Record<string, number> = {}
 
-export function pickFriendlyMessage(status: FriendlyStatus, language: 'zh' | 'en'): string {
-  const pool = FRIENDLY_MESSAGES[status]?.[language] ?? FRIENDLY_MESSAGES.idle[language]
+export function pickFriendlyMessage(status: FriendlyStatus, language: AppLanguage): string {
+  const pool =
+    FRIENDLY_MESSAGES[status]?.[language] ??
+    FRIENDLY_MESSAGES[status]?.en ??
+    FRIENDLY_MESSAGES.idle[language] ??
+    FRIENDLY_MESSAGES.idle.en
   const key = `${status}_${language}`
   const prevIdx = lastPickIndex[key] ?? -1
   let idx = Math.floor(Math.random() * pool.length)

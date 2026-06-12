@@ -17,7 +17,8 @@ import {
   CornerDownRight,
   Ellipsis,
   Command,
-  Target
+  Target,
+  Puzzle
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -30,7 +31,7 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { useProviderStore, modelSupportsVision } from '@renderer/stores/provider-store'
-import type { AIModelConfig } from '@renderer/lib/api/types'
+import type { AIModelConfig, SelectedFileReference } from '@renderer/lib/api/types'
 import { useSettingsStore } from '@renderer/stores/settings-store'
 import { updateWebSearchToolRegistration } from '@renderer/lib/tools'
 import { useUIStore, type AppMode } from '@renderer/stores/ui-store'
@@ -71,6 +72,8 @@ import {
   editorDocumentToPlainText,
   ensureSelectedFile,
   mergeSelectedFiles,
+  createPluginReferenceNode,
+  createTextReplacementNode,
   removeReferenceNode,
   replaceEditorRange,
   serializeEditorDocument,
@@ -85,12 +88,22 @@ import { useMcpStore } from '@renderer/stores/mcp-store'
 import { usePlanStore } from '@renderer/stores/plan-store'
 import { useGoalStore } from '@renderer/stores/goal-store'
 import { useSkillsStore } from '@renderer/stores/skills-store'
+import { useAppPluginStore } from '@renderer/stores/app-plugin-store'
 import { validateGoalObjective } from '@renderer/lib/agent/goal-context'
+import {
+  APP_PLUGIN_DESCRIPTORS,
+  BROWSER_PLUGIN_ID,
+  IMAGE_PLUGIN_ID,
+  PRODUCT_DESIGN_PLUGIN_ID,
+  isAppPluginEnabledByDefault,
+  type AppPluginId
+} from '@renderer/lib/app-plugin/types'
 import {
   clearPendingSessionMessages,
   dispatchNextQueuedMessageForSession,
   getPendingSessionMessages,
   isPendingSessionDispatchPaused,
+  promotePendingSessionMessageForImmediateDispatch,
   removePendingSessionMessage,
   subscribePendingSessionMessages,
   updatePendingSessionMessageDraft,
@@ -330,8 +343,16 @@ interface FileSearchItem {
 interface SlashSuggestionItem {
   key: string
   name: string
+  label?: string
   summary: string
-  kind: 'command' | 'skill'
+  kind: 'command' | 'skill' | 'plugin'
+  pluginId?: AppPluginId
+}
+
+interface AppPluginPromptItem {
+  id: AppPluginId
+  title: string
+  description: string
 }
 
 const EMPTY_QUEUED_MESSAGES: PendingSessionMessageItem[] = []
@@ -352,6 +373,35 @@ const FALLBACK_MAX_VIEWPORT_RATIO = 0.6
 const MAX_SLASH_COMMAND_RESULTS = 8
 const BUILTIN_SLASH_COMMANDS: CommandCatalogItem[] = []
 type ContextCompressionStatus = 'idle' | 'compressing' | ManualCompressionResult
+
+function getAppPluginPromptContent(pluginId: AppPluginId): string {
+  if (pluginId === PRODUCT_DESIGN_PLUGIN_ID) {
+    return [
+      `[Skill: ${PRODUCT_DESIGN_PLUGIN_ID}]`,
+      'Use the Product Design workflow plugin for this request.',
+      'Start by loading the product-design skill, confirm the design brief when needed, use saved Product Design context when relevant, and follow the workflow guardrails before building or handing off.'
+    ].join('\n')
+  }
+
+  if (pluginId === IMAGE_PLUGIN_ID) {
+    return [
+      `[Plugin: ${pluginId}]`,
+      'Use the Image Plugin for this request. When generating images, call ImageGenerate with a concrete prompt; when reference images are selected, pass them through reference_images.'
+    ].join('\n')
+  }
+
+  if (pluginId === BROWSER_PLUGIN_ID) {
+    return [
+      `[Plugin: ${pluginId}]`,
+      'Use the Browser Plugin for this request. Navigate, inspect, capture screenshots, and read page content with the browser tools when web evidence or prototype QA is needed.'
+    ].join('\n')
+  }
+
+  return [
+    `[Plugin: ${pluginId}]`,
+    `Use the ${pluginId} plugin for this request when its tools or workflow are relevant.`
+  ].join('\n')
+}
 
 function getSlashCommandQuery(text: string): string | null {
   const normalized = text.trimStart()
@@ -413,7 +463,7 @@ function summarizeQueuedMessage(text: string): string {
 function isReferenceOnlyDocument(document: EditorDocumentNode[]): boolean {
   if (document.length === 0) return false
 
-  return document.every((node) => node.type === 'file' || node.text.trim().length === 0)
+  return document.every((node) => node.type !== 'text' || node.text.trim().length === 0)
 }
 
 function getImageMediaTypeForPath(filePath: string): string | null {
@@ -424,6 +474,17 @@ function getImageMediaTypeForPath(filePath: string): string | null {
 
 function createImageAttachmentId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `image-${Date.now()}-${Math.random().toString(36)}`
+}
+
+function selectedFileItemToReference(file: SelectedFileItem): SelectedFileReference {
+  return {
+    id: file.id,
+    name: file.name,
+    originalPath: file.originalPath,
+    sendPath: file.sendPath,
+    previewPath: file.previewPath,
+    isWorkspaceFile: file.isWorkspaceFile
+  }
 }
 
 interface InputAreaProps {
@@ -720,7 +781,7 @@ export function InputArea({
     useSettingsStore.getState().updateSettings({ webSearchEnabled: newEnabled })
     updateWebSearchToolRegistration(newEnabled)
   }, [])
-  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
+  const openSettingsPage = useUIStore((s) => s.openSettingsPage)
   const openFilePreview = useUIStore((s) => s.openFilePreview)
   const mode = useUIStore((s) => s.mode)
   // Only select fields actually used — avoids re-renders on every streaming message delta
@@ -760,6 +821,7 @@ export function InputArea({
       loadSkills: s.loadSkills
     }))
   )
+  const pluginsByProject = useAppPluginStore((s) => s.pluginsByProject)
   const { activeSessionId, hasMessages, clearSessionMessages } = useChatStore(
     useShallow((s) => {
       const targetSessionId = sessionId ?? s.activeSessionId
@@ -1002,6 +1064,18 @@ export function InputArea({
     dispatchNextQueuedMessageForSession(activeSessionId)
   }, [activeSessionId])
 
+  const quoteQueuedMessage = React.useCallback(
+    (id: string) => {
+      if (!activeSessionId) return
+      const promoted = promotePendingSessionMessageForImmediateDispatch(activeSessionId, id)
+      if (!promoted || editingQueueItemId !== id) return
+      setEditingQueueItemId(null)
+      setEditingQueueText('')
+      setEditingQueueImages([])
+    },
+    [activeSessionId, editingQueueItemId]
+  )
+
   React.useEffect(() => {
     textRef.current = text
   }, [text])
@@ -1133,6 +1207,29 @@ export function InputArea({
   const fileQuery = activeFileMention?.query.trim() ?? ''
   const fileMenuOpen = projectScoped && Boolean(activeFileMention)
   const slashQuery = React.useMemo(() => getSlashCommandQuery(text), [text])
+  const availableAppPlugins = React.useMemo<AppPluginPromptItem[]>(() => {
+    const projectPlugins = pluginsByProject[activeProjectId ?? '__global__'] ?? []
+
+    return APP_PLUGIN_DESCRIPTORS.filter((descriptor) => !descriptor.hidden)
+      .map((descriptor) => {
+        const plugin = projectPlugins.find((item) => item.id === descriptor.id)
+        const enabled = plugin?.enabled ?? isAppPluginEnabledByDefault(descriptor.id)
+        if (!enabled) return null
+
+        return {
+          id: descriptor.id,
+          title: t(`plugin.items.${descriptor.id}.title`, {
+            ns: 'settings',
+            defaultValue: descriptor.id
+          }),
+          description: t(`plugin.items.${descriptor.id}.description`, {
+            ns: 'settings',
+            defaultValue: ''
+          })
+        }
+      })
+      .filter((item): item is AppPluginPromptItem => item !== null)
+  }, [activeProjectId, pluginsByProject, t])
   const filteredSlashSuggestions = React.useMemo(() => {
     const query = slashQuery ?? ''
     const suggestionsByIdentity = new Map<string, SlashSuggestionItem>()
@@ -1146,7 +1243,24 @@ export function InputArea({
       })
     }
 
+    for (const plugin of availableAppPlugins) {
+      suggestionsByIdentity.set(`plugin:${plugin.id}`, {
+        key: `plugin:${plugin.id}`,
+        name: plugin.id,
+        label: plugin.title,
+        summary: plugin.description,
+        kind: 'plugin',
+        pluginId: plugin.id
+      })
+    }
+
+    const appPluginIds = new Set(
+      APP_PLUGIN_DESCRIPTORS.filter((descriptor) => !descriptor.hidden).map(
+        (descriptor) => descriptor.id
+      )
+    )
     for (const skill of installedSkills) {
+      if (appPluginIds.has(skill.name as AppPluginId)) continue
       suggestionsByIdentity.set(`skill:${skill.name.toLowerCase()}`, {
         key: `skill:${skill.name}`,
         name: skill.name,
@@ -1161,7 +1275,8 @@ export function InputArea({
       .sort((left, right) => {
         if (left.score !== right.score) return left.score - right.score
         if (left.item.kind !== right.item.kind) {
-          return left.item.kind === 'command' ? -1 : 1
+          const order = { command: 0, plugin: 1, skill: 2 }
+          return order[left.item.kind] - order[right.item.kind]
         }
         return left.item.name.localeCompare(right.item.name, undefined, {
           sensitivity: 'base'
@@ -1169,7 +1284,7 @@ export function InputArea({
       })
       .slice(0, MAX_SLASH_COMMAND_RESULTS)
       .map((item) => item.item)
-  }, [installedSkills, slashCommands, slashQuery])
+  }, [availableAppPlugins, installedSkills, slashCommands, slashQuery])
   const slashMenuOpen = slashQuery !== null
   const slashSuggestionsLoading = slashCommandsLoading || skillsLoading
 
@@ -1308,15 +1423,75 @@ export function InputArea({
     },
     [applyEditorStateFromSerializedText, focusInputAtEnd]
   )
+  const insertPluginPrompt = React.useCallback(
+    (pluginId: AppPluginId, replaceAll = false) => {
+      setSelectedSkill(null)
+      const plugin = availableAppPlugins.find((item) => item.id === pluginId)
+      const label = plugin?.title ?? pluginId
+      const pluginNode = createPluginReferenceNode(
+        pluginId,
+        label,
+        getAppPluginPromptContent(pluginId)
+      )
+      const pluginDocument: EditorDocumentNode[] = [pluginNode, createTextReplacementNode('\n')]
+
+      if (replaceAll) {
+        setDocumentNodes(pluginDocument)
+        setSelectedFiles([])
+        requestAnimationFrame(() => {
+          focusInputAtEnd()
+        })
+        return
+      }
+
+      if (
+        documentRef.current.some((node) => node.type === 'plugin' && node.pluginId === pluginId)
+      ) {
+        requestAnimationFrame(() => {
+          focusInputAtEnd()
+        })
+        return
+      }
+
+      const selection = editorRef.current?.getSelectionOffsets() ?? editorSelection
+      const nextDocument = replaceEditorRange(
+        documentRef.current,
+        selectedFilesRef.current,
+        selection.start,
+        selection.end,
+        pluginDocument
+      )
+      const referencedFileIds = new Set(
+        nextDocument
+          .filter(
+            (node): node is Extract<EditorDocumentNode, { type: 'file' }> => node.type === 'file'
+          )
+          .map((node) => node.fileId)
+      )
+
+      setDocumentNodes(nextDocument)
+      setSelectedFiles((currentFiles) =>
+        currentFiles.filter((file) => referencedFileIds.has(file.id))
+      )
+      requestAnimationFrame(() => {
+        focusInputAtEnd()
+      })
+    },
+    [availableAppPlugins, editorSelection, focusInputAtEnd]
+  )
   const applySlashSuggestion = React.useCallback(
     (item: SlashSuggestionItem) => {
       if (item.kind === 'skill') {
         selectSlashSkill(item.name)
         return
       }
+      if (item.kind === 'plugin' && item.pluginId) {
+        insertPluginPrompt(item.pluginId, true)
+        return
+      }
       insertSlashCommand(item.name)
     },
-    [insertSlashCommand, selectSlashSkill]
+    [insertPluginPrompt, insertSlashCommand, selectSlashSkill]
   )
   const hasApiKey = !!activeProvider?.apiKey || activeProvider?.requiresApiKey === false
   const needsWorkingFolder = projectScoped && !workingFolder
@@ -1734,17 +1909,14 @@ export function InputArea({
 
   const handleRemoveFileReference = React.useCallback((nodeId: string) => {
     const currentDocument = documentRef.current
-    const targetNode = currentDocument.find(
-      (node): node is Extract<EditorDocumentNode, { type: 'file' }> =>
-        node.type === 'file' && node.id === nodeId
-    )
+    const targetNode = currentDocument.find((node) => node.type !== 'text' && node.id === nodeId)
     if (!targetNode) return
 
     const nextDocument = removeReferenceNode(currentDocument, nodeId, selectedFilesRef.current)
-    const hasRemainingReferences = documentHasFileReferences(nextDocument, targetNode.fileId)
-    const nextFiles = hasRemainingReferences
-      ? selectedFilesRef.current
-      : selectedFilesRef.current.filter((file) => file.id !== targetNode.fileId)
+    const nextFiles =
+      targetNode.type === 'file' && !documentHasFileReferences(nextDocument, targetNode.fileId)
+        ? selectedFilesRef.current.filter((file) => file.id !== targetNode.fileId)
+        : selectedFilesRef.current
 
     setDocumentNodes(nextDocument)
     setSelectedFiles(nextFiles)
@@ -1779,7 +1951,11 @@ export function InputArea({
 
     return {
       plainText: editorDocumentToPlainText(liveDocument, liveSelectedFiles),
-      serializedText: serializeEditorDocument(liveDocument, liveSelectedFiles)
+      serializedText: serializeEditorDocument(liveDocument, liveSelectedFiles),
+      promptText: serializeEditorDocument(liveDocument, liveSelectedFiles, {
+        expandPluginPrompts: true
+      }),
+      selectedFiles: liveSelectedFiles
     }
   }, [])
 
@@ -1802,18 +1978,18 @@ export function InputArea({
 
   const handleSend = React.useCallback((): void => {
     const liveEditorState = getLiveEditorState()
-    const serialized = liveEditorState.serializedText.trim()
-    if (!serialized && attachedImages.length === 0) return
+    const promptText = liveEditorState.promptText.trim()
+    if (!promptText && attachedImages.length === 0) return
     if (disabled || needsWorkingFolder || pendingImageReads > 0) return
 
     let goalObjective: string | undefined
-    if (hasPendingGoalMode && serialized) {
-      const validation = validateGoalObjective(serialized)
+    if (hasPendingGoalMode && promptText) {
+      const validation = validateGoalObjective(promptText)
       if (validation) {
         toast.error(t('goal.toasts.objectiveInvalid'), { description: validation })
         return
       }
-      goalObjective = serialized
+      goalObjective = promptText
     }
 
     cancelPromptRecommendation()
@@ -1821,11 +1997,15 @@ export function InputArea({
     const hasLeadingSlashCommand = liveEditorState.plainText.trimStart().startsWith('/')
     const message =
       selectedSkill && !hasLeadingSlashCommand
-        ? `[Skill: ${selectedSkill}]\n${serialized}`
-        : serialized
+        ? `[Skill: ${selectedSkill}]\n${promptText}`
+        : promptText
     const sendOptions: SendMessageOptions = {
       clearCompletedTasksOnTurnStart: true,
       enablePlanMode: planMode || undefined
+    }
+    const selectedFileReferences = liveEditorState.selectedFiles.map(selectedFileItemToReference)
+    if (selectedFileReferences.length > 0) {
+      sendOptions.selectedFileReferences = selectedFileReferences
     }
     if (goalObjective) {
       sendOptions.goalObjective = goalObjective
@@ -2320,6 +2500,9 @@ export function InputArea({
       onSelectCommand={(name) => {
         insertSlashCommand(name)
       }}
+      onSelectPlugin={(pluginId) => {
+        insertPluginPrompt(pluginId)
+      }}
       onAttachMedia={() => void handleAttachMedia()}
       disabled={disabled || isStreaming}
       projectId={activeProjectId}
@@ -2588,7 +2771,7 @@ export function InputArea({
                           variant="ghost"
                           size="sm"
                           className="h-7 rounded-md px-2 text-[10px] text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                          onClick={() => startEditQueuedMessage(msg)}
+                          onClick={() => quoteQueuedMessage(msg.id)}
                           title={quoteLabel}
                           aria-label={quoteLabel}
                         >
@@ -2626,7 +2809,7 @@ export function InputArea({
                                 {t('input.queueResume', { defaultValue: 'Resume' })}
                               </DropdownMenuItem>
                             ) : null}
-                            <DropdownMenuItem onSelect={() => startEditQueuedMessage(msg)}>
+                            <DropdownMenuItem onSelect={() => quoteQueuedMessage(msg.id)}>
                               <CornerDownRight className="size-3.5" />
                               {quoteLabel}
                             </DropdownMenuItem>
@@ -2688,7 +2871,7 @@ export function InputArea({
         <button
           type="button"
           className="mb-2 flex w-full items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-left text-xs text-amber-600 dark:text-amber-400 transition-colors hover:bg-amber-500/10"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => openSettingsPage('provider')}
         >
           <AlertTriangle className="size-3.5 shrink-0" />
           <span>{t('input.noApiKey')}</span>
@@ -3098,7 +3281,7 @@ export function InputArea({
                     <Command className="size-3.5" />
                     <span>
                       {t('input.slashSuggestions', {
-                        defaultValue: 'Command & skill suggestions'
+                        defaultValue: 'Command, plugin & skill suggestions'
                       })}
                     </span>
                     <span className="composer-status-pill ml-auto rounded-full px-1.5 py-0.5 text-[10px]">
@@ -3111,14 +3294,14 @@ export function InputArea({
                         <Spinner className="size-3.5" />
                         <span>
                           {t('input.loadingSlashSuggestions', {
-                            defaultValue: 'Loading commands and skills...'
+                            defaultValue: 'Loading commands, plugins, and skills...'
                           })}
                         </span>
                       </div>
                     ) : filteredSlashSuggestions.length === 0 ? (
                       <div className="px-2 py-3 text-xs text-muted-foreground">
                         {t('input.noSlashSuggestionsFound', {
-                          defaultValue: 'No matching commands or skills'
+                          defaultValue: 'No matching commands, plugins, or skills'
                         })}
                       </div>
                     ) : (
@@ -3140,12 +3323,16 @@ export function InputArea({
                           >
                             {item.kind === 'skill' ? (
                               <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
+                            ) : item.kind === 'plugin' ? (
+                              <Puzzle className="size-3.5 shrink-0 text-muted-foreground" />
                             ) : (
                               <Command className="size-3.5 shrink-0 text-muted-foreground" />
                             )}
                             <div className="min-w-0 flex flex-1 items-center gap-2 overflow-hidden">
                               <div className="max-w-[45%] shrink-0 truncate text-sm font-medium">
-                                {item.kind === 'command' ? `/${item.name}` : item.name}
+                                {item.kind === 'command'
+                                  ? `/${item.name}`
+                                  : (item.label ?? item.name)}
                               </div>
                               {item.summary && (
                                 <div className="truncate text-[11px] text-muted-foreground">
@@ -3156,7 +3343,9 @@ export function InputArea({
                             <span className="composer-status-pill shrink-0 rounded-full px-1.5 py-0.5 text-[10px]">
                               {item.kind === 'command'
                                 ? t('skills.commandsLabel')
-                                : t('skills.skillsLabel')}
+                                : item.kind === 'plugin'
+                                  ? t('skills.pluginsLabel')
+                                  : t('skills.skillsLabel')}
                             </span>
                           </button>
                         )

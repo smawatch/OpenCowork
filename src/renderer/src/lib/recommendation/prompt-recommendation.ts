@@ -15,6 +15,7 @@ import { useSettingsStore } from '@renderer/stores/settings-store'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { modelSupportsVision, useProviderStore } from '@renderer/stores/provider-store'
 import type { AppMode } from '@renderer/stores/ui-store'
+import { resolveLanguageName, type AppLanguage } from '@renderer/lib/i18n-language'
 
 const RECOMMENDATION_TIMEOUT_MS = 15000
 const RECENT_CONVERSATION_LIMIT = 4
@@ -28,7 +29,7 @@ export interface PromptRecommendationContext {
   recentMessages: UnifiedMessage[]
   selectedSkill: string | null
   images: ImageAttachment[]
-  fallbackLanguage: 'zh' | 'en'
+  fallbackLanguage: AppLanguage
   sessionId?: string | null
 }
 
@@ -144,8 +145,8 @@ function resolveRecommendationConfig(mode: AppMode): ResolvedRecommendationConfi
   }
 }
 
-function buildSystemPrompt(language: 'zh' | 'en', hasDraft: boolean): string {
-  const fallbackLanguage = language === 'zh' ? '中文' : 'English'
+function buildSystemPrompt(language: AppLanguage, hasDraft: boolean): string {
+  const fallbackLanguage = resolveLanguageName(language)
   return [
     'You predict what the user would naturally type next into the composer.',
     'Your job is to predict what THEY would type — not what you think they should do.',

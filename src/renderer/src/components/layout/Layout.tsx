@@ -9,7 +9,6 @@ import { TitleBar } from './TitleBar'
 import { WorkspaceSidebar } from './WorkspaceSidebar'
 import { RightPanel } from './RightPanel'
 import { SubAgentExecutionDetail } from './SubAgentExecutionDetail'
-import { SettingsDialog } from '@renderer/components/settings/SettingsDialog'
 import { ChatHomePage } from '@renderer/components/chat/ChatHomePage'
 import { ProjectHomePage } from '@renderer/components/chat/ProjectHomePage'
 import { ProjectArchivePage } from '@renderer/components/chat/ProjectArchivePage'
@@ -317,7 +316,6 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
     }
   }, [activeSessionId])
 
-  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
   const settingsPageOpen = useUIStore((s) => s.settingsPageOpen)
   const conversationGuideOpen = useUIStore((s) => s.conversationGuideOpen)
   const setConversationGuideOpen = useUIStore((s) => s.setConversationGuideOpen)
@@ -679,7 +677,6 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
   }, [
     handleCreateChatSession,
     mode,
-    setSettingsOpen,
     toggleLeftSidebar,
     activeSessionId,
     ntSetTheme,
@@ -691,211 +688,213 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
     handleModeChange
   ])
 
-  const showEmbeddedSidebar = leftSidebarOpen
+  const showEmbeddedSidebar = leftSidebarOpen && !settingsPageOpen
+  const mainContent = settingsPageOpen ? (
+    <div className="h-screen overflow-hidden bg-background">
+      <PageTransition key="settings-page-shell" className="h-full min-h-0 w-full overflow-hidden">
+        <Suspense fallback={<LazyPageFallback />}>
+          <SettingsPage />
+        </Suspense>
+      </PageTransition>
+    </div>
+  ) : (
+    <div className="flex h-screen overflow-hidden bg-background">
+      <AnimatePresence>
+        {showEmbeddedSidebar && (
+          <PanelTransition side="left" disabled={false} className="z-10 h-full shrink-0">
+            <WorkspaceSidebar />
+          </PanelTransition>
+        )}
+      </AnimatePresence>
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        <TitleBar
+          updateInfo={updateInfo}
+          onOpenUpdateDialog={onOpenUpdateDialog}
+          title={contentHeader.title}
+          subtitle={contentHeader.subtitle}
+          tooltip={contentHeader.tooltip}
+          showSidebarToggle={!showEmbeddedSidebar}
+          insetForMacTrafficLights={!showEmbeddedSidebar}
+        />
+
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <AnimatePresence mode="wait">
+            {tasksPageOpen ? (
+              <PageTransition
+                key="tasks-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <TasksPage />
+                </Suspense>
+              </PageTransition>
+            ) : resourcesPageOpen ? (
+              <PageTransition
+                key="resources-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <ResourcesPage />
+                </Suspense>
+              </PageTransition>
+            ) : skillsPageOpen ? (
+              <PageTransition
+                key="skills-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <SkillsPage />
+                </Suspense>
+              </PageTransition>
+            ) : soulsPageOpen ? (
+              <PageTransition
+                key="souls-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <SoulsPage />
+                </Suspense>
+              </PageTransition>
+            ) : syncPageOpen ? (
+              <PageTransition
+                key="sync-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <SyncPage />
+                </Suspense>
+              </PageTransition>
+            ) : drawPageOpen ? (
+              <PageTransition
+                key="draw-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <DrawPage />
+                </Suspense>
+              </PageTransition>
+            ) : translatePageOpen ? (
+              <PageTransition
+                key="translate-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <TranslatePage />
+                </Suspense>
+              </PageTransition>
+            ) : chatView === 'home' ? (
+              <PageTransition
+                key="chat-home"
+                className="flex flex-1 min-w-0 flex-col overflow-hidden"
+              >
+                <ChatHomePage />
+              </PageTransition>
+            ) : chatView === 'project' ? (
+              <PageTransition
+                key="project-home"
+                className="flex flex-1 min-w-0 flex-col overflow-hidden"
+              >
+                <ProjectHomePage />
+              </PageTransition>
+            ) : chatView === 'archive' || chatView === 'channels' ? (
+              <PageTransition
+                key={chatView === 'channels' ? 'project-channels' : 'project-archive'}
+                className="flex flex-1 min-w-0 flex-col overflow-hidden"
+              >
+                <ProjectArchivePage />
+              </PageTransition>
+            ) : chatView === 'git' ? (
+              <PageTransition
+                key="project-git"
+                className="flex flex-1 min-w-0 flex-col overflow-hidden"
+              >
+                <GitPage />
+              </PageTransition>
+            ) : (
+              <PageTransition
+                key="main-layout"
+                className="flex flex-1 min-w-0 flex-col overflow-hidden"
+              >
+                <ErrorBoundary
+                  renderFallback={(error, reset) => (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-4 overflow-hidden p-8 text-center">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-destructive/10">
+                        <svg
+                          className="size-6 text-destructive"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                          />
+                        </svg>
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          {t('layout.somethingWentWrong')}
+                        </h3>
+                        <p className="max-w-md text-xs text-muted-foreground">
+                          {error?.message || t('layout.unexpectedError')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                          onClick={reset}
+                        >
+                          {t('layout.tryAgain')}
+                        </button>
+                        <button
+                          className="rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          onClick={() => window.location.reload()}
+                        >
+                          {t('layout.reloadApp')}
+                        </button>
+                        <button
+                          className="rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          onClick={() => {
+                            const text = `Error: ${error?.message}\nStack: ${error?.stack}`
+                            navigator.clipboard.writeText(text)
+                          }}
+                        >
+                          {t('layout.copyError')}
+                        </button>
+                      </div>
+                      {error?.stack && (
+                        <details className="w-full max-w-lg text-left">
+                          <summary className="cursor-pointer text-[10px] text-muted-foreground transition-colors hover:text-foreground">
+                            {t('layout.errorDetails')}
+                          </summary>
+                          <pre className="mt-1 max-h-32 overflow-auto rounded-md bg-muted p-2 text-[10px] leading-relaxed text-muted-foreground">
+                            {error.stack}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                >
+                  <div className="flex flex-1 overflow-hidden">
+                    <SessionConversationPane windowHeaderOwnsTitle />
+                    <WorkingFolderSheet />
+                    <RightPanel />
+                  </div>
+                </ErrorBoundary>
+              </PageTransition>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex h-screen overflow-hidden bg-background">
-        <AnimatePresence>
-          {showEmbeddedSidebar && (
-            <PanelTransition side="left" disabled={false} className="z-10 h-full shrink-0">
-              <WorkspaceSidebar />
-            </PanelTransition>
-          )}
-        </AnimatePresence>
-
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
-          <TitleBar
-            updateInfo={updateInfo}
-            onOpenUpdateDialog={onOpenUpdateDialog}
-            title={contentHeader.title}
-            subtitle={contentHeader.subtitle}
-            tooltip={contentHeader.tooltip}
-            showSidebarToggle={!showEmbeddedSidebar}
-            insetForMacTrafficLights={!showEmbeddedSidebar}
-          />
-
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <AnimatePresence mode="wait">
-              {tasksPageOpen ? (
-                <PageTransition
-                  key="tasks-page"
-                  className="flex-1 min-w-0 bg-background overflow-hidden"
-                >
-                  <Suspense fallback={<LazyPageFallback />}>
-                    <TasksPage />
-                  </Suspense>
-                </PageTransition>
-              ) : resourcesPageOpen ? (
-                <PageTransition
-                  key="resources-page"
-                  className="flex-1 min-w-0 bg-background overflow-hidden"
-                >
-                  <Suspense fallback={<LazyPageFallback />}>
-                    <ResourcesPage />
-                  </Suspense>
-                </PageTransition>
-              ) : skillsPageOpen ? (
-                <PageTransition
-                  key="skills-page"
-                  className="flex-1 min-w-0 bg-background overflow-hidden"
-                >
-                  <Suspense fallback={<LazyPageFallback />}>
-                    <SkillsPage />
-                  </Suspense>
-                </PageTransition>
-              ) : soulsPageOpen ? (
-                <PageTransition
-                  key="souls-page"
-                  className="flex-1 min-w-0 bg-background overflow-hidden"
-                >
-                  <Suspense fallback={<LazyPageFallback />}>
-                    <SoulsPage />
-                  </Suspense>
-                </PageTransition>
-              ) : syncPageOpen ? (
-                <PageTransition
-                  key="sync-page"
-                  className="flex-1 min-w-0 bg-background overflow-hidden"
-                >
-                  <Suspense fallback={<LazyPageFallback />}>
-                    <SyncPage />
-                  </Suspense>
-                </PageTransition>
-              ) : settingsPageOpen ? (
-                <PageTransition
-                  key="settings-page"
-                  className="flex-1 min-w-0 bg-background overflow-hidden"
-                >
-                  <Suspense fallback={<LazyPageFallback />}>
-                    <SettingsPage />
-                  </Suspense>
-                </PageTransition>
-              ) : drawPageOpen ? (
-                <PageTransition
-                  key="draw-page"
-                  className="flex-1 min-w-0 bg-background overflow-hidden"
-                >
-                  <Suspense fallback={<LazyPageFallback />}>
-                    <DrawPage />
-                  </Suspense>
-                </PageTransition>
-              ) : translatePageOpen ? (
-                <PageTransition
-                  key="translate-page"
-                  className="flex-1 min-w-0 bg-background overflow-hidden"
-                >
-                  <Suspense fallback={<LazyPageFallback />}>
-                    <TranslatePage />
-                  </Suspense>
-                </PageTransition>
-              ) : chatView === 'home' ? (
-                <PageTransition
-                  key="chat-home"
-                  className="flex flex-1 min-w-0 flex-col overflow-hidden"
-                >
-                  <ChatHomePage />
-                </PageTransition>
-              ) : chatView === 'project' ? (
-                <PageTransition
-                  key="project-home"
-                  className="flex flex-1 min-w-0 flex-col overflow-hidden"
-                >
-                  <ProjectHomePage />
-                </PageTransition>
-              ) : chatView === 'archive' || chatView === 'channels' ? (
-                <PageTransition
-                  key={chatView === 'channels' ? 'project-channels' : 'project-archive'}
-                  className="flex flex-1 min-w-0 flex-col overflow-hidden"
-                >
-                  <ProjectArchivePage />
-                </PageTransition>
-              ) : chatView === 'git' ? (
-                <PageTransition
-                  key="project-git"
-                  className="flex flex-1 min-w-0 flex-col overflow-hidden"
-                >
-                  <GitPage />
-                </PageTransition>
-              ) : (
-                <PageTransition
-                  key="main-layout"
-                  className="flex flex-1 min-w-0 flex-col overflow-hidden"
-                >
-                  <ErrorBoundary
-                    renderFallback={(error, reset) => (
-                      <div className="flex flex-1 flex-col items-center justify-center gap-4 overflow-hidden p-8 text-center">
-                        <div className="flex size-12 items-center justify-center rounded-full bg-destructive/10">
-                          <svg
-                            className="size-6 text-destructive"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className="text-sm font-semibold text-foreground">
-                            {t('layout.somethingWentWrong')}
-                          </h3>
-                          <p className="max-w-md text-xs text-muted-foreground">
-                            {error?.message || t('layout.unexpectedError')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                            onClick={reset}
-                          >
-                            {t('layout.tryAgain')}
-                          </button>
-                          <button
-                            className="rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            onClick={() => window.location.reload()}
-                          >
-                            {t('layout.reloadApp')}
-                          </button>
-                          <button
-                            className="rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            onClick={() => {
-                              const text = `Error: ${error?.message}\nStack: ${error?.stack}`
-                              navigator.clipboard.writeText(text)
-                            }}
-                          >
-                            {t('layout.copyError')}
-                          </button>
-                        </div>
-                        {error?.stack && (
-                          <details className="w-full max-w-lg text-left">
-                            <summary className="cursor-pointer text-[10px] text-muted-foreground transition-colors hover:text-foreground">
-                              {t('layout.errorDetails')}
-                            </summary>
-                            <pre className="mt-1 max-h-32 overflow-auto rounded-md bg-muted p-2 text-[10px] leading-relaxed text-muted-foreground">
-                              {error.stack}
-                            </pre>
-                          </details>
-                        )}
-                      </div>
-                    )}
-                  >
-                    <div className="flex flex-1 overflow-hidden">
-                      <SessionConversationPane windowHeaderOwnsTitle />
-                      <WorkingFolderSheet />
-                      <RightPanel />
-                    </div>
-                  </ErrorBoundary>
-                </PageTransition>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </div>
+      {mainContent}
 
       <Dialog
         open={subAgentExecutionDetailOpen}
@@ -921,7 +920,6 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
       </Dialog>
 
       <CommandPalette />
-      <SettingsDialog />
       <KeyboardShortcutsDialog />
       <ConversationGuideDialog
         open={conversationGuideOpen}

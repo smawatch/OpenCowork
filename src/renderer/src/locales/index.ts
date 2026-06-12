@@ -1,47 +1,38 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { useSettingsStore } from '@renderer/stores/settings-store'
+import { normalizeLanguageCode, SUPPORTED_LANGUAGE_CODES } from '@renderer/lib/i18n-language'
 
-import enCommon from './en/common.json'
-import enLayout from './en/layout.json'
-import enChat from './en/chat.json'
-import enSettings from './en/settings.json'
-import enCowork from './en/cowork.json'
-import enAgent from './en/agent.json'
-import enSsh from './en/ssh.json'
+type LocaleNamespace = Record<string, unknown>
+type LocaleResources = Record<string, Record<string, LocaleNamespace>>
 
-import zhCommon from './zh/common.json'
-import zhLayout from './zh/layout.json'
-import zhChat from './zh/chat.json'
-import zhSettings from './zh/settings.json'
-import zhCowork from './zh/cowork.json'
-import zhAgent from './zh/agent.json'
-import zhSsh from './zh/ssh.json'
+const localeModules = import.meta.glob('./*/*.json', {
+  eager: true,
+  import: 'default'
+}) as Record<string, LocaleNamespace>
+
+const resources: LocaleResources = {}
+
+for (const [path, namespaceContent] of Object.entries(localeModules)) {
+  const match = path.match(/\.\/([^/]+)\/([^/]+)\.json$/)
+  if (!match) continue
+
+  const [, language, namespace] = match
+  if (!resources[language]) {
+    resources[language] = {}
+  }
+
+  resources[language][namespace] = namespaceContent
+}
 
 i18n.use(initReactI18next).init({
-  resources: {
-    en: {
-      common: enCommon,
-      layout: enLayout,
-      chat: enChat,
-      settings: enSettings,
-      cowork: enCowork,
-      agent: enAgent,
-      ssh: enSsh
-    },
-    zh: {
-      common: zhCommon,
-      layout: zhLayout,
-      chat: zhChat,
-      settings: zhSettings,
-      cowork: zhCowork,
-      agent: zhAgent,
-      ssh: zhSsh
-    }
-  },
-  lng: useSettingsStore.getState().language,
+  resources,
+  lng: normalizeLanguageCode(useSettingsStore.getState().language),
+  supportedLngs: [...SUPPORTED_LANGUAGE_CODES],
   fallbackLng: 'en',
+  nonExplicitSupportedLngs: true,
   defaultNS: 'common',
+  load: 'currentOnly',
   interpolation: {
     escapeValue: false
   }

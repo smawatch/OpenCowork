@@ -7,6 +7,13 @@ import { readSettings } from '../ipc/settings-handlers'
 
 const DATA_DIR = path.join(os.homedir(), '.open-cowork')
 const DB_PATH = path.join(DATA_DIR, 'data.db')
+const USAGE_EFFECTIVE_INPUT_TOKENS_EXPR = `COALESCE(
+  billable_input_tokens,
+  CASE
+    WHEN request_type = 'openai-responses' THEN MAX(input_tokens - COALESCE(cache_read_tokens, 0), 0)
+    ELSE input_tokens
+  END
+)`
 
 let db: Database.Database | null = null
 
@@ -1068,6 +1075,136 @@ export function getDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_usage_events_session_created_at ON usage_events(session_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_usage_events_source_kind ON usage_events(source_kind);
   `)
+
+  // --- Long-lived Usage Activity aggregates ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS usage_activity_daily (
+      day TEXT PRIMARY KEY,
+      first_at INTEGER NOT NULL,
+      last_at INTEGER NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+      total_cost_usd REAL NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS usage_activity_daily_models (
+      day TEXT NOT NULL,
+      provider_id TEXT NOT NULL DEFAULT '',
+      provider_name TEXT,
+      model_id TEXT NOT NULL DEFAULT '',
+      model_name TEXT,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+      total_cost_usd REAL NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (day, provider_id, model_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS usage_activity_daily_providers (
+      day TEXT NOT NULL,
+      provider_id TEXT NOT NULL DEFAULT '',
+      provider_name TEXT,
+      provider_type TEXT,
+      provider_builtin_id TEXT,
+      provider_base_url TEXT,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+      total_cost_usd REAL NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (day, provider_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_usage_activity_daily_day ON usage_activity_daily(day DESC);
+    CREATE INDEX IF NOT EXISTS idx_usage_activity_models_day ON usage_activity_daily_models(day DESC);
+    CREATE INDEX IF NOT EXISTS idx_usage_activity_providers_day ON usage_activity_daily_providers(day DESC);
+  `)
+
+  const usageActivityCount = db
+    .prepare('SELECT COUNT(*) AS count FROM usage_activity_daily')
+    .get() as { count?: number } | undefined
+
+  if (Number(usageActivityCount?.count ?? 0) === 0) {
+    const now = Date.now()
+
+    db.exec(`
+      INSERT INTO usage_activity_daily (
+        day, first_at, last_at, request_count, input_tokens, output_tokens,
+        cache_creation_tokens, cache_read_tokens, reasoning_tokens, total_cost_usd, updated_at
+      )
+      SELECT
+        strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', 'localtime') AS day,
+        MIN(created_at) AS first_at,
+        MAX(created_at) AS last_at,
+        COUNT(*) AS request_count,
+        COALESCE(SUM(${USAGE_EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS input_tokens,
+        COALESCE(SUM(output_tokens), 0) AS output_tokens,
+        COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+        COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+        COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+        COALESCE(SUM(total_cost_usd), 0) AS total_cost_usd,
+        ${now} AS updated_at
+      FROM usage_events
+      GROUP BY day;
+
+      INSERT INTO usage_activity_daily_models (
+        day, provider_id, provider_name, model_id, model_name, request_count,
+        input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
+        reasoning_tokens, total_cost_usd, updated_at
+      )
+      SELECT
+        strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', 'localtime') AS day,
+        COALESCE(provider_id, '') AS provider_id,
+        provider_name,
+        COALESCE(model_id, '') AS model_id,
+        model_name,
+        COUNT(*) AS request_count,
+        COALESCE(SUM(${USAGE_EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS input_tokens,
+        COALESCE(SUM(output_tokens), 0) AS output_tokens,
+        COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+        COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+        COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+        COALESCE(SUM(total_cost_usd), 0) AS total_cost_usd,
+        ${now} AS updated_at
+      FROM usage_events
+      GROUP BY day, provider_id, model_id;
+
+      INSERT INTO usage_activity_daily_providers (
+        day, provider_id, provider_name, provider_type, provider_builtin_id, provider_base_url,
+        request_count, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
+        reasoning_tokens, total_cost_usd, updated_at
+      )
+      SELECT
+        strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', 'localtime') AS day,
+        COALESCE(provider_id, '') AS provider_id,
+        provider_name,
+        provider_type,
+        provider_builtin_id,
+        provider_base_url,
+        COUNT(*) AS request_count,
+        COALESCE(SUM(${USAGE_EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS input_tokens,
+        COALESCE(SUM(output_tokens), 0) AS output_tokens,
+        COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+        COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+        COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+        COALESCE(SUM(total_cost_usd), 0) AS total_cost_usd,
+        ${now} AS updated_at
+      FROM usage_events
+      GROUP BY day, provider_id;
+    `)
+  }
 
   // Migration: add pinned column to projects if missing (before creating index on it)
   if (!hasColumn(db, 'projects', 'pinned')) {

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+import { resolveIntlLocale } from '@renderer/lib/i18n-language'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -344,7 +345,7 @@ export function TasksPage(): React.JSX.Element {
   const sessionSummaries = useChatStore(selectTaskPageSessionSummaries)
   const projects = useChatStore((state) => state.projects)
   const language = i18n.resolvedLanguage ?? i18n.language
-  const locale = React.useMemo(() => (language?.startsWith('zh') ? 'zh-CN' : 'en-US'), [language])
+  const locale = React.useMemo(() => resolveIntlLocale(language), [language])
 
   const [selectedDateKey, setSelectedDateKey] = React.useState(() => dateKeyFromDate(new Date()))
   const [calendarCursor, setCalendarCursor] = React.useState(() => {

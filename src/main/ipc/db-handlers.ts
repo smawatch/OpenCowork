@@ -628,6 +628,22 @@ export function registerDbHandlers(options: RegisterDbHandlersOptions = {}): voi
     return usageEventsDao.deleteUsageEvents(query)
   })
 
+  ipcMain.handle('usage-activity:overview', (_event, query) => {
+    return usageEventsDao.getUsageActivityOverview(query)
+  })
+
+  ipcMain.handle('usage-activity:daily', (_event, query) => {
+    return usageEventsDao.getUsageActivityDaily(query)
+  })
+
+  ipcMain.handle('usage-activity:by-model', (_event, query) => {
+    return usageEventsDao.getUsageActivityByModel(query)
+  })
+
+  ipcMain.handle('usage-activity:by-provider', (_event, query) => {
+    return usageEventsDao.getUsageActivityByProvider(query)
+  })
+
   // --- Draw Runs ---
 
   ipcMain.handle('db:draw-runs:list', () => {

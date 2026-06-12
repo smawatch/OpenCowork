@@ -37,7 +37,7 @@
     "searchProjects": "搜索项目",
     "noMatchingProjects": "没有匹配的项目",
     "addProject": "添加新项目",
-    "noProject": "不使用项目",
+    "noProject": "不选择项目",
     "localMode": "本地模式",
     "sshMode": "SSH 模式",
     "globalSession": "通用会话",
@@ -108,9 +108,9 @@
     "queueQuote": "引用",
     "queueImageCount": "{{count}} 张图片",
     "queueImageOnly": "[仅图片]",
-    "slashSuggestions": "命令与技能建议",
-    "loadingSlashSuggestions": "正在加载命令和技能...",
-    "noSlashSuggestionsFound": "未找到匹配的命令或技能",
+    "slashSuggestions": "命令、插件与技能建议",
+    "loadingSlashSuggestions": "正在加载命令、插件和技能...",
+    "noSlashSuggestionsFound": "未找到匹配的命令、插件或技能",
     "queueCleared": "已清空排队消息",
     "queueClearConfirmTitle": "清空排队消息？",
     "queueClearConfirmDesc": "这将删除当前会话中 {{count}} 条待发送消息。",
@@ -841,7 +841,11 @@
     "copyImage": "复制图片",
     "removeImage": "移除图片",
     "imagePreview": "图片预览",
-    "saveAndResend": "保存并重发"
+    "saveAndResend": "保存并重发",
+    "selectedFileReadsTitle": "已读文件",
+    "selectedFileReadLines": "已读 {{count}} 行",
+    "selectedFileReadTruncated": "已读前 {{count}} 行",
+    "selectedFileReadFailed": "读取失败"
   },
   "assistantMessage": {
     "changedFiles_one": "编辑了 {{count}} 个文件",
@@ -1009,6 +1013,15 @@
   },
   "error": {
     "label": "错误"
+  },
+  "extensionResult": {
+    "title": "插件结果",
+    "rendererMissing": "未找到渲染器",
+    "loadingRenderer": "正在加载渲染器...",
+    "rendererTitle": "插件渲染器",
+    "tableTitle": "表格",
+    "emptyTable": "没有可显示的行",
+    "chartItem": "项目 {{index}}"
   },
   "git": {
     "title": "源代码管理",

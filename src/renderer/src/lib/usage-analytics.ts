@@ -23,6 +23,13 @@ export interface UsageAnalyticsQuery {
   offset?: number
 }
 
+export interface UsageActivityQuery {
+  from: number
+  to: number
+  limit?: number
+  offset?: number
+}
+
 export interface UsageAnalyticsOverview {
   request_count: number
   input_tokens: number
@@ -280,4 +287,30 @@ export function listUsageEvents(query: UsageAnalyticsQuery): Promise<UsageAnalyt
 
 export function clearUsageEvents(query: UsageAnalyticsQuery): Promise<{ deleted: number }> {
   return ipcClient.invoke(IPC.USAGE_EVENTS_CLEAR, query) as Promise<{ deleted: number }>
+}
+
+export function getUsageActivityOverview(
+  query: UsageActivityQuery
+): Promise<UsageAnalyticsOverview> {
+  return ipcClient.invoke(IPC.USAGE_ACTIVITY_OVERVIEW, query) as Promise<UsageAnalyticsOverview>
+}
+
+export function getUsageActivityDaily(
+  query: UsageActivityQuery
+): Promise<UsageAnalyticsGroupRow[]> {
+  return ipcClient.invoke(IPC.USAGE_ACTIVITY_DAILY, query) as Promise<UsageAnalyticsGroupRow[]>
+}
+
+export function getUsageActivityByModel(
+  query: UsageActivityQuery
+): Promise<UsageAnalyticsGroupRow[]> {
+  return ipcClient.invoke(IPC.USAGE_ACTIVITY_BY_MODEL, query) as Promise<UsageAnalyticsGroupRow[]>
+}
+
+export function getUsageActivityByProvider(
+  query: UsageActivityQuery
+): Promise<UsageAnalyticsGroupRow[]> {
+  return ipcClient.invoke(IPC.USAGE_ACTIVITY_BY_PROVIDER, query) as Promise<
+    UsageAnalyticsGroupRow[]
+  >
 }

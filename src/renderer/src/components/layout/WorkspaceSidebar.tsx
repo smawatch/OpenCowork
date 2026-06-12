@@ -90,6 +90,7 @@ import { cn } from '@renderer/lib/utils'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { IPC } from '@renderer/lib/ipc/channels'
 import { generateSessionTitle } from '@renderer/lib/api/generate-title'
+import { resolveIntlLocale } from '@renderer/lib/i18n-language'
 import { clampLeftSidebarWidth, LEFT_SIDEBAR_DEFAULT_WIDTH } from './right-panel-defs'
 import { WorkingFolderSelectorDialog } from '@renderer/components/chat/WorkingFolderSelectorDialog'
 import { toast } from 'sonner'
@@ -582,6 +583,17 @@ export function WorkspaceSidebar(): React.JSX.Element {
     uiStore.navigateToProject(projectId)
   }, [])
 
+  const openProjectNewSession = useCallback((projectId: string) => {
+    const chatStore = useChatStore.getState()
+    const uiStore = useUIStore.getState()
+    chatStore.setActiveProject(projectId)
+    chatStore.setActiveSession(null)
+    if (uiStore.mode === 'chat') {
+      uiStore.setMode('cowork')
+    }
+    uiStore.navigateToHome()
+  }, [])
+
   const handleCreateChatSession = useCallback(() => {
     openChatHome()
   }, [openChatHome])
@@ -687,9 +699,9 @@ export function WorkspaceSidebar(): React.JSX.Element {
 
   const handleCreateSession = useCallback(
     (projectId: string) => {
-      openProjectHome(projectId)
+      openProjectNewSession(projectId)
     },
-    [openProjectHome]
+    [openProjectNewSession]
   )
 
   const handleClearChatSessions = useCallback(async () => {
@@ -1124,7 +1136,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
     )
   }
 
-  const relativeTimeLocale = language === 'zh' ? 'zh-CN' : 'en'
+  const relativeTimeLocale = resolveIntlLocale(language)
 
   const handleExportProject = useCallback(
     async (project: ProjectListItem) => {
@@ -1183,7 +1195,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
         <div
           className={cn(
             'workspace-sidebar-titlebar titlebar-drag flex h-10 shrink-0 items-center gap-2 px-2',
-            isMac ? 'pl-[78px]' : ''
+            isMac ? 'pl-[104px]' : ''
           )}
         >
           <Button

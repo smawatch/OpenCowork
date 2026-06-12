@@ -6,6 +6,7 @@ import type { McpServerConfig, McpTool } from './mcp/types'
 import { buildMemoryContext } from './agent/dynamic-context'
 import type { LayeredMemorySnapshot, SessionMemoryScope } from './agent/memory-files'
 import type { PromptEnvironmentContext } from './agent/system-prompt'
+import { normalizeLanguageCode, resolveLanguageName } from './i18n-language'
 
 const CHAT_MODE_CORE_TOOL_NAMES = new Set([
   'WebSearch',
@@ -70,7 +71,10 @@ export function stableSerializePromptCacheValue(value: unknown): string {
 
 export function isChatModeToolName(name: string): boolean {
   return (
-    CHAT_MODE_CORE_TOOL_NAMES.has(name) || CHAT_MODE_PLUGIN_TOOL_NAMES.has(name) || isMcpTool(name)
+    CHAT_MODE_CORE_TOOL_NAMES.has(name) ||
+    CHAT_MODE_PLUGIN_TOOL_NAMES.has(name) ||
+    isMcpTool(name) ||
+    name.startsWith('extension__')
   )
 }
 
@@ -112,7 +116,7 @@ export function buildSystemPromptContextCacheKey(options: {
   memorySnapshot?: unknown
 }): string {
   return stableSerializePromptCacheValue({
-    language: options.language === 'zh' ? 'zh' : 'en',
+    language: normalizeLanguageCode(options.language),
     userRules: normalizeUserRules(options.userRules),
     memorySnapshot: options.memorySnapshot ?? null,
     environmentContext: options.environmentContext
@@ -138,7 +142,7 @@ export function buildSystemPromptContextCacheKey(options: {
 
 export function buildChatModePromptContextCacheKey(options: ChatModePromptOptions): string {
   return stableSerializePromptCacheValue({
-    language: options.language === 'zh' ? 'zh' : 'en',
+    language: normalizeLanguageCode(options.language),
     userRules: normalizeUserRules(options.userRules),
     workingFolder: options.workingFolder?.trim() || null,
     sessionScope: options.sessionScope ?? 'main',
@@ -178,9 +182,7 @@ export function buildChatModeSystemPrompt(options: ChatModePromptOptions): strin
   const parts: string[] = [
     'You are **OpenCowork**, a helpful AI assistant running inside a desktop agents application.',
     'OpenCowork is developed by the **AIDotNet** team. Core contributor: **token** (GitHub: @AIDotNet).',
-    `IMPORTANT: You MUST respond in ${
-      options.language === 'zh' ? 'Chinese' : 'English'
-    } unless the user explicitly requests otherwise.`,
+    `IMPORTANT: You MUST respond in ${resolveLanguageName(options.language)} unless the user explicitly requests otherwise.`,
     'Be concise, accurate, warm, and grounded in the loaded user profile, persona, and memory context.',
     'Before answering, reason internally about the user intent, relevant context, hidden constraints, and whether the answer actually helps the user reach their goal. Do not expose private chain-of-thought.',
     'Use markdown formatting when it improves readability. Use fenced code blocks with language identifiers for code.',

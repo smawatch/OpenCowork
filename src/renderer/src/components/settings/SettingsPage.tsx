@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
+  ArrowLeft,
   Settings,
   BrainCircuit,
   BarChart3,
@@ -21,8 +22,8 @@ import {
   Save,
   RefreshCw,
   Puzzle,
-  PanelLeftOpen,
-  Terminal
+  Terminal,
+  UserRound
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { AnimatePresence } from 'motion/react'
@@ -42,6 +43,7 @@ import {
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { confirm } from '@renderer/components/ui/confirm-dialog'
+import { LANGUAGE_OPTIONS, resolveIntlLocale } from '@renderer/lib/i18n-language'
 import { Button } from '@renderer/components/ui/button'
 import { Badge } from '@renderer/components/ui/badge'
 import { Input } from '@renderer/components/ui/input'
@@ -66,12 +68,14 @@ import {
 import { ModelManagementPanel, ProviderPanel } from './ProviderPanel'
 import { ChannelPanel } from './PluginPanel'
 import { AppPluginPanel } from './AppPluginPanel'
+import { ExtensionPanel } from './ExtensionPanel'
 import { McpPanel } from './McpPanel'
 import { WebSearchPanel } from './WebSearchPanel'
 import { SkillsMarketPanel } from './SkillsMarketPanel'
 import { MigrationPanel } from './MigrationPanel'
 import { GlobalThemePanel } from './GlobalThemePanel'
 import { AnalyticsOverview } from './AnalyticsOverview'
+import { ProfilePanel } from './ProfilePanel'
 import { ModelIcon, ProviderIcon } from './provider-icons'
 import { AutoMemoryPanel } from '@renderer/components/memory/AutoMemoryPanel'
 import { IPC } from '@renderer/lib/ipc/channels'
@@ -102,22 +106,14 @@ import {
   DEFAULT_APP_THEME_PRESET,
   DEFAULT_SSH_TERMINAL_THEME_PRESET
 } from '@renderer/lib/theme-presets'
+import { WindowControls } from '@renderer/components/layout/WindowControls'
+import {
+  DEFAULT_BUILTIN_SOUL_TEMPLATE_ID,
+  type BuiltinSoulTemplateWithContent
+} from '../../../../shared/builtin-souls'
 
 const DEFAULT_GLOBAL_MEMORY_TEMPLATES = {
-  soul: `# SOUL.md
-
-This file defines your long-term identity, style, and behavior boundaries across OpenCowork sessions.
-
-## Core Truths
-- Be genuinely helpful, not performatively helpful
-- Be direct, grounded, and competent
-- Be resourceful before asking
-
-## Boundaries
-- Keep private things private
-- Ask before external or destructive actions
-- System and product safety rules outrank this file
-`,
+  soul: '',
   user: `# USER.md
 
 This file captures durable user preferences and collaboration style.
@@ -242,6 +238,13 @@ function createInitialGlobalMemoryFiles(): Record<GlobalMemoryTabId, GlobalMemor
 
 function isMissingFileError(error: string): boolean {
   return error.includes('ENOENT')
+}
+
+function getSoulLabelTranslationKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
 }
 
 function getIpcError(result: unknown): string | null {
@@ -378,6 +381,12 @@ const menuGroupDefs: Array<{
     labelKey: 'page.groups.foundation',
     items: [
       {
+        id: 'profile',
+        icon: <UserRound className="size-4" />,
+        labelKey: 'profile.title',
+        descKey: 'profile.subtitle'
+      },
+      {
         id: 'general',
         icon: <Settings className="size-4" />,
         labelKey: 'general.title',
@@ -445,6 +454,12 @@ const menuGroupDefs: Array<{
         icon: <Puzzle className="size-4" />,
         labelKey: 'plugin.title',
         descKey: 'plugin.subtitle'
+      },
+      {
+        id: 'extension',
+        icon: <Sparkles className="size-4" />,
+        labelKey: 'extension.title',
+        descKey: 'extension.subtitle'
       },
       {
         id: 'mcp',
@@ -1046,18 +1061,19 @@ function GeneralPanel(): React.JSX.Element {
         </div>
         <Select
           value={settings.language}
-          onValueChange={(v: 'en' | 'zh') => settings.updateSettings({ language: v })}
+          onValueChange={(v) =>
+            settings.updateSettings({ language: v as typeof settings.language })
+          }
         >
           <SelectTrigger className="w-60 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="zh" className="text-xs">
-              {t('general.chinese')}
-            </SelectItem>
-            <SelectItem value="en" className="text-xs">
-              {t('general.english')}
-            </SelectItem>
+            {LANGUAGE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value} className="text-xs">
+                {option.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </section>
@@ -1574,16 +1590,91 @@ function MemoryPanel(): React.JSX.Element {
   const [files, setFiles] = useState<Record<GlobalMemoryTabId, GlobalMemoryFileState>>(
     createInitialGlobalMemoryFiles
   )
+  const [builtinSoulTemplates, setBuiltinSoulTemplates] = useState<
+    BuiltinSoulTemplateWithContent[]
+  >([])
+  const [selectedBuiltinSoulId, setSelectedBuiltinSoulId] = useState(
+    DEFAULT_BUILTIN_SOUL_TEMPLATE_ID
+  )
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const activeFile = files[activeTab]
+  const selectedBuiltinSoulTemplate = useMemo(
+    () =>
+      builtinSoulTemplates.find((template) => template.id === selectedBuiltinSoulId) ??
+      builtinSoulTemplates[0] ??
+      null,
+    [builtinSoulTemplates, selectedBuiltinSoulId]
+  )
   const hasUnsavedChanges = activeFile.draftContent !== activeFile.savedContent
   const canSave = activeFile.missingFile || hasUnsavedChanges
+  const getBuiltinSoulTemplateName = useCallback(
+    (template: BuiltinSoulTemplateWithContent): string =>
+      t(`builtinSouls.templates.${template.id}.name`, {
+        ns: 'common',
+        defaultValue: template.name
+      }),
+    [t]
+  )
+  const getBuiltinSoulTemplateDescription = useCallback(
+    (template: BuiltinSoulTemplateWithContent): string =>
+      t(`builtinSouls.templates.${template.id}.description`, {
+        ns: 'common',
+        defaultValue: template.description
+      }),
+    [t]
+  )
+  const getBuiltinSoulCategoryLabel = useCallback(
+    (category: string): string =>
+      t(`builtinSouls.categories.${getSoulLabelTranslationKey(category)}`, {
+        ns: 'common',
+        defaultValue: category
+      }),
+    [t]
+  )
+  const getBuiltinSoulTagLabel = useCallback(
+    (tag: string): string =>
+      t(`builtinSouls.tags.${getSoulLabelTranslationKey(tag)}`, {
+        ns: 'common',
+        defaultValue: tag
+      }),
+    [t]
+  )
+
+  const loadBuiltinSoulTemplates = async (): Promise<BuiltinSoulTemplateWithContent[]> => {
+    const result = (await ipcClient.invoke(IPC.SOULS_BUILTIN_LIST)) as {
+      templates?: BuiltinSoulTemplateWithContent[]
+      error?: string
+    }
+    const templates = Array.isArray(result.templates)
+      ? result.templates.filter((template) => template.content.trim())
+      : []
+
+    if (result.error) {
+      throw new Error(result.error)
+    }
+
+    setBuiltinSoulTemplates(templates)
+    setSelectedBuiltinSoulId((current) => {
+      if (templates.some((template) => template.id === current)) return current
+      return templates[0]?.id ?? DEFAULT_BUILTIN_SOUL_TEMPLATE_ID
+    })
+    return templates
+  }
 
   const loadGlobalMemoryFiles = async (): Promise<void> => {
     setLoading(true)
     try {
+      let builtinTemplates: BuiltinSoulTemplateWithContent[] = []
+      try {
+        builtinTemplates = await loadBuiltinSoulTemplates()
+      } catch (error) {
+        console.error('[memory] failed to load builtin SOUL templates', error)
+        setBuiltinSoulTemplates([])
+      }
+      const defaultSoulContent =
+        builtinTemplates[0]?.content ?? DEFAULT_GLOBAL_MEMORY_TEMPLATES.soul
       const rootPath = await resolveGlobalMemoryHomePath(ipcClient)
       if (!rootPath) {
         toast.error(t('memory.resolvePathFailed'))
@@ -1615,7 +1706,9 @@ function MemoryPanel(): React.JSX.Element {
 
           const normalized =
             error && isMissingFileError(error)
-              ? DEFAULT_GLOBAL_MEMORY_TEMPLATES[id]
+              ? id === 'soul'
+                ? defaultSoulContent
+                : DEFAULT_GLOBAL_MEMORY_TEMPLATES[id]
               : (content ?? '')
 
           return [
@@ -1716,6 +1809,80 @@ function MemoryPanel(): React.JSX.Element {
     }
   }, [activeFile.draftContent, activeFile.filename, activeFile.path, activeTab, t])
 
+  const handleLoadBuiltinSoulTemplate = useCallback(() => {
+    if (!selectedBuiltinSoulTemplate) {
+      toast.error(t('memory.builtin.missingTemplate'))
+      return
+    }
+
+    const templateName = getBuiltinSoulTemplateName(selectedBuiltinSoulTemplate)
+    setActiveTab('soul')
+    setFiles((prev) => ({
+      ...prev,
+      soul: {
+        ...prev.soul,
+        draftContent: selectedBuiltinSoulTemplate.content
+      }
+    }))
+    toast.success(t('memory.builtin.loaded', { name: templateName }))
+  }, [getBuiltinSoulTemplateName, selectedBuiltinSoulTemplate, t])
+
+  const handleOverwriteBuiltinSoulTemplate = useCallback(async (): Promise<void> => {
+    if (!selectedBuiltinSoulTemplate) {
+      toast.error(t('memory.builtin.missingTemplate'))
+      return
+    }
+
+    const soulFile = files.soul
+    if (!soulFile.path) {
+      toast.error(t('memory.resolvePathFailed'))
+      return
+    }
+
+    const templateName = getBuiltinSoulTemplateName(selectedBuiltinSoulTemplate)
+    const ok = await confirm({
+      title: t('memory.builtin.confirmTitle'),
+      description: t('memory.builtin.confirmDescription', {
+        name: templateName,
+        path: soulFile.path
+      }),
+      confirmLabel: t('memory.builtin.confirmAction'),
+      variant: 'destructive'
+    })
+    if (!ok) return
+
+    setActiveTab('soul')
+    setSaving(true)
+    try {
+      const result = await ipcClient.invoke(IPC.FS_WRITE_FILE, {
+        path: soulFile.path,
+        content: selectedBuiltinSoulTemplate.content
+      })
+      const error = getIpcError(result)
+      if (error) {
+        toast.error(t('memory.saveFailed', { file: soulFile.filename, error }))
+        return
+      }
+
+      setFiles((prev) => ({
+        ...prev,
+        soul: {
+          ...prev.soul,
+          savedContent: selectedBuiltinSoulTemplate.content,
+          draftContent: selectedBuiltinSoulTemplate.content,
+          missingFile: false,
+          lastSavedAt: Date.now()
+        }
+      }))
+      toast.success(t('memory.builtin.overwriteSaved', { name: templateName }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(t('memory.saveFailed', { file: soulFile.filename, error: message }))
+    } finally {
+      setSaving(false)
+    }
+  }, [files.soul, getBuiltinSoulTemplateName, selectedBuiltinSoulTemplate, t])
+
   return (
     <div className="space-y-8">
       <div>
@@ -1766,6 +1933,95 @@ function MemoryPanel(): React.JSX.Element {
             )
           })}
         </div>
+
+        {activeTab === 'soul' ? (
+          <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="flex items-center gap-2 text-sm font-medium">
+                  <Wand2 className="size-4 text-primary" />
+                  {t('memory.builtin.title')}
+                </p>
+                <p className="text-xs text-muted-foreground">{t('memory.builtin.subtitle')}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={handleLoadBuiltinSoulTemplate}
+                  disabled={loading || saving || !selectedBuiltinSoulTemplate}
+                >
+                  {t('memory.builtin.loadAction')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => void handleOverwriteBuiltinSoulTemplate()}
+                  disabled={loading || saving || !selectedBuiltinSoulTemplate}
+                >
+                  {t('memory.builtin.overwriteAction')}
+                </Button>
+              </div>
+            </div>
+
+            {builtinSoulTemplates.length > 0 ? (
+              <div className="grid gap-3 lg:grid-cols-[minmax(220px,320px)_1fr]">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium">{t('memory.builtin.selectLabel')}</label>
+                  <Select value={selectedBuiltinSoulId} onValueChange={setSelectedBuiltinSoulId}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {builtinSoulTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {getBuiltinSoulTemplateName(template)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedBuiltinSoulTemplate ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant="outline" className="text-[10px]">
+                        {getBuiltinSoulCategoryLabel(selectedBuiltinSoulTemplate.category)}
+                      </Badge>
+                      {selectedBuiltinSoulTemplate.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-[10px]">
+                          {getBuiltinSoulTagLabel(tag)}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                {selectedBuiltinSoulTemplate ? (
+                  <div className="min-w-0 space-y-2 rounded-md border bg-background/70 p-3">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold">
+                        {getBuiltinSoulTemplateName(selectedBuiltinSoulTemplate)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {getBuiltinSoulTemplateDescription(selectedBuiltinSoulTemplate)}
+                      </p>
+                    </div>
+                    <pre className="max-h-36 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 font-mono text-[11px] leading-5 text-muted-foreground">
+                      {selectedBuiltinSoulTemplate.content.slice(0, 1800)}
+                      {selectedBuiltinSoulTemplate.content.length > 1800 ? '\n...' : ''}
+                    </pre>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                {t('memory.builtin.unavailable')}
+              </p>
+            )}
+          </div>
+        ) : null}
 
         <div className="rounded-lg border border-border/60 bg-background/60 p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1960,7 +2216,7 @@ function AnalyticsPanel(): React.JSX.Element {
     }
   }, [loadAnalytics, t])
 
-  const tokenLocale = i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US'
+  const tokenLocale = resolveIntlLocale(i18n.language)
   const inputTokenLabel = t('analytics.billableInputTokens', {
     defaultValue: tokenLocale === 'zh-CN' ? '计费输入 Token' : 'Billable Input Tokens'
   })
@@ -3183,6 +3439,7 @@ function AboutPanel(): React.JSX.Element {
 }
 
 const panelMap: Record<SettingsTab, () => React.JSX.Element> = {
+  profile: ProfilePanel,
   general: GeneralPanel,
   system: SystemPanel,
   memory: MemoryPanel,
@@ -3191,6 +3448,7 @@ const panelMap: Record<SettingsTab, () => React.JSX.Element> = {
   provider: ProviderPanel,
   modelManagement: ModelManagementPanel,
   plugin: AppPluginPanel,
+  extension: ExtensionPanel,
   channel: ChannelPanel,
   mcp: McpPanel,
   model: ModelPanel,
@@ -3203,105 +3461,127 @@ export function SettingsPage(): React.JSX.Element {
   const { t } = useTranslation('settings')
   const settingsTab = useUIStore((s) => s.settingsTab)
   const setSettingsTab = useUIStore((s) => s.setSettingsTab)
-  const leftSidebarOpen = useUIStore((s) => s.leftSidebarOpen)
-  const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar)
+  const closeSettingsPage = useUIStore((s) => s.closeSettingsPage)
+  const isMac = useMemo(() => /Mac/.test(navigator.userAgent), [])
 
   const effectiveSettingsTab = settingsTab === 'channel' ? 'general' : settingsTab
   const ActivePanel = panelMap[effectiveSettingsTab]
 
   return (
-    <div className="flex h-full min-h-0 w-full bg-background">
-      {/* Left Sidebar - LobeHub Style */}
-      <div className="flex w-64 shrink-0 flex-col border-r bg-muted/20">
-        {/* Header */}
-        <div className="px-5 pb-5 pt-5">
-          <h1 className="text-xl font-bold">{t('page.title')}</h1>
-          <p className="mt-1 text-xs text-muted-foreground">{t('page.subtitle')}</p>
+    <div className="flex h-full min-h-0 w-full flex-col bg-muted/10">
+      <header
+        className={`titlebar-drag relative flex h-10 shrink-0 items-center gap-3 border-b bg-background/90 px-3 backdrop-blur ${isMac ? 'pl-[104px]' : 'pr-[132px]'}`}
+        style={{ paddingRight: isMac ? undefined : 'calc(132px + 0.75rem)' }}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className="titlebar-no-drag size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+          onClick={closeSettingsPage}
+          title={t('page.back', { defaultValue: 'Back' })}
+        >
+          <ArrowLeft className="size-4" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold text-foreground/92">{t('page.title')}</div>
+          <div className="hidden truncate text-[11px] text-muted-foreground sm:block">
+            {t('page.subtitle')}
+          </div>
         </div>
+        {!isMac ? (
+          <div className="absolute right-0 top-0 z-10">
+            <WindowControls />
+          </div>
+        ) : null}
+      </header>
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-4 px-3 overflow-y-auto">
-          {menuGroupDefs.map((group) => (
-            <div key={group.labelKey} className="space-y-1">
-              <p className="px-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                {t(group.labelKey)}
-              </p>
-              {group.items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSettingsTab(item.id)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all duration-150 ${
-                    effectiveSettingsTab === item.id
-                      ? 'bg-accent text-accent-foreground font-medium'
-                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                  }`}
-                >
-                  <span
-                    className={`flex items-center justify-center size-5 ${
+      <div className="flex min-h-0 flex-1">
+        <div className="flex w-[244px] shrink-0 flex-col border-r bg-background/80">
+          <div className="px-5 pb-4 pt-5">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/55">
+              {t('page.subtitle')}
+            </p>
+          </div>
+
+          <nav className="flex-1 space-y-4 overflow-y-auto px-3">
+            {menuGroupDefs.map((group) => (
+              <div key={group.labelKey} className="space-y-1.5">
+                <p className="px-3 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/55">
+                  {t(group.labelKey)}
+                </p>
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setSettingsTab(item.id)}
+                    className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-150 ${
                       effectiveSettingsTab === item.id
-                        ? 'text-accent-foreground'
-                        : 'text-muted-foreground'
+                        ? 'bg-primary/10 font-medium text-foreground ring-1 ring-primary/15'
+                        : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                     }`}
                   >
-                    {item.icon}
-                  </span>
-                  <span>{t(item.labelKey)}</span>
-                </button>
-              ))}
-            </div>
-          ))}
-        </nav>
-
-        {/* Footer */}
-        <div className="px-5 py-4 text-[11px] text-muted-foreground/50">{t('page.poweredBy')}</div>
-      </div>
-
-      {/* Right Content */}
-      <div className="relative flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden px-6 py-4">
-        {!leftSidebarOpen && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute left-6 top-4 z-20 size-8 rounded-lg border border-border/60 bg-background/80 backdrop-blur-sm"
-            onClick={toggleLeftSidebar}
-            title={t('page.title')}
-          >
-            <PanelLeftOpen className="size-4" />
-          </Button>
-        )}
-
-        {/* Content */}
-        <AnimatePresence mode="wait">
-          {effectiveSettingsTab === 'provider' ||
-          effectiveSettingsTab === 'modelManagement' ||
-          effectiveSettingsTab === 'plugin' ||
-          effectiveSettingsTab === 'mcp' ? (
-            <div className="flex-1 min-h-0 min-w-0 overflow-hidden pb-4" key="full-panel">
-              <SlideIn
-                key={effectiveSettingsTab}
-                direction="right"
-                duration={0.25}
-                className="h-full min-h-0"
-              >
-                <ActivePanel />
-              </SlideIn>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto" key="scroll-panel">
-              <div
-                className={
-                  effectiveSettingsTab === 'analytics'
-                    ? 'w-full max-w-none px-6 pb-16 pt-10'
-                    : 'mx-auto max-w-2xl px-8 pb-16 pt-10'
-                }
-              >
-                <FadeIn key={effectiveSettingsTab} duration={0.25} className="w-full">
-                  <ActivePanel />
-                </FadeIn>
+                    <span
+                      className={`absolute bottom-2 left-0 top-2 w-0.5 rounded-full ${
+                        effectiveSettingsTab === item.id ? 'bg-primary' : 'bg-transparent'
+                      }`}
+                    />
+                    <span
+                      className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${
+                        effectiveSettingsTab === item.id
+                          ? 'bg-background text-primary shadow-xs'
+                          : 'bg-muted/60 text-muted-foreground'
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
+                  </button>
+                ))}
               </div>
-            </div>
-          )}
-        </AnimatePresence>
+            ))}
+          </nav>
+
+          <div className="px-5 py-4 text-[11px] text-muted-foreground/50">
+            {t('page.poweredBy')}
+          </div>
+        </div>
+
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-5 py-5">
+          {/* Content */}
+          <AnimatePresence mode="wait">
+            {effectiveSettingsTab === 'provider' ||
+            effectiveSettingsTab === 'modelManagement' ||
+            effectiveSettingsTab === 'plugin' ||
+            effectiveSettingsTab === 'extension' ||
+            effectiveSettingsTab === 'mcp' ? (
+              <div className="flex-1 min-h-0 min-w-0 overflow-hidden" key="full-panel">
+                <SlideIn
+                  key={effectiveSettingsTab}
+                  direction="right"
+                  duration={0.25}
+                  className="h-full min-h-0"
+                >
+                  <ActivePanel />
+                </SlideIn>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto" key="scroll-panel">
+                <div
+                  className={
+                    effectiveSettingsTab === 'analytics'
+                      ? 'w-full max-w-none px-6 pb-16 pt-10'
+                      : effectiveSettingsTab === 'profile'
+                        ? 'mx-auto w-full max-w-5xl px-6 pb-16 pt-10'
+                        : 'mx-auto max-w-2xl px-8 pb-16 pt-10'
+                  }
+                >
+                  <FadeIn key={effectiveSettingsTab} duration={0.25} className="w-full">
+                    <ActivePanel />
+                  </FadeIn>
+                </div>
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   )

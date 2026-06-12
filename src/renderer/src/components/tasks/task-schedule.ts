@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next'
 import type { CronJobEntry, CronSchedule } from '@renderer/stores/cron-store'
+import { resolveIntlLocale } from '@renderer/lib/i18n-language'
 
 export interface DayWindowEntry {
   key: string
@@ -13,8 +14,7 @@ const MINUTE_MS = 60_000
 const PLANNED_TIME_LIMIT = 500
 
 function resolveTaskLocale(language?: string): string {
-  if (!language) return 'en-US'
-  return language.startsWith('zh') ? 'zh-CN' : 'en-US'
+  return resolveIntlLocale(language)
 }
 
 export function startOfLocalDay(value: Date | number): Date {

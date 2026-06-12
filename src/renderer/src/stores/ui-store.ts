@@ -13,6 +13,11 @@ import {
 import { ipcStorage } from '@renderer/lib/ipc/ipc-storage'
 import { parseChatRoute, replaceChatRoute } from '@renderer/lib/chat-route'
 import { useChatStore } from '@renderer/stores/chat-store'
+import {
+  DEFAULT_SETTINGS_TAB,
+  parseSettingsRoute,
+  replaceSettingsRoute
+} from '@renderer/lib/settings-route'
 
 export type AppMode = 'chat' | 'clarify' | 'cowork' | 'code' | 'acp'
 
@@ -168,6 +173,7 @@ export interface BrowserPanelSessionState {
 }
 
 export type SettingsTab =
+  | 'profile'
   | 'general'
   | 'system'
   | 'memory'
@@ -177,6 +183,7 @@ export type SettingsTab =
   | 'modelManagement'
   | 'model'
   | 'plugin'
+  | 'extension'
   | 'channel'
   | 'mcp'
   | 'websearch'
@@ -480,6 +487,7 @@ interface UIStore {
   navigateToChannels: (projectId?: string | null) => void
   navigateToGit: (projectId?: string | null) => void
   navigateToSession: (sessionId?: string | null) => void
+  applyRouteFromLocation: () => void
   applyChatRouteFromLocation: () => void
 }
 
@@ -616,6 +624,30 @@ const CHAT_SURFACE_NAV_RESET = {
   drawPageOpen: false,
   tasksPageOpen: false
 } as const
+
+function replaceChatRouteFromCurrentState(chatView: ChatView): void {
+  const chatStore = useChatStore.getState()
+  const activeSession = chatStore.activeSessionId
+    ? chatStore.sessions.find((item) => item.id === chatStore.activeSessionId)
+    : null
+
+  if (chatView === 'session' && activeSession) {
+    replaceChatRoute({
+      chatView: 'session',
+      projectId: activeSession.projectId ?? null,
+      sessionId: activeSession.id
+    })
+    return
+  }
+
+  const projectId = chatStore.activeProjectId ?? activeSession?.projectId ?? null
+  if (chatView !== 'home' && projectId) {
+    replaceChatRoute({ chatView, projectId, sessionId: null })
+    return
+  }
+
+  replaceChatRoute({ chatView: 'home', projectId: null, sessionId: null })
+}
 
 function buildFilePreviewState(
   filePath: string,
@@ -1168,11 +1200,13 @@ export const useUIStore = create<UIStore>()(
       settingsOpen: false,
       setSettingsOpen: (open) => set({ settingsOpen: open }),
       settingsPageOpen: false,
-      settingsTab: 'general',
-      openSettingsPage: (tab) =>
+      settingsTab: DEFAULT_SETTINGS_TAB,
+      openSettingsPage: (tab) => {
+        const nextTab = tab ?? DEFAULT_SETTINGS_TAB
         set({
           settingsPageOpen: true,
-          settingsTab: tab ?? 'general',
+          settingsOpen: false,
+          settingsTab: nextTab,
           skillsPageOpen: false,
           soulsPageOpen: false,
           syncPageOpen: false,
@@ -1181,9 +1215,21 @@ export const useUIStore = create<UIStore>()(
           drawPageOpen: false,
           tasksPageOpen: false,
           ...closeRightSidePanels()
-        }),
-      closeSettingsPage: () => set({ settingsPageOpen: false }),
-      setSettingsTab: (tab) => set({ settingsTab: tab }),
+        })
+        replaceSettingsRoute(nextTab)
+      },
+      closeSettingsPage: () => {
+        set({ settingsPageOpen: false })
+        if (parseSettingsRoute(window.location.hash)) {
+          replaceChatRouteFromCurrentState(get().chatView)
+        }
+      },
+      setSettingsTab: (tab) => {
+        set({ settingsTab: tab })
+        if (get().settingsPageOpen || parseSettingsRoute(window.location.hash)) {
+          replaceSettingsRoute(tab)
+        }
+      },
       skillsPageOpen: false,
       openSkillsPage: () =>
         set({
@@ -1796,6 +1842,30 @@ export const useUIStore = create<UIStore>()(
           sessionId: resolvedSessionId
         })
       },
+      applyRouteFromLocation: () => {
+        const settingsRoute = parseSettingsRoute(window.location.hash)
+        if (settingsRoute) {
+          set({
+            settingsPageOpen: true,
+            settingsOpen: false,
+            settingsTab: settingsRoute.tab,
+            skillsPageOpen: false,
+            soulsPageOpen: false,
+            syncPageOpen: false,
+            resourcesPageOpen: false,
+            translatePageOpen: false,
+            drawPageOpen: false,
+            tasksPageOpen: false,
+            ...closeRightSidePanels()
+          })
+          if (window.location.hash !== settingsRoute.canonicalHash) {
+            window.history.replaceState(null, '', settingsRoute.canonicalHash)
+          }
+          return
+        }
+
+        get().applyChatRouteFromLocation()
+      },
       applyChatRouteFromLocation: () => {
         const route = parseChatRoute(window.location.hash)
         const chatStore = useChatStore.getState()
@@ -1814,7 +1884,7 @@ export const useUIStore = create<UIStore>()(
           const session = chatStore.sessions.find((item) => item.id === route.sessionId)
           if (session) {
             chatStore.setActiveSession(session.id)
-            set({ activeNavItem: 'chat', chatView: 'session' })
+            set({ activeNavItem: 'chat', chatView: 'session', ...CHAT_SURFACE_NAV_RESET })
             replaceChatRoute({
               chatView: 'session',
               projectId: session.projectId ?? null,
@@ -1829,13 +1899,13 @@ export const useUIStore = create<UIStore>()(
         if (route.chatView !== 'home') {
           const resolvedProjectId = resolvedRouteProjectId ?? chatStore.activeProjectId ?? null
           if (!resolvedProjectId) {
-            set({ activeNavItem: 'chat', chatView: 'home' })
+            set({ activeNavItem: 'chat', chatView: 'home', ...CHAT_SURFACE_NAV_RESET })
             replaceChatRoute({ chatView: 'home', projectId: null, sessionId: null })
             return
           }
         }
 
-        set({ activeNavItem: 'chat', chatView: route.chatView })
+        set({ activeNavItem: 'chat', chatView: route.chatView, ...CHAT_SURFACE_NAV_RESET })
         replaceChatRoute({
           chatView: route.chatView,
           projectId: resolvedRouteProjectId ?? chatStore.activeProjectId ?? null,

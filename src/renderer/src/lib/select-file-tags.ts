@@ -1,8 +1,17 @@
-export interface SelectFileTextSegment {
-  type: 'text' | 'file'
-  text: string
-  raw: string
-}
+export type SelectFileTextSegment =
+  | {
+      type: 'text' | 'file'
+      text: string
+      raw: string
+    }
+  | {
+      type: 'plugin'
+      text: string
+      raw: string
+      pluginId: string
+      label: string
+      prompt: string
+    }
 
 export interface SelectFileMentionQuery {
   start: number
@@ -15,13 +24,24 @@ export interface SelectFileTagRange {
   end: number
   text: string
   raw: string
-  syntax: 'tag' | 'token'
+  syntax: 'tag' | 'token' | 'plugin'
+  pluginId?: string
+  label?: string
+  prompt?: string
 }
 
 const SELECT_FILE_TAG_RE = /<select-file>([\s\S]*?)<\/select-file>/gi
+const SELECT_PLUGIN_TAG_RE = /<select-plugin>([\s\S]*?)<\/select-plugin>/gi
 const SELECT_FILE_TOKEN_RE = /@\{([^}\r\n]+)\}/g
 const SELECT_FILE_TAG_TEST_RE = /<select-file>[\s\S]*?<\/select-file>/i
 const SELECT_FILE_TOKEN_TEST_RE = /@\{[^}\r\n]+\}/
+const SELECT_PLUGIN_TAG_TEST_RE = /<select-plugin>[\s\S]*?<\/select-plugin>/i
+
+export interface SelectPluginPayload {
+  pluginId: string
+  label: string
+  prompt: string
+}
 
 function decodeTagText(value: string): string {
   return value.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
@@ -33,6 +53,24 @@ function encodeTagText(value: string): string {
 
 function normalizeFilePath(value: string): string {
   return value.replace(/\\/g, '/').trim()
+}
+
+function normalizePluginPayload(value: Partial<SelectPluginPayload>): SelectPluginPayload | null {
+  const pluginId = String(value.pluginId ?? '').trim()
+  if (!pluginId) return null
+  const label = String(value.label ?? pluginId).trim() || pluginId
+  const prompt = String(value.prompt ?? '').trim()
+  if (!prompt) return null
+  return { pluginId, label, prompt }
+}
+
+function parsePluginPayload(value: string): SelectPluginPayload | null {
+  try {
+    const parsed = JSON.parse(decodeTagText(value)) as Partial<SelectPluginPayload>
+    return normalizePluginPayload(parsed)
+  } catch {
+    return null
+  }
 }
 
 function collectSelectFileRanges(text: string): SelectFileTagRange[] {
@@ -50,6 +88,24 @@ function collectSelectFileRanges(text: string): SelectFileTagRange[] {
       raw,
       text: normalizeFilePath(decodeTagText(match[1] ?? '')),
       syntax: 'tag'
+    })
+  }
+
+  for (const match of text.matchAll(SELECT_PLUGIN_TAG_RE)) {
+    const start = match.index ?? -1
+    const raw = match[0] ?? ''
+    if (start < 0 || !raw) continue
+    const payload = parsePluginPayload(match[1] ?? '')
+    if (!payload) continue
+    ranges.push({
+      start,
+      end: start + raw.length,
+      raw,
+      text: payload.label,
+      syntax: 'plugin',
+      pluginId: payload.pluginId,
+      label: payload.label,
+      prompt: payload.prompt
     })
   }
 
@@ -94,6 +150,12 @@ export function createSelectFileToken(filePath: string): string {
   return `@{${normalized}}`
 }
 
+export function createSelectPluginTag(payload: SelectPluginPayload): string {
+  const normalized = normalizePluginPayload(payload)
+  if (!normalized) return ''
+  return `<select-plugin>${encodeTagText(JSON.stringify(normalized))}</select-plugin>`
+}
+
 export function parseSelectFileText(text: string): SelectFileTextSegment[] {
   if (!text) return []
 
@@ -108,11 +170,22 @@ export function parseSelectFileText(text: string): SelectFileTextSegment[] {
       }
     }
 
-    segments.push({
-      type: 'file',
-      text: range.text,
-      raw: range.raw
-    })
+    if (range.syntax === 'plugin' && range.pluginId && range.label && range.prompt) {
+      segments.push({
+        type: 'plugin',
+        text: range.label,
+        raw: range.raw,
+        pluginId: range.pluginId,
+        label: range.label,
+        prompt: range.prompt
+      })
+    } else {
+      segments.push({
+        type: 'file',
+        text: range.text,
+        raw: range.raw
+      })
+    }
 
     lastIndex = range.end
   }
@@ -132,7 +205,11 @@ export function getSelectFileTagRanges(text: string): SelectFileTagRange[] {
 }
 
 export function hasSelectFileTag(text: string): boolean {
-  return SELECT_FILE_TAG_TEST_RE.test(text) || SELECT_FILE_TOKEN_TEST_RE.test(text)
+  return (
+    SELECT_FILE_TAG_TEST_RE.test(text) ||
+    SELECT_FILE_TOKEN_TEST_RE.test(text) ||
+    SELECT_PLUGIN_TAG_TEST_RE.test(text)
+  )
 }
 
 export function selectFileTextToPlainText(text: string): string {
@@ -146,7 +223,10 @@ export function normalizeSelectFileText(text: string): string {
   const segments = parseSelectFileText(text)
   if (segments.length === 0) return text
   return segments
-    .map((segment) => (segment.type === 'file' ? createSelectFileToken(segment.text) : segment.raw))
+    .map((segment) => {
+      if (segment.type === 'file') return createSelectFileToken(segment.text)
+      return segment.raw
+    })
     .join('')
 }
 
@@ -155,7 +235,11 @@ export function serializeSelectFileText(text: string): string {
   const segments = parseSelectFileText(text)
   if (segments.length === 0) return text
   return segments
-    .map((segment) => (segment.type === 'file' ? createSelectFileTag(segment.text) : segment.raw))
+    .map((segment) => {
+      if (segment.type === 'file') return createSelectFileTag(segment.text)
+      if (segment.type === 'plugin') return createSelectPluginTag(segment)
+      return segment.raw
+    })
     .join('')
 }
 

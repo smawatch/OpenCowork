@@ -223,7 +223,7 @@ export function TitleBar({
     <header
       className={cn(
         'workspace-titlebar-surface titlebar-drag relative flex h-10 w-full shrink-0 items-center gap-3 overflow-hidden px-3',
-        isMac && insetForMacTrafficLights ? 'pl-[78px]' : '',
+        isMac && insetForMacTrafficLights ? 'pl-[104px]' : '',
         !isMac ? 'pr-[132px]' : ''
       )}
       style={{

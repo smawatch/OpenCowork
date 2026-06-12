@@ -2,11 +2,12 @@ import { useSettingsStore } from '@renderer/stores/settings-store'
 import { useProviderStore } from '@renderer/stores/provider-store'
 import { createProvider } from '@renderer/lib/api/provider'
 import type { ProviderConfig, UnifiedMessage } from '@renderer/lib/api/types'
+import { resolveLanguageName, type AppLanguage } from '@renderer/lib/i18n-language'
 
 const stripReasoningBlocks = (value: string): string =>
   value.replace(/<think\b[^>]*>[\s\S]*?(?:<\/think>|$)/gi, '').replace(/<\/think>/gi, '')
 
-function buildSystemPrompt(language: 'zh' | 'en'): string {
+function buildSystemPrompt(language: AppLanguage): string {
   if (language === 'zh') {
     return `你是资深工程师，根据「已暂存」的 git diff 写提交说明。
 
@@ -17,6 +18,8 @@ function buildSystemPrompt(language: 'zh' | 'en'): string {
 - 禁止 Markdown 标题、列表套娃、代码围栏；输出纯文本，可直接用于 git commit。
 - 使用简体中文。`
   }
+  const targetLanguage = resolveLanguageName(language)
+
   return `You are a senior engineer writing a Git commit message from the **staged** diff.
 
 Rules:
@@ -24,7 +27,7 @@ Rules:
 - Subject line: imperative, ≤72 characters, no trailing period; state what changed and why it matters (if tight, elaborate in body).
 - Optional body: after one blank line, motivation, design tradeoffs, breaking changes, migration notes. No hollow phrases like "update code".
 - No markdown headings, fences, or numbered essays — plain text suitable for \`git commit\`.
-- Use English.`
+- Use ${targetLanguage}.`
 }
 
 /**
@@ -33,7 +36,7 @@ Rules:
 export async function generateCommitMessageFromStagedDiff(
   statText: string,
   patchText: string,
-  language: 'zh' | 'en',
+  language: AppLanguage,
   branchHint?: string,
   signal?: AbortSignal
 ): Promise<string | null> {

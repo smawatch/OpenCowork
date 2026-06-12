@@ -36,6 +36,16 @@ interface WebSearchResponse {
   totalResults?: number
 }
 
+interface SearchProviderResult {
+  title?: string
+  url?: string
+  content?: string
+  snippet?: string
+  score?: number
+  published_date?: string
+  publishedDate?: string
+}
+
 interface WebFetchRequest {
   urls: string[]
   format?: 'markdown' | 'text' | 'html'
@@ -191,7 +201,7 @@ function extractSnippet(section: string, patterns: RegExp[], title: string): str
 }
 
 function extractHtmlTagContent(html: string, tagName: string): string | null {
-  const match = html.match(new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\/${tagName}>`, 'i'))
+  const match = html.match(new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)</${tagName}>`, 'i'))
   return match?.[1] ?? null
 }
 
@@ -647,11 +657,11 @@ async function searchTavily(request: WebSearchRequest): Promise<WebSearchRespons
     throw new Error(`Tavily API error: ${response.statusCode} - ${response.body}`)
   }
 
-  const data = JSON.parse(response.body)
+  const data = JSON.parse(response.body) as { results?: SearchProviderResult[] }
   const results = data.results || []
 
   return {
-    results: results.map((r: any) => ({
+    results: results.map((r) => ({
       title: r.title || '',
       url: r.url || '',
       content: r.content || '',
@@ -675,11 +685,11 @@ async function searchSearxng(request: WebSearchRequest): Promise<WebSearchRespon
     throw new Error(`Searxng API error: ${response.statusCode} - ${response.body}`)
   }
 
-  const data = JSON.parse(response.body)
+  const data = JSON.parse(response.body) as { results?: SearchProviderResult[] }
   const results = data.results || []
 
   return {
-    results: results.map((r: any) => ({
+    results: results.map((r) => ({
       title: r.title || '',
       url: r.url || '',
       content: r.content || '',
@@ -719,11 +729,11 @@ async function searchExa(request: WebSearchRequest): Promise<WebSearchResponse> 
     throw new Error(`Exa API error: ${response.statusCode} - ${response.body}`)
   }
 
-  const data = JSON.parse(response.body)
+  const data = JSON.parse(response.body) as { results?: SearchProviderResult[] }
   const results = data.results || []
 
   return {
-    results: results.map((r: any) => ({
+    results: results.map((r) => ({
       title: r.title || '',
       url: r.url || '',
       content: r.snippet || '',
@@ -762,11 +772,11 @@ async function searchBocha(request: WebSearchRequest): Promise<WebSearchResponse
     throw new Error(`Bocha API error: ${response.statusCode} - ${response.body}`)
   }
 
-  const data = JSON.parse(response.body)
+  const data = JSON.parse(response.body) as { results?: SearchProviderResult[] }
   const results = data.results || []
 
   return {
-    results: results.map((r: any) => ({
+    results: results.map((r) => ({
       title: r.title || '',
       url: r.url || '',
       content: r.snippet || '',
@@ -805,11 +815,11 @@ async function searchZhipu(request: WebSearchRequest): Promise<WebSearchResponse
     throw new Error(`Zhipu API error: ${response.statusCode} - ${response.body}`)
   }
 
-  const data = JSON.parse(response.body)
+  const data = JSON.parse(response.body) as { results?: SearchProviderResult[] }
   const results = data.results || []
 
   return {
-    results: results.map((r: any) => ({
+    results: results.map((r) => ({
       title: r.title || '',
       url: r.url || '',
       content: r.content || r.snippet || '',
