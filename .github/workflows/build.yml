@@ -162,11 +162,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Windows 需要配置 MSVC 工具链来编译原生模块
-      - name: Setup MSVC for native modules
-        if: matrix.platform == 'win'
-        uses: ilammy/msvc-dev-cmd@v1
-
       # Linux 需要构建原生模块的依赖
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
