@@ -162,13 +162,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Windows 需要 Visual Studio Build Tools 来编译原生模块
-      - name: Install Windows build dependencies
+      # Windows 需要设置 MSVC 编译环境来编译原生模块 (@jitsi/robotjs)
+      - name: Setup MSVC Dev Command Prompt
         if: matrix.platform == 'win'
-        run: |
-          # 安装 Visual Studio Build Tools 2022
-          choco install visualstudio2022-workload-vctools --yes
-        shell: pwsh
+        uses: ilammy/msvc-dev-cmd@v1
 
       # Linux 需要构建原生模块的依赖
       - name: Install Linux build dependencies
