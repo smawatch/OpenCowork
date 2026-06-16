@@ -109,7 +109,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential libx11-dev libxtst-dev libpng++-dev
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
+      
+      - name: Rebuild native modules (Linux only)
+        run: node ./scripts/postinstall.mjs
 
       - name: Sync version to package.json
         run: npm version ${{ needs.prepare.outputs.version }} --no-git-tag-version --allow-same-version
