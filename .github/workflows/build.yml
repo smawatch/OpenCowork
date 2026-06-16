@@ -162,11 +162,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Windows 需要设置 MSVC 编译环境来编译原生模块 (@jitsi/robotjs)
-      - name: Setup MSVC Dev Command Prompt
-        if: matrix.platform == 'win'
-        uses: ilammy/msvc-dev-cmd@v1
-
       # Linux 需要构建原生模块的依赖
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
