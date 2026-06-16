@@ -30,6 +30,7 @@ import { useSshStore } from './stores/ssh-store'
 import { useTaskStore } from './stores/task-store'
 import { useTeamStore } from './stores/team-store'
 import { useUIStore } from './stores/ui-store'
+import { useAuthStore } from './stores/auth-store'
 import { registerAllTools, updateWebSearchToolRegistration } from './lib/tools'
 import { updateAppPluginToolRegistration } from './lib/app-plugin'
 import { registerAllProviders } from './lib/api'
@@ -71,6 +72,8 @@ import {
   subscribeGlobalMemoryUpdates,
   type GlobalMemorySnapshot
 } from './lib/agent/memory-files'
+import { LoginModal } from './components/auth/login-modal'
+import { WindowControls } from './components/layout/WindowControls'
 
 // Register synchronous providers and viewers immediately at startup
 registerAllProviders()
@@ -210,6 +213,7 @@ function App(): React.JSX.Element {
   const appView = useMemo(() => getAppView(), [])
   const detachedSessionId = useMemo(() => getDetachedSessionId(), [])
   const sessionWindowView = appView === 'session' && !!detachedSessionId
+  const { isAuthenticated, checkAuth } = useAuthStore()
   const teamWorkerParams = useMemo<TeamWorkerParams | null>(() => {
     const search = new URLSearchParams(window.location.search)
     if (search.get('ocWorker') !== 'team') return null
@@ -244,6 +248,14 @@ function App(): React.JSX.Element {
 
   // Initialize plugin auto-reply agent loop listener only in the main app window.
   usePluginAutoReply(!sessionWindowView && !sshWindowView && !teamWorkerParams)
+
+  // Check authentication on startup
+  useEffect(() => {
+    const verifyAuth = async () => {
+      await checkAuth()
+    }
+    verifyAuth()
+  }, [checkAuth])
 
   useEffect(() => {
     if (useSettingsStore.persist.hasHydrated()) {
@@ -953,6 +965,40 @@ function App(): React.JSX.Element {
         <ThemeProvider defaultTheme={theme}>
           <ThemeRuntimeSync />
           <OnboardingPage />
+          <Toaster position="bottom-left" theme="system" richColors />
+        </ThemeProvider>
+      </ErrorBoundary>
+    )
+  }
+
+  // Show login modal if not authenticated
+  if (!isAuthenticated) {
+    const isMac = /Mac/.test(navigator.userAgent)
+    return (
+      <ErrorBoundary>
+        <ThemeProvider defaultTheme={theme}>
+          <ThemeRuntimeSync />
+          <div className="flex h-screen flex-col bg-background">
+            {/* Auth screen drag region / titlebar */}
+            <div
+              className="titlebar-drag relative flex h-9 shrink-0 items-center px-4"
+              style={isMac ? { paddingLeft: '80px' } : undefined}
+            >
+              <span className="titlebar-no-drag text-xs font-medium text-muted-foreground">
+                OpenCowork
+              </span>
+              {!isMac && (
+                <div className="absolute right-0 top-0 z-10">
+                  <WindowControls />
+                </div>
+              )}
+            </div>
+
+            {/* Auth form area */}
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-4">
+              <LoginModal />
+            </div>
+          </div>
           <Toaster position="bottom-left" theme="system" richColors />
         </ThemeProvider>
       </ErrorBoundary>
