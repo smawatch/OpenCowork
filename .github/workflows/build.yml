@@ -88,10 +88,10 @@ jobs:
           echo "🏷️ Tag: ${{ steps.meta.outputs.tag_name }}"
           echo "🚀 Pre-release: ${{ steps.meta.outputs.is_prerelease }}"
 
-  # ── 多平台构建 ──
+  # ── 编译前置工作 ──
   compile:
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -105,14 +105,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install Linux build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential libx11-dev libxtst-dev libpng++-dev
-
       - name: Install dependencies
         run: npm ci --ignore-scripts
-      
-      - name: Rebuild native modules (Linux only)
-        run: node ./scripts/postinstall.mjs
 
       - name: Sync version to package.json
         run: npm version ${{ needs.prepare.outputs.version }} --no-git-tag-version --allow-same-version
@@ -128,26 +122,17 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  build:
+  # ── Windows 构建 ──
+  build-windows:
     needs: [prepare, compile]
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            platform: win
             build_arch: x64
             artifact_arch: amd64
           - os: windows-11-arm
-            platform: win
-            build_arch: arm64
-            artifact_arch: arm64
-          - os: ubuntu-latest
-            platform: linux
-            build_arch: x64
-            artifact_arch: amd64
-          - os: ubuntu-24.04-arm
-            platform: linux
             build_arch: arm64
             artifact_arch: arm64
 
@@ -166,18 +151,11 @@ jobs:
           cache: npm
 
       - name: Setup Windows build tools
-        if: matrix.platform == 'win'
-        uses: microsoft/setup-msbuild@v2    
-
-      # Linux 需要构建原生模块的依赖
-      - name: Install Linux build dependencies
-        if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y build-essential libx11-dev libxtst-dev libpng++-dev
+        uses: microsoft/setup-msbuild@v2
 
       - name: Install dependencies
         run: npm ci
 
-      # 将 Release 版本号同步写入 package.json
       - name: Sync version to package.json
         run: npm version ${{ needs.prepare.outputs.version }} --no-git-tag-version --allow-same-version
 
@@ -187,19 +165,15 @@ jobs:
           name: open-cowork-build-output
           path: out
 
-      - name: Package (${{ matrix.platform }}-${{ matrix.artifact_arch }})
-        run: npx electron-builder --${{ matrix.platform }} --${{ matrix.build_arch }} --publish never
+      - name: Package (win-${{ matrix.artifact_arch }})
+        run: npx electron-builder --win --${{ matrix.build_arch }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_BUILDER_BINARIES_MIRROR: https://cdn.npmmirror.com/binaries/electron-builder-binaries/
-          # Windows 代码签名 (可选)
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK || '' }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD || '' }}
 
-      # ── 上传构建产物 ──
-
       - name: Prepare Windows artifacts
-        if: matrix.platform == 'win'
         shell: bash
         run: |
           mkdir -p release-assets
@@ -212,14 +186,14 @@ jobs:
             exit 1
           fi
 
-          cp "$exe_file" "release-assets/OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}-setup.exe"
+          cp "$exe_file" "release-assets/OpenCowork-win-${{ matrix.artifact_arch }}-setup.exe"
 
           if [ -n "$blockmap_file" ]; then
-            cp "$blockmap_file" "release-assets/OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}-setup.exe.blockmap"
+            cp "$blockmap_file" "release-assets/OpenCowork-win-${{ matrix.artifact_arch }}-setup.exe.blockmap"
           fi
 
       - name: Patch Windows update metadata
-        if: matrix.platform == 'win' && matrix.artifact_arch == 'amd64'
+        if: matrix.artifact_arch == 'amd64'
         shell: bash
         run: |
           if [ -f "dist/latest.yml" ]; then
@@ -238,10 +212,9 @@ jobs:
           fi
 
       - name: Upload Windows artifacts
-        if: matrix.platform == 'win'
         uses: actions/upload-artifact@v6
         with:
-          name: open-cowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}
+          name: open-cowork-win-${{ matrix.artifact_arch }}
           path: |
             release-assets/*.exe
             release-assets/*.exe.blockmap
@@ -250,7 +223,6 @@ jobs:
           retention-days: 30
 
       - name: Upload Windows assets to Release
-        if: matrix.platform == 'win'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -271,83 +243,7 @@ jobs:
             done
           fi
 
-      - name: Prepare Linux artifacts
-        if: matrix.platform == 'linux'
-        shell: bash
-        run: |
-          mkdir -p release-assets
-
-          appimage_file=$(find dist -maxdepth 1 -type f -name '*.AppImage' | head -n 1)
-          zsync_file=$(find dist -maxdepth 1 -type f -name '*.AppImage.zsync' | head -n 1)
-          deb_file=$(find dist -maxdepth 1 -type f -name '*.deb' | head -n 1)
-
-          if [ -n "$appimage_file" ]; then
-            cp "$appimage_file" "release-assets/OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}.AppImage"
-          fi
-
-          if [ -n "$zsync_file" ]; then
-            cp "$zsync_file" "release-assets/OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}.AppImage.zsync"
-          fi
-
-          if [ -n "$deb_file" ]; then
-            cp "$deb_file" "release-assets/OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}.deb"
-          fi
-
-      - name: Patch Linux update metadata
-        if: matrix.platform == 'linux' && matrix.artifact_arch == 'amd64'
-        shell: bash
-        run: |
-          for yml in dist/latest-linux.yml dist/latest.yml; do
-            [ -f "$yml" ] || continue
-            node -e "
-              const fs = require('fs');
-              const p = process.argv[1];
-              let c = fs.readFileSync(p, 'utf8');
-              const m = c.match(/path: (\S+\.AppImage)/);
-              if (m) {
-                const n = 'OpenCowork-linux-amd64.AppImage';
-                c = c.split(m[1]).join(n);
-                fs.writeFileSync(p, c);
-                console.log('Patched ' + p + ':', m[1], '->', n);
-              }
-            " "$yml"
-          done
-
-      - name: Upload Linux artifacts
-        if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v6
-        with:
-          name: open-cowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}
-          path: |
-            release-assets/*.AppImage
-            release-assets/*.AppImage.zsync
-            release-assets/*.deb
-            dist/latest*.yml
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload Linux assets to Release
-        if: matrix.platform == 'linux'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
-        run: |
-          echo "📦 Uploading Linux assets to Release: ${TAG_NAME}"
-          for file in release-assets/*; do
-            [ -f "$file" ] || continue
-            echo "  ⬆️  $(basename "$file")"
-            gh release upload "${TAG_NAME}" "$file" --clobber
-          done
-
-          if [ "${{ matrix.artifact_arch }}" = "amd64" ]; then
-            for file in dist/latest*.yml; do
-              [ -f "$file" ] || continue
-              echo "  ⬆️  $(basename "$file")"
-              gh release upload "${TAG_NAME}" "$file" --clobber
-            done
-          fi
-
-  # ── macOS 构建（分别产出 Apple Silicon / Intel 安装包） ──
+  # ── macOS 构建 ──
   build-macos:
     needs: [prepare, compile]
     strategy:
@@ -355,11 +251,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            platform: mac
             build_arch: arm64
             artifact_arch: arm64
           - os: macos-15-intel
-            platform: mac
             build_arch: x64
             artifact_arch: amd64
 
@@ -380,7 +274,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 将 Release 版本号同步写入 package.json
       - name: Sync version to package.json
         run: npm version ${{ needs.prepare.outputs.version }} --no-git-tag-version --allow-same-version
 
@@ -448,7 +341,7 @@ jobs:
           echo "auto_update_enabled=false" >> "$GITHUB_OUTPUT"
           echo "::warning::macOS code signing disabled: CSC_LINK is neither a certificate file, URL, nor base64 certificate data"
 
-      - name: Package ${{ matrix.platform }}-${{ matrix.artifact_arch }}
+      - name: Package mac-${{ matrix.artifact_arch }}
         shell: bash
         run: |
           if [ "${MAC_SIGNING_ENABLED}" = "true" ]; then
@@ -491,16 +384,16 @@ jobs:
             exit 1
           fi
 
-          cp "$dmg_file" "release-assets/OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}.dmg"
-          echo "✅ Prepared $(basename "$dmg_file") -> OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}.dmg"
+          cp "$dmg_file" "release-assets/OpenCowork-mac-${{ matrix.artifact_arch }}.dmg"
+          echo "✅ Prepared $(basename "$dmg_file") -> OpenCowork-mac-${{ matrix.artifact_arch }}.dmg"
 
           if [ -z "$zip_file" ]; then
             echo "❌ No macOS zip artifact found"
             exit 1
           fi
 
-          cp "$zip_file" "release-assets/OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}.zip"
-          echo "✅ Prepared $(basename "$zip_file") -> OpenCowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}.zip"
+          cp "$zip_file" "release-assets/OpenCowork-mac-${{ matrix.artifact_arch }}.zip"
+          echo "✅ Prepared $(basename "$zip_file") -> OpenCowork-mac-${{ matrix.artifact_arch }}.zip"
 
           if [ -n "$yml_file" ]; then
             cp "$yml_file" "release-assets/latest-mac-${{ matrix.artifact_arch }}.yml"
@@ -538,7 +431,7 @@ jobs:
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: open-cowork-${{ matrix.platform }}-${{ matrix.artifact_arch }}
+          name: open-cowork-mac-${{ matrix.artifact_arch }}
           path: |
             release-assets/*.dmg
             release-assets/*.zip
