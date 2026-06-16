@@ -162,6 +162,10 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Setup Windows build tools
+        if: matrix.platform == 'win'
+        uses: microsoft/setup-msbuild@v2    
+
       # Linux 需要构建原生模块的依赖
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
