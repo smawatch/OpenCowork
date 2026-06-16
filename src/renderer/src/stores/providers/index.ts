@@ -19,6 +19,7 @@ import { codexOAuthPreset } from './codex-oauth'
 import { copilotOAuthPreset } from './copilot-oauth'
 import { xiaomiCodingPreset, xiaomiPreset } from './xiaomi'
 import { bigmodelCodingPreset, bigmodelPreset } from './bigmodel'
+import { liteLLMPreset } from './litellm'
 import type { BuiltinProviderPreset } from './types'
 
 export const builtinProviderPresets: BuiltinProviderPreset[] = [
@@ -47,5 +48,6 @@ export const builtinProviderPresets: BuiltinProviderPreset[] = [
   xiaomiCodingPreset,
   xiaomiPreset,
   bigmodelCodingPreset,
-  bigmodelPreset
+  bigmodelPreset,
+  liteLLMPreset
 ]
