@@ -9,7 +9,4 @@ bin/
 obj/
 resources/sidecar/
 .claude\worktrees/
-.build
-.claude
-.gitignore
-.idea
+/.idea/
