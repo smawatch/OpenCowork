@@ -20,11 +20,9 @@ async function readInstalledElectronVersion(projectDir) {
 async function main() {
   const projectDir = process.cwd()
   const electronVersion = await readInstalledElectronVersion(projectDir)
-  const ignoreModules = process.platform === 'win32' ? ['node-pty', '@jitsi/robotjs'] : []
+  const ignoreModules = process.platform === 'win32' ? ['node-pty'] : []
 
   console.log(`> Rebuilding native dependencies for Electron ${electronVersion}`)
-  console.log(`> Platform: ${process.platform}`)
-  console.log(`> Ignoring modules: ${JSON.stringify(ignoreModules)}`)
 
   if (ignoreModules.length > 0) {
     console.log(`> Skipping rebuild for: ${ignoreModules.join(', ')}`)
