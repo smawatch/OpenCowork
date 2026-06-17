@@ -42,4 +42,8 @@ export interface BuiltinProviderPreset {
   websocketUrl?: string
   /** OpenAI Responses transport mode for this provider preset */
   websocketMode?: 'auto' | 'disabled'
+  /** Whether this provider is read-only (users cannot modify settings or view API keys) */
+  readonly?: boolean
+  /** Pre-configured API key for built-in providers (hidden from users) */
+  defaultApiKey?: string
 }

@@ -139,14 +139,6 @@ jobs:
             platform: win
             build_arch: arm64
             artifact_arch: arm64
-          - os: ubuntu-latest
-            platform: linux
-            build_arch: x64
-            artifact_arch: amd64
-          - os: ubuntu-24.04-arm
-            platform: linux
-            build_arch: arm64
-            artifact_arch: arm64
 
     runs-on: ${{ matrix.os }}
 
@@ -161,6 +153,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      # Windows 需要设置 MSVC 编译环境来编译原生模块 (@jitsi/robotjs)
+      - name: Setup MSVC Dev Command Prompt
+        if: matrix.platform == 'win'
+        uses: ilammy/msvc-dev-cmd@v1
 
       # Linux 需要构建原生模块的依赖
       - name: Install Linux build dependencies
