@@ -959,19 +959,7 @@ function App(): React.JSX.Element {
     )
   }
 
-  if (!onboardingCompleted) {
-    return (
-      <ErrorBoundary>
-        <ThemeProvider defaultTheme={theme}>
-          <ThemeRuntimeSync />
-          <OnboardingPage />
-          <Toaster position="bottom-left" theme="system" richColors />
-        </ThemeProvider>
-      </ErrorBoundary>
-    )
-  }
-
-  // Show login modal if not authenticated
+  // Show login modal if not authenticated (before onboarding)
   if (!isAuthenticated) {
     const isMac = /Mac/.test(navigator.userAgent)
     return (
@@ -985,7 +973,7 @@ function App(): React.JSX.Element {
               style={isMac ? { paddingLeft: '80px' } : undefined}
             >
               <span className="titlebar-no-drag text-xs font-medium text-muted-foreground">
-                OpenCowork
+                CoCoWork
               </span>
               {!isMac && (
                 <div className="absolute right-0 top-0 z-10">
@@ -999,6 +987,18 @@ function App(): React.JSX.Element {
               <LoginModal />
             </div>
           </div>
+          <Toaster position="bottom-left" theme="system" richColors />
+        </ThemeProvider>
+      </ErrorBoundary>
+    )
+  }
+
+  if (!onboardingCompleted) {
+    return (
+      <ErrorBoundary>
+        <ThemeProvider defaultTheme={theme}>
+          <ThemeRuntimeSync />
+          <OnboardingPage />
           <Toaster position="bottom-left" theme="system" richColors />
         </ThemeProvider>
       </ErrorBoundary>

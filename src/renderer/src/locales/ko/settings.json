@@ -2,7 +2,7 @@
   "page": {
     "title": "설정",
     "subtitle": "환경 설정 및 모델 설정",
-    "poweredBy": "OpenCowork 기반",
+    "poweredBy": "CoCoWork 기반",
     "groups": {
       "foundation": "기본",
       "system": "시스템",
@@ -14,13 +14,13 @@
   "profile": {
     "title": "프로필",
     "subtitle": "로컬 정체성과 토큰 활동",
-    "defaultName": "OpenCowork 사용자",
+    "defaultName": "CoCoWork 사용자",
     "localAccount": "로컬 프로필",
     "edit": "편집",
     "save": "저장",
     "cancel": "취소",
     "displayName": "표시 이름",
-    "displayNamePlaceholder": "OpenCowork 사용자",
+    "displayNamePlaceholder": "CoCoWork 사용자",
     "chooseAvatar": "아바타 선택",
     "removeAvatar": "아바타 제거",
     "avatarInvalid": "이미지 파일을 선택해 주세요.",
@@ -237,7 +237,7 @@
   },
   "sync": {
     "title": "Sync의",
-    "subtitle": "기록 수준 OpenCowork 자료는 WebDAV와 동기화합니다.",
+    "subtitle": "기록 수준 CoCoWork 자료는 WebDAV와 동기화합니다.",
     "loading": "로딩중...",
     "provider": {
       "title": "회사 소개",
@@ -302,7 +302,7 @@
     "shell": {
       "endpoint": {
         "title": "Shell 실행 엔드포인트",
-        "desc": "쉘 OpenCowork는 Bash 도구 통화를 사용합니다. 옵션은 현재 운영 체제에 의해 필터링됩니다.",
+        "desc": "쉘 CoCoWork는 Bash 도구 통화를 사용합니다. 옵션은 현재 운영 체제에 의해 필터링됩니다.",
         "selectLabel": "유효한 포탄",
         "options": {
           "auto": {
@@ -349,7 +349,7 @@
         "desc": "추가 환경 변수를 새로운 로컬 쉘 세션으로 주입합니다.",
         "placeholder": "FOO=바\nPATH=/tmp/test-bin:$PATH\n# 수출 HELLO = 세계",
         "formatHint": "선 당 1개의 변수. 지원되는 체재: KEY=VALUE 또는 수출 KEY=VALUE.",
-        "precedenceHint": "OpenCowork 값은 현재 프로세스 환경의 이름을 콜드하면 됩니다.",
+        "precedenceHint": "CoCoWork 값은 현재 프로세스 환경의 이름을 콜드하면 됩니다.",
         "newSessionHint": "새로 만들어진 로컬 쉘 세션, 배경 프로세스 및 터미널 탭에만 영향을 미칩니다.",
         "validationError": "Line {{line}}는 유효하지 않고 저장되지 않았습니다. KEY=VALUE 또는 수출 KEY=VALUE를 사용하십시오."
       }
@@ -645,9 +645,9 @@
       "cookiesCleared": "브라우저 쿠키 삭제",
       "cookiesClearFailed": "브라우저 쿠키를 삭제",
       "userDataReuse": "로컬 브라우저 프로파일을 시뮬레이션",
-      "userDataReuseDesc": "기본 정보 내장 브라우저는 OpenCowork 저장을 유지하면서 선택한 브라우저 ID를 사용하여 로컬 브라우저 데이터를 보호합니다.",
+      "userDataReuseDesc": "기본 정보 내장 브라우저는 CoCoWork 저장을 유지하면서 선택한 브라우저 ID를 사용하여 로컬 브라우저 데이터를 보호합니다.",
       "userDataSource": "브라우저 데이터 소스",
-      "userDataSourceDesc": "브라우저 프로파일 OpenCowork가 먼저 시도해야하는 것을 선택하십시오.",
+      "userDataSourceDesc": "브라우저 프로파일 CoCoWork가 먼저 시도해야하는 것을 선택하십시오.",
       "sources": {
         "auto": "자동차 감지",
         "chrome": "구글 크롬",
@@ -656,9 +656,9 @@
         "chromium": "크롬"
       },
       "activeProfile": "검출된 근원 단면도: {{browserName}}/{{profileName}} — {{path}}",
-      "profileFallback": "선택된 소스에 대한 프로파일이 감지되지 않았으므로 OpenCowork는 자체 브라우저 정체성을 사용합니다.",
+      "profileFallback": "선택된 소스에 대한 프로파일이 감지되지 않았으므로 CoCoWork는 자체 브라우저 정체성을 사용합니다.",
       "isolatedStorage": "격리된 저장: {{path}}",
-      "restartRequired": "이 브라우저 프로파일 모드를 위한 Restart OpenCowork는 완전히 효력을 가지고 갑니다.",
+      "restartRequired": "이 브라우저 프로파일 모드를 위한 Restart CoCoWork는 완전히 효력을 가지고 갑니다.",
       "blockedDomains": "블록 영역",
       "blockedDomainsDesc": "이 도메인 및 하위 도메인에 대한 탐색은 거부됩니다.",
       "allowedDomains": "허용된 도메인",
@@ -689,7 +689,7 @@
   },
   "migration": {
     "title": "Migration 센터",
-    "subtitle": "미리보기 및 마이그레이션 OpenCode 구성 OpenCowork",
+    "subtitle": "미리보기 및 마이그레이션 OpenCode 구성 CoCoWork",
     "sourceTitle": "OpenCode 소스",
     "sourceDesc": "현재는 ~/.config/opencode/opencode.json 및 migrates 공급자, 모형 선택, 명령, 대리인, MCP 서버 및 지시만 읽습니다.",
     "reloadAction": "새로 고침",
@@ -753,7 +753,7 @@
     "framework": "관련 기사",
     "ui": "기본 정보",
     "license": "이름 *",
-    "description": "OpenCowork는 여러 LLM 공급자를 지원하는 오픈 소스 AI 협업 플랫폼입니다.",
+    "description": "CoCoWork는 여러 LLM 공급자를 지원하는 오픈 소스 AI 협업 플랫폼입니다.",
     "github": "모델 번호: GitHub",
     "heroTagline": "AI 협업 작업 벤치",
     "heroDescription": "하나의 네이티브 작업 공간 내부의 여러 모델, 에이전트 및 기술 조정.",
@@ -775,7 +775,7 @@
         "desc": "MCP 서버, 기술 및 제 3 자 channles를 원활하게 연결하십시오."
       }
     },
-    "summary": "OpenCowork는 멀티 모델 워크플로우, MCP 서버, 기술 및 사용자 정의 챔nnles를 하나의 데스크탑 경험 안에 통합하여 Chat, Cowork 또는 Code 모드를 제어할 수 있습니다."
+    "summary": "CoCoWork는 멀티 모델 워크플로우, MCP 서버, 기술 및 사용자 정의 챔nnles를 하나의 데스크탑 경험 안에 통합하여 Chat, Cowork 또는 Code 모드를 제어할 수 있습니다."
   },
   "dialog": {
     "title": "빠른 설정",
@@ -1352,15 +1352,15 @@
     "provider": "시장 공급자",
     "providerDesc": "어디에서 fetch 기술을 선택",
     "selectProvider": "회사 선택",
-    "skillsmpDesc": "OpenCoWork 기술 시장 (선택 API 열쇠)",
+    "skillsmpDesc": "CoCoWork 기술 시장 (선택 API 열쇠)",
     "builtinLabel": "내장형",
     "builtinDesc": "로컬 번들 기술 목록 (API 키 필요 없음)",
     "builtinInfo": "앱으로 배송되는 번들 기술을 사용합니다. Marketplace는 공식 기술 패키지를 다운로드하고 설치하기 전에 로컬 안전 검사를 실행합니다.",
     "skillsmpInfo": "기술에서 최신 기술 카탈로그를 Fetches.open-cowork.shop. 더 이상 API 키가 필요 없습니다. 추가 기능을 필요로하면 Dashboard에서 하나를 만들고 설정에 Docs를 사용합니다.",
     "apiKey": "API 키",
-    "apiKeyDesc": "선택 사항: OpenCoWork 스킬 API 키, 하나 있다면",
+    "apiKeyDesc": "선택 사항: CoCoWork 스킬 API 키, 하나 있다면",
     "apiKeyPlaceholder": "ღ♥ღ",
-    "apiKeyRequired": "OpenCoWork Skills Marketplace를 탐색하면 더 이상 API 키가 필요합니다.",
+    "apiKeyRequired": "CoCoWork Skills Marketplace를 탐색하면 더 이상 API 키가 필요합니다.",
     "getApiKey": "API 키 받기",
     "openDocs": "열린 Docs",
     "test": "시험 연결",
@@ -1373,7 +1373,7 @@
   },
   "soulmarket": {
     "title": "SOUL 시장",
-    "desc": "공유 기술 시장 API 키와 함께 OpenCoWork SOULs를 찾아보십시오.",
+    "desc": "공유 기술 시장 API 키와 함께 CoCoWork SOULs를 찾아보십시오.",
     "apiKey": "API 키",
     "getApiKey": "API 키 받기",
     "openDocs": "열린 Docs",

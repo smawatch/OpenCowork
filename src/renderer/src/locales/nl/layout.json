@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "Gesprekken",
     "newConversation": "Nieuw gesprek (Ctrl+N)",
     "exportAll": "Alle gesprekken exporteren",
@@ -999,7 +999,7 @@
     "agentReviewFailed": "Mislukt",
     "agentReviewing": "Evaluatie...",
     "downloading": "Downloaden",
-    "noApiKeyTitle": "OpenCowork Skills API sleutel niet geconfigureerd",
+    "noApiKeyTitle": "CoCoWork Skills API sleutel niet geconfigureerd",
     "noApiKeyDesc": "Stel uw API-sleutel in via het",
     "getApiKey": "API-sleutel ophalen"
   },

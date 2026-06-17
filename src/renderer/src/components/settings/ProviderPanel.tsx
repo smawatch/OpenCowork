@@ -1568,6 +1568,7 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
         : undefined,
     [provider.builtinId]
   )
+  const isReadonly = provider.readonly === true
   const oauthAbortRef = useRef<AbortController | null>(null)
   const codexQuota = useMemo(() => {
     if (!isCodexProvider) return null
@@ -2298,7 +2299,7 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
 
       {/* Config body */}
       <div className="flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden px-5 pt-4 pb-20">
-        {isApiKeyAuth && (
+        {isApiKeyAuth && !isReadonly && (
           <section className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">{t('provider.apiKey')}</label>
@@ -3027,16 +3028,18 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
         )}
 
         {/* Base URL */}
-        <section className="space-y-2 mt-5">
-          <label className="text-sm font-medium">{t('provider.proxyUrl')}</label>
-          <Input
-            placeholder={builtinPreset?.defaultBaseUrl || 'https://api.example.com'}
-            value={provider.baseUrl}
-            onChange={(e) => updateProvider(provider.id, { baseUrl: e.target.value })}
-            className="text-xs"
-          />
-          <p className="text-[11px] text-muted-foreground">{t('provider.proxyUrlHint')}</p>
-        </section>
+        {!isReadonly && (
+          <section className="space-y-2 mt-5">
+            <label className="text-sm font-medium">{t('provider.proxyUrl')}</label>
+            <Input
+              placeholder={builtinPreset?.defaultBaseUrl || 'https://api.example.com'}
+              value={provider.baseUrl}
+              onChange={(e) => updateProvider(provider.id, { baseUrl: e.target.value })}
+              className="text-xs"
+            />
+            <p className="text-[11px] text-muted-foreground">{t('provider.proxyUrlHint')}</p>
+          </section>
+        )}
 
         {/* Connection check */}
         <section className="space-y-2 mt-5">

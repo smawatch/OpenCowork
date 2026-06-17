@@ -98,8 +98,8 @@
     "next": "下一步",
     "back": "上一步",
     "intro": {
-      "title": "你好，欢迎使用 OpenCoWork",
-      "subtitle": "OpenCoWork 是一个本地优先的多 Agent AI 协作工作台。它可以理解你的项目上下文，在授权下使用本地工具，并让 Agent 在编程、研究、计划和日常流程中与你一起工作。",
+      "title": "你好，欢迎使用 CoCoWork",
+      "subtitle": "CoCoWork 是一个本地优先的多 Agent AI 协作工作台。它可以理解你的项目上下文，在授权下使用本地工具，并让 Agent 在编程、研究、计划和日常流程中与你一起工作。",
       "points": {
         "local": {
           "title": "本地工具，真实上下文",
@@ -123,13 +123,13 @@
       "en": "English"
     },
     "nickname": {
-      "title": "OpenCoWork 该如何称呼你？",
+      "title": "CoCoWork 该如何称呼你？",
       "subtitle": "昵称会保存在本地，并写入 USER.md，方便 Agent 更自然地与你协作。",
       "placeholder": "你的昵称"
     },
     "interests": {
       "title": "你感兴趣的领域有哪些？",
-      "subtitle": "可多选。OpenCoWork 会用它来选择更合适的默认配置，并写入你的本地资料。",
+      "subtitle": "可多选。CoCoWork 会用它来选择更合适的默认配置，并写入你的本地资料。",
       "options": {
         "content": "内容创作",
         "coding": "编程与开发",
@@ -161,8 +161,8 @@
       "retry": "重试"
     },
     "done": {
-      "action": "进入 OpenCoWork",
-      "toast": "OpenCoWork 已准备好",
+      "action": "进入 CoCoWork",
+      "toast": "CoCoWork 已准备好",
       "failed": "初始化配置失败"
     }
   },

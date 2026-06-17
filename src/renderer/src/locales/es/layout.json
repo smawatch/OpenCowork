@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "Conversaciones",
     "newConversation": "Nueva conversación (Ctrl+N)",
     "exportAll": "Exportar todas las conversaciones",
@@ -999,7 +999,7 @@
     "agentReviewFailed": "Failed",
     "agentReviewing": "Revisando...",
     "downloading": "Descargando...",
-    "noApiKeyTitle": "OpenCowork Skills API key no configurado",
+    "noApiKeyTitle": "CoCoWork Skills API key no configurado",
     "noApiKeyDesc": "Establecer la clave API a través del icono ️ en la barra superior para navegar por las habilidades.open-cowork.shop marketplace.",
     "getApiKey": "Obtener clave de API"
   },

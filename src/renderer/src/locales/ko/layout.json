@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "대화",
     "newConversation": "새로운 대화 (Ctrl+N)",
     "exportAll": "모든 대화 내보내기",
@@ -999,7 +999,7 @@
     "agentReviewFailed": "실패한",
     "agentReviewing": "관련 기사",
     "downloading": "다운로드 ...",
-    "noApiKeyTitle": "OpenCoWork Skills API 키 구성되지 않음",
+    "noApiKeyTitle": "CoCoWork Skills API 키 구성되지 않음",
     "noApiKeyDesc": "상단 바의 ܧ️ 아이콘을 통해 API 키를 설정하여 기술을 검색하십시오.open-cowork.shop 마켓 플레이스.",
     "getApiKey": "API 키 받기"
   },

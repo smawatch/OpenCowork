@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "Беседы",
     "newConversation": "Новый разговор (Ctrl+N)",
     "exportAll": "Экспорт всех разговоров",
@@ -999,7 +999,7 @@
     "agentReviewFailed": "неудачник",
     "agentReviewing": "Обзор...",
     "downloading": "Скачать...",
-    "noApiKeyTitle": "OpenCowork Skills API ключ не настроен",
+    "noApiKeyTitle": "CoCoWork Skills API ключ не настроен",
     "noApiKeyDesc": "Установите ключ API через значок.️ в верхней панели, чтобы просмотреть рынок skills.open-cowork.shop.",
     "getApiKey": "Получить API Key"
   },

@@ -44,7 +44,7 @@
     "newProject": "Nuevo proyecto",
     "projectName": "Nombre del proyecto",
     "projectNameHint": "Seleccionar una carpeta utiliza el nombre de la carpeta como nombre del proyecto.",
-    "projectNamePlaceholder": "Por ejemplo: OpenCowork",
+    "projectNamePlaceholder": "Por ejemplo: CoCoWork",
     "createProject": "Crear proyecto",
     "createProjectSubtitle": "Elija una carpeta local o SSH. El nombre del proyecto sigue el nombre de la carpeta.",
     "projectSource": "Fuente del proyecto",

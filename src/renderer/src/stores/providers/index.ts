@@ -1,6 +1,6 @@
 export type { BuiltinProviderPreset } from './types'
 
-import { routinAiPlanPreset, routinAiPreset } from './routin-ai'
+// import { routinAiPlanPreset, routinAiPreset } from './routin-ai'
 import { openaiPreset } from './openai'
 import { anthropicPreset } from './anthropic'
 import { longcatPreset } from './longcat'
@@ -25,8 +25,8 @@ import type { BuiltinProviderPreset } from './types'
 export const builtinProviderPresets: BuiltinProviderPreset[] = [
   // 企业内置服务商置顶显示
   liteLLMPreset,
-  routinAiPreset,
-  routinAiPlanPreset,
+  // routinAiPreset,
+  // routinAiPlanPreset,
   openaiPreset,
   anthropicPreset,
   longcatPreset,

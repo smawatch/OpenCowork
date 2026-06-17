@@ -12,13 +12,17 @@ interface User {
   permissions: string[];
 }
 
+export type RegistrationStatus = 'none' | 'pending';
+
 interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  registrationStatus: RegistrationStatus;
   login: (username: string, password: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
+  register: (data: { username: string; email: string }) => Promise<void>;
+  resetRegistration: () => void;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   updateUser: (user: Partial<User>) => void;
@@ -29,6 +33,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   isAuthenticated: false,
   isLoading: false,
+  registrationStatus: 'none',
 
   checkAuth: async () => {
     const result = await window.api.authCheck();
@@ -68,7 +73,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (data: any) => {
+  register: async (data: { username: string; email: string }) => {
     set({ isLoading: true });
     try {
       const result = await window.api.userRegister(data);
@@ -77,19 +82,19 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(result.error);
       }
 
-      const { user, tokens } = result.data;
-      localStorage.setItem('authToken', tokens.accessToken);
-      
+      // Registration succeeded — account is pending activation by admin
       set({
-        isAuthenticated: true,
-        user,
-        token: tokens.accessToken,
+        registrationStatus: 'pending',
         isLoading: false
       });
     } catch (error) {
       set({ isLoading: false });
       throw error;
     }
+  },
+
+  resetRegistration: () => {
+    set({ registrationStatus: 'none' });
   },
 
   logout: async () => {

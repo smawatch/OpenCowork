@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "会话列表",
     "newConversation": "新建会话 (Ctrl+N)",
     "exportAll": "导出所有会话",
@@ -1020,7 +1020,7 @@
     "agentReviewFailed": "未通过",
     "agentReviewing": "正在审查...",
     "downloading": "正在下载...",
-    "noApiKeyTitle": "未配置 OpenCoWork Skills API 密钥",
+    "noApiKeyTitle": "未配置 CoCoWork Skills API 密钥",
     "noApiKeyDesc": "点击顶栏的 ⚙️ 图标设置您的 API 密钥，即可浏览 skills.open-cowork.shop 技能市场。",
     "getApiKey": "获取 API 密钥"
   },

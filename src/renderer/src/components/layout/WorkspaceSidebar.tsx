@@ -1215,7 +1215,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
             <PanelLeftClose className="size-4" />
           </Button>
           <div className="min-w-0 flex-1 truncate text-sm font-semibold text-sidebar-foreground/90">
-            OpenCowork
+            CoCoWork
           </div>
         </div>
 

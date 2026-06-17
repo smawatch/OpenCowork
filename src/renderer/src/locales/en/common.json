@@ -98,8 +98,8 @@
     "next": "Next",
     "back": "Previous",
     "intro": {
-      "title": "Hi, welcome to OpenCoWork",
-      "subtitle": "OpenCoWork is a local-first workspace for multi-agent AI collaboration. It can read your project context, use local tools with approval, and help agents work alongside you in code, research, planning, and daily workflows.",
+      "title": "Hi, welcome to CoCoWork",
+      "subtitle": "CoCoWork is a local-first workspace for multi-agent AI collaboration. It can read your project context, use local tools with approval, and help agents work alongside you in code, research, planning, and daily workflows.",
       "points": {
         "local": {
           "title": "Local tools, real context",
@@ -123,13 +123,13 @@
       "en": "English"
     },
     "nickname": {
-      "title": "What should OpenCoWork call you?",
+      "title": "What should CoCoWork call you?",
       "subtitle": "This is stored locally and written into USER.md so agents can address you naturally.",
       "placeholder": "Your nickname"
     },
     "interests": {
       "title": "What areas are you interested in?",
-      "subtitle": "Pick one or more. OpenCoWork uses this to choose better defaults and personalize your local profile.",
+      "subtitle": "Pick one or more. CoCoWork uses this to choose better defaults and personalize your local profile.",
       "options": {
         "content": "Content creation",
         "coding": "Coding and development",
@@ -161,8 +161,8 @@
       "retry": "Retry"
     },
     "done": {
-      "action": "Enter OpenCoWork",
-      "toast": "OpenCoWork is ready",
+      "action": "Enter CoCoWork",
+      "toast": "CoCoWork is ready",
       "failed": "Failed to finish setup"
     }
   },

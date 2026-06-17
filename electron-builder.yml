@@ -1,5 +1,5 @@
 appId: com.smawatch.opencowork.app
-productName: OpenCoWork
+productName: CoCoWork
 directories:
   buildResources: build
 afterPack: build/after-sign-mac.cjs
@@ -108,9 +108,9 @@ asarUnpack:
   - node_modules/@jitsi/robotjs/**
   - node_modules/node-gyp-build/**
 win:
-  executableName: OpenCoWork
+  executableName: CoCoWork
   icon: build/icon.ico
-  legalTrademarks: OpenCoWork
+  legalTrademarks: CoCoWork
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -127,7 +127,7 @@ mac:
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-    - NSLocalNetworkUsageDescription: OpenCoWork needs local network access to connect to SSH hosts and local services on your network.
+    - NSLocalNetworkUsageDescription: CoCoWork needs local network access to connect to SSH hosts and local services on your network.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
@@ -139,7 +139,6 @@ linux:
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
-# Native modules are rebuilt by scripts/postinstall.mjs during npm ci.
 npmRebuild: false
 publish:
   provider: github

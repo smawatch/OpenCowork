@@ -149,7 +149,7 @@ function buildUserProfileBlock({
 
   return [
     PROFILE_BLOCK_START,
-    '## OpenCowork Profile',
+    '## CoCoWork Profile',
     '',
     `- Name: ${nickname}`,
     `- Preferred language: ${preferredLanguage}`,
@@ -187,7 +187,7 @@ function BrandHeader({
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between px-5">
-      <div className="text-base font-semibold text-foreground">OpenCoWork</div>
+      <div className="text-base font-semibold text-foreground">CoCoWork</div>
       <Select
         value={language}
         onValueChange={(value) => onLanguageChange(value as OnboardingLanguage)}

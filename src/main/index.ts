@@ -12,6 +12,10 @@ import {
   type IpcMainEvent
 } from 'electron'
 
+// Load environment variables from .env file
+import * as dotenv from 'dotenv'
+dotenv.config()
+
 import { join, extname } from 'path'
 import { pathToFileURL } from 'url'
 import { mkdirSync, writeFileSync } from 'fs'
@@ -77,6 +81,7 @@ import { setupAutoUpdater } from './updater'
 import { safeSendToWindow } from './window-ipc'
 import * as sessionsDao from './db/sessions-dao'
 import { registerUserSystemHandlers } from './ipc/user-system-handlers'
+import { registerLiteLLMHandlers } from './ipc/litellm-handlers'
 import {
   configureBuiltInBrowserSession,
   flushBuiltInBrowserStorage,
@@ -1291,6 +1296,9 @@ if (gotSingleInstanceLock) {
 
     // Register user system handlers
     registerUserSystemHandlers()
+
+    // Register LiteLLM handlers for dynamic model discovery
+    registerLiteLLMHandlers()
 
     setMacDockIcon()
     createWindow()

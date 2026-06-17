@@ -44,7 +44,7 @@
     "newProject": "Dự án mới",
     "projectName": "Tên dự án",
     "projectNameHint": "Chọn thư mục dùng tên của thư mục dạng tên của dự án.",
-    "projectNamePlaceholder": "Chẳng hạn: OpenCowork",
+    "projectNamePlaceholder": "Chẳng hạn: CoCoWork",
     "createProject": "Tạo dự án",
     "createProjectSubtitle": "Chọn một thư mục cục bộ hay SSH. Tên dự án theo tên thư mục này.",
     "projectSource": "Nguồn dự án",

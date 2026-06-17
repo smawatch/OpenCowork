@@ -44,7 +44,7 @@
     "newProject": "Proyek baru",
     "projectName": "Nama projek",
     "projectNameHint": "Memilih folder memakai nama folder sebagai nama projek.",
-    "projectNamePlaceholder": "Sebagai contoh: OpenCowork",
+    "projectNamePlaceholder": "Sebagai contoh: CoCoWork",
     "createProject": "Buat projek",
     "createProjectSubtitle": "Pilih folder lokal atau SSH. Nama projek mengikuti nama folder.",
     "projectSource": "Sumber projek",

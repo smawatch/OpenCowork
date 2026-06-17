@@ -1,6 +1,6 @@
 import { app } from 'electron'
 
-const APP_NAME = 'OpenCowork'
+const APP_NAME = 'CoCoWork'
 const USER_AGENT_HEADER = 'user-agent'
 
 export function getDefaultApiUserAgent(): string {

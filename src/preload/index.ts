@@ -43,8 +43,10 @@ const api = {
   // User system APIs
   userLogin: (credentials: { username: string; password: string }) =>
     ipcRenderer.invoke('user:login', credentials),
-  userRegister: (userData: { username: string; password: string; realName?: string; email?: string; phone?: string; departmentId?: number }) =>
+  userRegister: (userData: { username: string; email: string }) =>
     ipcRenderer.invoke('user:register', userData),
+  userUpdatePassword: (data: { oldPassword: string; newPassword: string }) =>
+    ipcRenderer.invoke('user:updatePassword', data),
   userGetProfile: () => ipcRenderer.invoke('user:getProfile'),
   userLogout: () => ipcRenderer.invoke('user:logout'),
   userRefreshToken: () => ipcRenderer.invoke('user:refreshToken'),

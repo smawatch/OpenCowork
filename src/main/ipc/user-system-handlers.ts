@@ -11,7 +11,10 @@ function getServerUrl(): string {
   const envUrl = process.env.MAIN_VITE_SERVER_URL?.trim()
   if (envUrl) return envUrl
   const settings = readSettings()
-  return (settings.serverUrl as string) || 'http://localhost:3002'
+  const settingsUrl = settings.serverUrl as string
+  if (settingsUrl) return settingsUrl
+  // 打包后的默认服务器地址
+  return 'http://192.168.77.100:3002'
 }
 
 async function apiRequest(endpoint: string, options?: RequestInit): Promise<ApiResponse> {
@@ -43,9 +46,15 @@ async function apiRequest(endpoint: string, options?: RequestInit): Promise<ApiR
       data: data.data
     };
   } catch (error: any) {
+    console.error('[User System] API Request Failed:', {
+      endpoint,
+      serverUrl,
+      error: error.message,
+      stack: error.stack
+    });
     return {
       success: false,
-      error: error.message || '网络错误'
+      error: `连接失败: ${error.message || '网络错误'}`
     };
   }
 }
@@ -60,27 +69,28 @@ export function registerUserSystemHandlers(): void {
     });
   });
 
-  // 注册
+  // 注册申请（仅邮箱+用户名，提交后待管理员激活）
   ipcMain.handle('user:register', async (_event, data: {
     username: string;
-    password: string;
-    realName?: string;
-    email?: string;
-    phone?: string;
-    departmentId?: number;
+    email: string;
   }) => {
-    // 映射前端字段到后端字段
-    const backendData = {
-      username: data.username,
-      email: data.email || data.username,
-      password: data.password,
-      displayName: data.realName,
-      phone: data.phone
-    };
-    
     return apiRequest('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify(backendData)
+      body: JSON.stringify({
+        username: data.username,
+        email: data.email
+      })
+    });
+  });
+
+  // 修改密码
+  ipcMain.handle('user:updatePassword', async (_event, data: {
+    oldPassword: string;
+    newPassword: string;
+  }) => {
+    return apiRequest('/api/users/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data)
     });
   });
 
