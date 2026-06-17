@@ -611,6 +611,8 @@ export interface AIProvider {
   websocketUrl?: string
   /** OpenAI Responses transport mode for this provider */
   websocketMode?: 'auto' | 'disabled'
+  /** Whether this provider is read-only (enterprise built-in, cannot be modified by users) */
+  readonly?: boolean
 }
 
 // --- Provider Config ---

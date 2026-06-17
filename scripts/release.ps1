@@ -97,6 +97,9 @@ Write-Host "  [PASS] Version updated" -ForegroundColor Green
 
 # 3. Commit version change
 Write-Host "  [3/3] Committing version change..." -ForegroundColor Gray
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Resolve-Path "$ScriptDir\.."
+Set-Location $ProjectRoot
 git add package.json
 git commit -m "chore(release): bump version to $Version"
 git push origin $Branch
