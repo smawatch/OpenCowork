@@ -91,8 +91,8 @@
     "next": "Siguiente",
     "back": "Anterior",
     "intro": {
-      "title": "Hola, bienvenido a OpenCowork",
-      "subtitle": "OpenCowork es un espacio de trabajo local para la colaboración con IA multiagente. Puede leer su contexto de proyecto, utilizar herramientas locales con aprobación y ayudar a los agentes a trabajar junto a usted en código, investigación, planificación y flujos de trabajo diarios.",
+      "title": "Hola, bienvenido a CoCoWork",
+      "subtitle": "CoCoWork es un espacio de trabajo local para la colaboración con IA multiagente. Puede leer su contexto de proyecto, utilizar herramientas locales con aprobación y ayudar a los agentes a trabajar junto a usted en código, investigación, planificación y flujos de trabajo diarios.",
       "points": {
         "local": {
           "title": "Herramientas locales, contexto real",
@@ -116,13 +116,13 @@
       "en": "Inglés"
     },
     "nickname": {
-      "title": "¿Qué debería llamarte OpenCowork?",
+      "title": "¿Qué debería llamarte CoCoWork?",
       "subtitle": "Esto se almacena localmente y se escribe en USER.md para que los agentes puedan dirigirse a usted naturalmente.",
       "placeholder": "Tu apodo"
     },
     "interests": {
       "title": "¿En qué áreas te interesa?",
-      "subtitle": "Elija uno o más. OpenCowork utiliza esto para elegir mejores defectos y personalizar su perfil local.",
+      "subtitle": "Elija uno o más. CoCoWork utiliza esto para elegir mejores defectos y personalizar su perfil local.",
       "options": {
         "content": "Creación de contenidos",
         "coding": "Codificación y desarrollo",
@@ -154,8 +154,8 @@
       "retry": "Entrada"
     },
     "done": {
-      "action": "Entra OpenCowork",
-      "toast": "OpenCowork está listo",
+      "action": "Entra CoCoWork",
+      "toast": "CoCoWork está listo",
       "failed": "Failed to end setup"
     }
   },

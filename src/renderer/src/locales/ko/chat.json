@@ -44,7 +44,7 @@
     "newProject": "새로운 프로젝트",
     "projectName": "프로젝트 이름",
     "projectNameHint": "폴더 선택은 프로젝트 이름으로 폴더 이름을 사용합니다.",
-    "projectNamePlaceholder": "예를 들면: OpenCoWork",
+    "projectNamePlaceholder": "예를 들면: CoCoWork",
     "createProject": "프로젝트",
     "createProjectSubtitle": "로컬 또는 SSH 폴더를 선택하십시오. 프로젝트 이름은 폴더 이름을 따릅니다.",
     "projectSource": "프로젝트 소스",

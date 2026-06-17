@@ -91,8 +91,8 @@
     "next": "Kế",
     "back": "Lùi",
     "intro": {
-      "title": "Chào mừng đến với OpenCowork",
-      "subtitle": "OpenCowork là một không gian làm việc địa phương đầu tiên cho sự hợp tác đa đặc vụ Al. nó có thể đọc bối cảnh dự án của bạn, sử dụng công cụ địa phương với sự chấp thuận, và giúp các đặc vụ làm việc cùng bạn trong mã hóa, nghiên cứu, lên kế hoạch, và lưu lượng công việc hàng ngày.",
+      "title": "Chào mừng đến với CoCoWork",
+      "subtitle": "CoCoWork là một không gian làm việc địa phương đầu tiên cho sự hợp tác đa đặc vụ Al. nó có thể đọc bối cảnh dự án của bạn, sử dụng công cụ địa phương với sự chấp thuận, và giúp các đặc vụ làm việc cùng bạn trong mã hóa, nghiên cứu, lên kế hoạch, và lưu lượng công việc hàng ngày.",
       "points": {
         "local": {
           "title": "Công cụ cục bộ, ngữ cảnh thật",
@@ -116,13 +116,13 @@
       "en": "Tiếng Anh"
     },
     "nickname": {
-      "title": "OpenCowork gọi bạn là gì?",
+      "title": "CoCoWork gọi bạn là gì?",
       "subtitle": "Cái này được lưu trữ tại địa phương và được viết vào USER.md để các đặc vụ có thể tự nhiên chỉ định bạn.",
       "placeholder": "Biệt danh của bạn"
     },
     "interests": {
       "title": "Anh quan tâm đến lĩnh vực nào?",
-      "subtitle": "Chọn một hay nhiều hơn. OpenCowork dùng nó để chọn mặc định tốt hơn và cá nhân hoá hồ sơ cục bộ.",
+      "subtitle": "Chọn một hay nhiều hơn. CoCoWork dùng nó để chọn mặc định tốt hơn và cá nhân hoá hồ sơ cục bộ.",
       "options": {
         "content": "Tạo nội dung",
         "coding": "Kết hợp và phát triển",
@@ -154,8 +154,8 @@
       "retry": "Thử lại"
     },
     "done": {
-      "action": "Nhập OpenCowork",
-      "toast": "OpenCowork đã sẵn sàng",
+      "action": "Nhập CoCoWork",
+      "toast": "CoCoWork đã sẵn sàng",
       "failed": "Lỗi kết thúc thiết lập"
     }
   },

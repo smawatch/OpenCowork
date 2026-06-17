@@ -91,8 +91,8 @@
     "next": "Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki Sonraki",
     "back": "Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki Önceki",
     "intro": {
-      "title": "Merhaba, OpenCowork için hoş geldiniz",
-      "subtitle": "OpenCowork, multi-agent AI işbirliği için yerel bir ilk çalışma alanıdır. Proje bağlamını okuyabilirsiniz, onay ile yerel araçları kullanabilir ve ajanlar size kod, araştırma, planlama ve günlük iş akışlarında birlikte çalışır.",
+      "title": "Merhaba, CoCoWork için hoş geldiniz",
+      "subtitle": "CoCoWork, multi-agent AI işbirliği için yerel bir ilk çalışma alanıdır. Proje bağlamını okuyabilirsiniz, onay ile yerel araçları kullanabilir ve ajanlar size kod, araştırma, planlama ve günlük iş akışlarında birlikte çalışır.",
       "points": {
         "local": {
           "title": "Yerel araçlar, gerçek bağlam",
@@ -116,13 +116,13 @@
       "en": "İngilizce İngilizce İngilizce English"
     },
     "nickname": {
-      "title": "OpenCowork sizi ne aramalı?",
+      "title": "CoCoWork sizi ne aramalı?",
       "subtitle": "Bu yerel olarak depolanır ve ABD'ye yazılır, bu yüzden ajanlar sizi doğal olarak ele geçirebilirler.",
       "placeholder": "Senin takma adın"
     },
     "interests": {
       "title": "Hangi alanlarda ilgileniyorsunuz?",
-      "subtitle": "Bir veya daha fazlasını seçin. OpenCowork daha iyi varsayılanları seçmek ve yerel profilinizi kişiselleştirmek için bunu kullanır.",
+      "subtitle": "Bir veya daha fazlasını seçin. CoCoWork daha iyi varsayılanları seçmek ve yerel profilinizi kişiselleştirmek için bunu kullanır.",
       "options": {
         "content": "İçerik oluşturma",
         "coding": "Coding ve gelişim",
@@ -154,8 +154,8 @@
       "retry": "Retry"
     },
     "done": {
-      "action": "OpenCowork",
-      "toast": "OpenCowork hazır",
+      "action": "CoCoWork",
+      "toast": "CoCoWork hazır",
       "failed": "Yüklemeyi bitirmek için başarısız oldu"
     }
   },

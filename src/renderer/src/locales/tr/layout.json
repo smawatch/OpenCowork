@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "Konuşmalar",
     "newConversation": "Yeni konuşma (Ctrl+N)",
     "exportAll": "Tüm konuşmaları ihracat",
@@ -995,7 +995,7 @@
     "agentReviewFailed": "Başarısızlık",
     "agentReviewing": "İnceleme...",
     "downloading": "Downloading...",
-    "noApiKeyTitle": "OpenCowork Becerileri API anahtarı yapılandırılmamış",
+    "noApiKeyTitle": "CoCoWork Becerileri API anahtarı yapılandırılmamış",
     "noApiKeyDesc": "API anahtarınızı, yetenekleri göz önünde bulundurmak için üst barda the ikonunu ayarlayın.open-cowork.shop market.",
     "getApiKey": "API Key"
   },

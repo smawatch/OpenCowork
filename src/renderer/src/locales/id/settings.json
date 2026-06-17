@@ -2,7 +2,7 @@
   "page": {
     "title": "Pengaturan",
     "subtitle": "Pengaturan & Model Preferensi",
-    "poweredBy": "Didukung oleh OpenCowork",
+    "poweredBy": "Didukung oleh CoCoWork",
     "groups": {
       "foundation": "Foundation",
       "system": "Sistem",
@@ -14,13 +14,13 @@
   "profile": {
     "title": "Profil",
     "subtitle": "Identitas lokal dan aktivitas token",
-    "defaultName": "Pengguna OpenCowork",
+    "defaultName": "Pengguna CoCoWork",
     "localAccount": "Profil lokal",
     "edit": "Sunting",
     "save": "Simpan",
     "cancel": "Batal",
     "displayName": "Tampilkan nama",
-    "displayNamePlaceholder": "Pengguna OpenCowork",
+    "displayNamePlaceholder": "Pengguna CoCoWork",
     "chooseAvatar": "Pilih avatar",
     "removeAvatar": "Hapus avatar",
     "avatarInvalid": "Silakan pilih berkas citra.",
@@ -235,7 +235,7 @@
   },
   "sync": {
     "title": "Selaraskan",
-    "subtitle": "Rekaman -level OpenCowork data sync dengan WebDAV.",
+    "subtitle": "Rekaman -level CoCoWork data sync dengan WebDAV.",
     "loading": "Memuat pengaturan sinkronisasi...",
     "provider": {
       "title": "Penyedia",
@@ -300,7 +300,7 @@
     "shell": {
       "endpoint": {
         "title": "Titik akhir eksekusi shell",
-        "desc": "Pilih shell OpenCowork mana yang digunakan untuk memanggil perangkat Bash. Pilihan yang disaring oleh sistem operasi saat ini.",
+        "desc": "Pilih shell CoCoWork mana yang digunakan untuk memanggil perangkat Bash. Pilihan yang disaring oleh sistem operasi saat ini.",
         "selectLabel": "Shell tersedia",
         "options": {
           "auto": {
@@ -347,7 +347,7 @@
         "desc": "Mengelola variabel lingkungan ekstra disuntikkan ke sesi shell lokal baru.",
         "placeholder": "FOO = bar\nPATH = / tmp / test-bin: $PATH\n# export HELLO = world",
         "formatHint": "Satu variabel per baris. Format yang didukung: KUNCI = NILAI atau expor KEY = NILAI.",
-        "precedenceHint": "Nilai OpenCowork menimpa lingkungan proses saat ini ketika nama bertabrakan.",
+        "precedenceHint": "Nilai CoCoWork menimpa lingkungan proses saat ini ketika nama bertabrakan.",
         "newSessionHint": "Hanya mempengaruhi sesi shell lokal yang baru dibuat, proses latar belakang, dan tab terminal.",
         "validationError": "Baris {{line}} tidak valid dan tidak disimpan. Gunakan KUNCI = NILAI atau ekspor KEY = NILAI."
       }
@@ -643,9 +643,9 @@
       "cookiesCleared": "Kue peramban dibersihkan",
       "cookiesClearFailed": "Gagal membersihkan cookies peramban",
       "userDataReuse": "Simulasi profil peramban lokal",
-      "userDataReuseDesc": "Standar. peramban built -in menggunakan identitas peramban terpilih ketika menjaga penyimpanan OpenCowork terisolasi untuk melindungi data peramban lokal.",
+      "userDataReuseDesc": "Standar. peramban built -in menggunakan identitas peramban terpilih ketika menjaga penyimpanan CoCoWork terisolasi untuk melindungi data peramban lokal.",
       "userDataSource": "Sumber data peramban",
-      "userDataSourceDesc": "Pilih profil peramban yang terpasang OpenCowork yang mesti dicoba terlebih dahulu.",
+      "userDataSourceDesc": "Pilih profil peramban yang terpasang CoCoWork yang mesti dicoba terlebih dahulu.",
       "sources": {
         "auto": "Deteksi otomatis",
         "chrome": "Google Chrome",
@@ -654,9 +654,9 @@
         "chromium": "Chromium"
       },
       "activeProfile": "Profil sumber yang terdeteksi: {{browserName}} / {{profileName}} - {{path}}",
-      "profileFallback": "Tidak ada profil yang terdeteksi untuk sumber yang dipilih, jadi OpenCowork menggunakan identitas peramban sendiri.",
+      "profileFallback": "Tidak ada profil yang terdeteksi untuk sumber yang dipilih, jadi CoCoWork menggunakan identitas peramban sendiri.",
       "isolatedStorage": "Penyimpanan yang terisolasi: {{path}}",
-      "restartRequired": "Start ulang OpenCowork untuk mode profil peramban ini untuk sepenuhnya mengambil efek.",
+      "restartRequired": "Start ulang CoCoWork untuk mode profil peramban ini untuk sepenuhnya mengambil efek.",
       "blockedDomains": "Domain yang diblokir",
       "blockedDomainsDesc": "Navigasi ke domain dan subdomains ini ditolak.",
       "allowedDomains": "Domain yang diijinkan",
@@ -687,7 +687,7 @@
   },
   "migration": {
     "title": "Pusat Migrasi",
-    "subtitle": "Pratilik dan migrasi konfigurasi OpenCode ke OpenCowork",
+    "subtitle": "Pratilik dan migrasi konfigurasi OpenCode ke CoCoWork",
     "sourceTitle": "Sumber OpenKode",
     "sourceDesc": "Saat ini hanya dibaca ~ /.config / opencode / opencode.json dan penyedia migrasi, pilihan model, perintah, agen, server MCP, dan instruksi.",
     "reloadAction": "Pratilik Segarkan",
@@ -751,7 +751,7 @@
     "framework": "Framework",
     "ui": "UI",
     "license": "Lisensi",
-    "description": "OpenCowork adalah platform kolaborasi AI sumber terbuka yang mendukung beberapa penyedia LLM.",
+    "description": "CoCoWork adalah platform kolaborasi AI sumber terbuka yang mendukung beberapa penyedia LLM.",
     "github": "GitHub",
     "heroTagline": "Workbene Al Kolaboratif",
     "heroDescription": "Koordinat beberapa model, agen, dan keterampilan di dalam satu area kerja asli.",
@@ -773,7 +773,7 @@
         "desc": "Hubungkan server MCP, ketrampilan, dan pesta ketiga dengan mulus."
       }
     },
-    "summary": "OpenCowork menyatukan proses multi- model, server MCP, keterampilan, dan perubahan custom dalam satu pengalaman desktop sehingga Anda dapat beralih antara Chat, Cowork, atau mode Kode saat tetap memegang kendali."
+    "summary": "CoCoWork menyatukan proses multi- model, server MCP, keterampilan, dan perubahan custom dalam satu pengalaman desktop sehingga Anda dapat beralih antara Chat, Cowork, atau mode Kode saat tetap memegang kendali."
   },
   "dialog": {
     "title": "Pengaturan Cepat",
@@ -1350,15 +1350,15 @@
     "provider": "Penyedia Pasar",
     "providerDesc": "Pilih mana untuk mengambil keterampilan dari",
     "selectProvider": "Pilih penyedia",
-    "skillsmpDesc": "OpenCowork Skills pasar (pilihan kunci API)",
+    "skillsmpDesc": "CoCoWork Skills pasar (pilihan kunci API)",
     "builtinLabel": "Bangun.",
     "builtinDesc": "Daftar keterampilan lokal bundled (tidak diperlukan kunci API)",
     "builtinInfo": "Menggunakan keterampilan bundled dikirim dengan aplikasi. Marketplace menginstal paket keterampilan resmi dan menjalankan pemeriksaan keselamatan lokal sebelum instalasi.",
     "skillsmpInfo": "Mengambil katalog keterampilan terbaru dari keterampilan. Buka-toko. Meramban tidak lagi membutuhkan kunci API; jika Anda memerlukan kemampuan tambahan, buat satu di Dashboard dan gunakan Docs untuk setup.",
     "apiKey": "Kunci API",
-    "apiKeyDesc": "Opsional: kunci OpenCowork Skills API Anda, bila Anda punya",
+    "apiKeyDesc": "Opsional: kunci CoCoWork Skills API Anda, bila Anda punya",
     "apiKeyPlaceholder": "_ Hidup...",
-    "apiKeyRequired": "Meramban pasar Skills OpenCowork tidak lagi memerlukan kunci API.",
+    "apiKeyRequired": "Meramban pasar Skills CoCoWork tidak lagi memerlukan kunci API.",
     "getApiKey": "Dapatkan Kunci API",
     "openDocs": "Buka Dokumen",
     "test": "Uji Koneksi",
@@ -1371,7 +1371,7 @@
   },
   "soulmarket": {
     "title": "Pasar SOUL",
-    "desc": "Ramban Souls OpenCowork dengan kunci API pasar Skills bersama.",
+    "desc": "Ramban Souls CoCoWork dengan kunci API pasar Skills bersama.",
     "apiKey": "Kunci API",
     "getApiKey": "Dapatkan Kunci API",
     "openDocs": "Buka Dokumen",

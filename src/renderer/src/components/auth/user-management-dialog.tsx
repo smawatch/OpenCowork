@@ -22,9 +22,13 @@ import {
   Save, 
   X,
   Edit3,
-  Loader2
+  Loader2,
+  Key,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
+import { toast } from 'sonner';
 
 interface UserManagementDialogProps {
   open: boolean;
@@ -43,6 +47,52 @@ export const UserManagementDialog: React.FC<UserManagementDialogProps> = ({
     email: user?.email || '',
     phone: user?.phone || ''
   });
+
+  // Password change state
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const handlePasswordChange = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error('请填写所有密码字段');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('两次输入的新密码不一致');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('密码长度至少为 6 位');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const result = await window.api.userUpdatePassword?.({
+        oldPassword,
+        newPassword
+      });
+      if (result?.success) {
+        toast.success('密码修改成功');
+        setShowPasswordDialog(false);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast.error(result?.error || '密码修改失败');
+      }
+    } catch (error: any) {
+      toast.error(error.message || '密码修改失败');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -247,6 +297,14 @@ export const UserManagementDialog: React.FC<UserManagementDialogProps> = ({
                   关闭
                 </Button>
                 <Button
+                  variant="outline"
+                  onClick={() => setShowPasswordDialog(true)}
+                  className="gap-2"
+                >
+                  <Key className="size-4" />
+                  修改密码
+                </Button>
+                <Button
                   onClick={handleEdit}
                   className="gap-2"
                 >
@@ -282,6 +340,113 @@ export const UserManagementDialog: React.FC<UserManagementDialogProps> = ({
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Change Password Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="size-5" />
+              修改密码
+            </DialogTitle>
+            <DialogDescription>
+              请输入当前密码和新密码
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">当前密码</label>
+              <div className="relative">
+                <Input
+                  type={showOldPassword ? 'text' : 'password'}
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  placeholder="请输入当前密码"
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOldPassword(!showOldPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showOldPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">新密码</label>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="请输入新密码（至少6位）"
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">确认新密码</label>
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="请再次输入新密码"
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPasswordDialog(false);
+                setOldPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+              }}
+              disabled={passwordLoading}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handlePasswordChange}
+              disabled={passwordLoading || !oldPassword || !newPassword || !confirmPassword}
+              className="gap-2"
+            >
+              {passwordLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Save className="size-4" />
+              )}
+              {passwordLoading ? '修改中...' : '确认修改'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };

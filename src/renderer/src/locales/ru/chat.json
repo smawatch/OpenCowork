@@ -44,7 +44,7 @@
     "newProject": "Новый проект",
     "projectName": "Название проекта",
     "projectNameHint": "Выбор папки использует имя папки в качестве названия проекта.",
-    "projectNamePlaceholder": "Например: OpenCowork",
+    "projectNamePlaceholder": "Например: CoCoWork",
     "createProject": "Создать проект",
     "createProjectSubtitle": "Выберите локальную или SSH папку. Имя проекта следует за именем папки.",
     "projectSource": "Источник проекта",

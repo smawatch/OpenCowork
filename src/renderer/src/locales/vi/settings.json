@@ -14,13 +14,13 @@
   "profile": {
     "title": "Hồ sơ",
     "subtitle": "Name",
-    "defaultName": "Người dùng OpenCowork",
+    "defaultName": "Người dùng CoCoWork",
     "localAccount": "Hồ sơ cục bộ",
     "edit": "Sửa",
     "save": "Lưu",
     "cancel": "Thôi",
     "displayName": "Hiện tên",
-    "displayNamePlaceholder": "Người dùng OpenCowork",
+    "displayNamePlaceholder": "Người dùng CoCoWork",
     "chooseAvatar": "Chọn hình tượng",
     "removeAvatar": "Bỏ",
     "avatarInvalid": "Hãy chọn một tập tin ảnh.",
@@ -235,7 +235,7 @@
   },
   "sync": {
     "title": "Đồng bộ",
-    "subtitle": "Dữ liệu OpenCowork được đồng bộ với WebDOV.",
+    "subtitle": "Dữ liệu CoCoWork được đồng bộ với WebDOV.",
     "loading": "Đang nạp thiết lập đồng bộ...",
     "provider": {
       "title": "Nhà cung cấp",
@@ -300,7 +300,7 @@
     "shell": {
       "endpoint": {
         "title": "Comment",
-        "desc": "Chọn hệ vỏ OpenCowork dùng cho các cuộc gọi công cụ Bash. Các tùy chọn được lọc bởi hệ điều hành hiện thời.",
+        "desc": "Chọn hệ vỏ CoCoWork dùng cho các cuộc gọi công cụ Bash. Các tùy chọn được lọc bởi hệ điều hành hiện thời.",
         "selectLabel": "Name",
         "options": {
           "auto": {
@@ -347,7 +347,7 @@
         "desc": "Quản lý các biến môi trường thêm được tiêm vào các phiên điều trị vỏ bọc cục bộ mới.",
         "placeholder": "FOO=bar\nThực hiện\n# Xuất khẩu hipo=world",
         "formatHint": "Một biến trên mỗi dòng. Các định dạng được hỗ trợ: chìa khóa=VA GỢI Ý hoặc xuất khẩu chìa khóa =VA GỢI Ý.",
-        "precedenceHint": "Các giá trị OpenCowork đè lên môi trường tiến trình hiện thời khi tên va chạm.",
+        "precedenceHint": "Các giá trị CoCoWork đè lên môi trường tiến trình hiện thời khi tên va chạm.",
         "newSessionHint": "Chỉ áp dụng các phiên chạy vỏ bọc mới được tạo cục bộ, tiến trình nền và thẻ thiết bị cuối.",
         "validationError": "Đường {{line}} là không hợp lệ nên chưa lưu. Hãy dùng phím khóa=VA GỢI Ý hoặc chìa khóa xuất khẩu=VA GỢI Ý."
       }
@@ -643,9 +643,9 @@
       "cookiesCleared": "Comment",
       "cookiesClearFailed": "Lỗi xoá cookie trình duyệt",
       "userDataReuse": "Mô phỏng hồ sơ trình duyệt cục bộ",
-      "userDataReuseDesc": "Mặc định là trình duyệt có sẵn sử dụng danh tính trình duyệt đã chọn trong khi giữ lưu trữ OpenCowork riêng lẻ để bảo vệ dữ liệu trình duyệt cục bộ.",
+      "userDataReuseDesc": "Mặc định là trình duyệt có sẵn sử dụng danh tính trình duyệt đã chọn trong khi giữ lưu trữ CoCoWork riêng lẻ để bảo vệ dữ liệu trình duyệt cục bộ.",
       "userDataSource": "Nguồn dữ liệu duyệt",
-      "userDataSourceDesc": "Chọn hồ sơ trình duyệt đã cài đặt OpenCowork trước.",
+      "userDataSourceDesc": "Chọn hồ sơ trình duyệt đã cài đặt CoCoWork trước.",
       "sources": {
         "auto": "Phát hiện tự động",
         "chrome": "Google Chrome",
@@ -654,9 +654,9 @@
         "chromium": "Name"
       },
       "activeProfile": "Hồ sơ nguồn phát hiện: {{browserName}} / {{profileName}} - {{path}}",
-      "profileFallback": "Không phát hiện hồ sơ cho nguồn đã chọn, vì vậy OpenCowork đang sử dụng danh tính trình duyệt riêng.",
+      "profileFallback": "Không phát hiện hồ sơ cho nguồn đã chọn, vì vậy CoCoWork đang sử dụng danh tính trình duyệt riêng.",
       "isolatedStorage": "Kho riêng: {{path}}",
-      "restartRequired": "Khởi động lại chế độ hồ sơ OpenCowork cho trình duyệt này có tác động đầy đủ.",
+      "restartRequired": "Khởi động lại chế độ hồ sơ CoCoWork cho trình duyệt này có tác động đầy đủ.",
       "blockedDomains": "Miền bị chặn",
       "blockedDomainsDesc": "Không thể di chuyển tới những miền này và các miền phụ.",
       "allowedDomains": "Miền cho phép",
@@ -687,7 +687,7 @@
   },
   "migration": {
     "title": "Trung tâm chuyển",
-    "subtitle": "Xem thử và di chuyển cấu hình OpenCode vào OpenCowork",
+    "subtitle": "Xem thử và di chuyển cấu hình OpenCode vào CoCoWork",
     "sourceTitle": "Nguồn OpenCode",
     "sourceDesc": "Hiện tại chỉ đọc ~/.config/ open code/ open code.json và di cư nhà cung cấp, lựa chọn mô hình, lệnh, tác vụ, máy phục vụ MCP và hướng dẫn.",
     "reloadAction": "Xem thử cập nhật",
@@ -751,7 +751,7 @@
     "framework": "Khung làm việc",
     "ui": "UI",
     "license": "Giấy phép",
-    "description": "OpenCowork là một nền tảng hợp tác mã nguồn mở AI hỗ trợ nhiều nhà cung cấp LLM.",
+    "description": "CoCoWork là một nền tảng hợp tác mã nguồn mở AI hỗ trợ nhiều nhà cung cấp LLM.",
     "github": "GitHub",
     "heroTagline": "Bàn làm việc hợp tác phụ",
     "heroDescription": "Tọa độ đa mô hình, tác nhân và kỹ năng bên trong một không gian làm việc bản địa.",
@@ -773,7 +773,7 @@
         "desc": "Kết nối các máy chủ, kỹ năng, và máy chủ thứ 3 liên tục."
       }
     },
-    "summary": "OpenCowork thành lập luồng công việc đa mẫu, máy chủ, kỹ năng và tùy chỉnh trong một kinh nghiệm máy tính để bạn có thể chuyển đổi giữa Chat, Cowork, hay chế độ mã hóa trong khi vẫn kiểm soát."
+    "summary": "CoCoWork thành lập luồng công việc đa mẫu, máy chủ, kỹ năng và tùy chỉnh trong một kinh nghiệm máy tính để bạn có thể chuyển đổi giữa Chat, Cowork, hay chế độ mã hóa trong khi vẫn kiểm soát."
   },
   "dialog": {
     "title": "Thiết lập nhanh",
@@ -1350,15 +1350,15 @@
     "provider": "Nhà cung cấp thị trường",
     "providerDesc": "Chọn nơi cần lấy kỹ năng từ",
     "selectProvider": "Chọn nhà cung cấp",
-    "skillsmpDesc": "Công cụ OpenCowork",
+    "skillsmpDesc": "Công cụ CoCoWork",
     "builtinLabel": "Xây dựng",
     "builtinDesc": "Danh sách các kỹ năng được đóng gói cục bộ (không cần thiết khóa API)",
     "builtinInfo": "Sử dụng kỹ năng đóng gói được vận chuyển bằng ứng dụng. Marketplace cài đặt tải về gói kỹ năng chính thức và chạy kiểm tra an toàn cục bộ trước khi cài đặt.",
     "skillsmpInfo": "Lấy danh sách các kỹ năng mới nhất từ kỹ năng. open-copor.shop. Duyệt không còn cần thiết phím API nữa; nếu bạn cần thêm khả năng, hãy tạo một số kỹ năng trong trình duyệt và sử dụng Doc cho thiết lập.",
     "apiKey": "Comment",
-    "apiKeyDesc": "Tùy chọn: phím OpenCowork của bạn Kĩ năng API, nếu bạn có một",
+    "apiKeyDesc": "Tùy chọn: phím CoCoWork của bạn Kĩ năng API, nếu bạn có một",
     "apiKeyPlaceholder": "♪sk live ♪",
-    "apiKeyRequired": "Duyệt qua các kỹ năng thị trường OpenCowork không còn yêu cầu một phím ADI nữa.",
+    "apiKeyRequired": "Duyệt qua các kỹ năng thị trường CoCoWork không còn yêu cầu một phím ADI nữa.",
     "getApiKey": "Lấy khoá ADI",
     "openDocs": "Mở Doc",
     "test": "Kết nối",
@@ -1371,7 +1371,7 @@
   },
   "soulmarket": {
     "title": "Thị trường SOUL",
-    "desc": "Duyệt OpenCowork SOULs với các kỹ năng chia sẻ thị trường API.",
+    "desc": "Duyệt CoCoWork SOULs với các kỹ năng chia sẻ thị trường API.",
     "apiKey": "Comment",
     "getApiKey": "Lấy khoá ADI",
     "openDocs": "Mở Doc",

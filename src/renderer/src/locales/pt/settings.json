@@ -2,7 +2,7 @@
   "page": {
     "title": "Configuração",
     "subtitle": "Configurações & Modelo",
-    "poweredBy": "Alimentado por OpenCowork",
+    "poweredBy": "Alimentado por CoCoWork",
     "groups": {
       "foundation": "Fundação",
       "system": "Sistema",
@@ -14,13 +14,13 @@
   "profile": {
     "title": "Perfil",
     "subtitle": "Identidade local e actividade do símbolo",
-    "defaultName": "Usuário do OpenCowork",
+    "defaultName": "Usuário do CoCoWork",
     "localAccount": "Perfil local",
     "edit": "Editar",
     "save": "Gravar",
     "cancel": "Cancelar",
     "displayName": "Mostrar o nome",
-    "displayNamePlaceholder": "Usuário do OpenCowork",
+    "displayNamePlaceholder": "Usuário do CoCoWork",
     "chooseAvatar": "Escolher o avatar",
     "removeAvatar": "Remover avatar",
     "avatarInvalid": "Por favor, escolha um arquivo de imagem.",
@@ -235,7 +235,7 @@
   },
   "sync": {
     "title": "Sincronizar",
-    "subtitle": "Sincronização de dados OpenCowork de nível de gravação com WebDAV.",
+    "subtitle": "Sincronização de dados CoCoWork de nível de gravação com WebDAV.",
     "loading": "Carregando configurações de sincronização...",
     "provider": {
       "title": "Fornecedor",
@@ -300,7 +300,7 @@
     "shell": {
       "endpoint": {
         "title": "Endpoint de execução de shell",
-        "desc": "Escolha qual shell OpenCowork usa para chamadas de ferramentas Bash. As opções são filtradas pelo sistema operacional atual.",
+        "desc": "Escolha qual shell CoCoWork usa para chamadas de ferramentas Bash. As opções são filtradas pelo sistema operacional atual.",
         "selectLabel": "Conchas disponíveis",
         "options": {
           "auto": {
@@ -347,7 +347,7 @@
         "desc": "Gerencie variáveis de ambiente extras injetadas em novas sessões de shell locais.",
         "placeholder": "FOO=bar\nPATH=/tmp/test-bin:$PATH\n# Exportar HELLO=world",
         "formatHint": "Uma variável por linha. Formatos suportados: KEY=ValUE ou exportar KEY=ValUE.",
-        "precedenceHint": "Os valores do OpenCowork sobrepõem-se ao ambiente de processo atual quando os nomes colidem.",
+        "precedenceHint": "Os valores do CoCoWork sobrepõem-se ao ambiente de processo atual quando os nomes colidem.",
         "newSessionHint": "Apenas afeta as novas sessões locais de shell, processos de fundo e abas de terminal.",
         "validationError": "Linha {{line}} é inválido e não foi salvo. Use KEY=ValUE ou exporte KEY=ValUE."
       }
@@ -643,9 +643,9 @@
       "cookiesCleared": "Cookies de navegador limpos",
       "cookiesClearFailed": "Falha ao limpar os cookies do navegador",
       "userDataReuse": "Simular o perfil do navegador local",
-      "userDataReuseDesc": "O navegador incorporado usa a identidade do navegador selecionado, mantendo o armazenamento do OpenCowork isolado para proteger os dados do navegador local.",
+      "userDataReuseDesc": "O navegador incorporado usa a identidade do navegador selecionado, mantendo o armazenamento do CoCoWork isolado para proteger os dados do navegador local.",
       "userDataSource": "Fonte de dados do navegador",
-      "userDataSourceDesc": "Escolha qual perfil de navegador instalado OpenCowork deve tentar primeiro.",
+      "userDataSourceDesc": "Escolha qual perfil de navegador instalado CoCoWork deve tentar primeiro.",
       "sources": {
         "auto": "Auto- detectar",
         "chrome": "Google Chrome",
@@ -654,9 +654,9 @@
         "chromium": "Crómio"
       },
       "activeProfile": "Perfil de origem detectado: {{browserName}} / {{profileName}} — {{path}}",
-      "profileFallback": "Nenhum perfil foi detectado para a fonte selecionada, então o OpenCowork está usando sua própria identidade de navegador.",
+      "profileFallback": "Nenhum perfil foi detectado para a fonte selecionada, então o CoCoWork está usando sua própria identidade de navegador.",
       "isolatedStorage": "Armazenamento isolado: {{path}}",
-      "restartRequired": "Reinicie o OpenCowork para que este modo de perfil do navegador tenha efeito total.",
+      "restartRequired": "Reinicie o CoCoWork para que este modo de perfil do navegador tenha efeito total.",
       "blockedDomains": "Domínios bloqueados",
       "blockedDomainsDesc": "A navegação para estes domínios e subdomínios é negada.",
       "allowedDomains": "Domínios permitidos",
@@ -687,7 +687,7 @@
   },
   "migration": {
     "title": "Centro de Migração",
-    "subtitle": "Visualizar e migrar a configuração do OpenCode para o OpenCowork",
+    "subtitle": "Visualizar e migrar a configuração do OpenCode para o CoCoWork",
     "sourceTitle": "Código OpenCode",
     "sourceDesc": "Atualmente lê apenas ~/.config/opencode/opencode.json e migra provedores, seleções de modelos, comandos, agentes, servidores MCP e instruções.",
     "reloadAction": "Actualizar a Antevisão",
@@ -751,7 +751,7 @@
     "framework": "Quadro",
     "ui": "UI",
     "license": "Licença",
-    "description": "OpenCowork é uma plataforma de colaboração de IA de código aberto que suporta vários provedores LLM.",
+    "description": "CoCoWork é uma plataforma de colaboração de IA de código aberto que suporta vários provedores LLM.",
     "github": "GitHub",
     "heroTagline": "AI Banco de Trabalho Colaborativo",
     "heroDescription": "Coordene vários modelos, agentes e habilidades dentro de um espaço de trabalho nativo.",
@@ -773,7 +773,7 @@
         "desc": "Conecte servidores MCP, habilidades e channles de terceiros perfeitamente."
       }
     },
-    "summary": "O OpenCowork unifica fluxos de trabalho multimodelos, servidores MCP, habilidades e channles personalizados dentro de uma experiência de desktop para que você possa alternar entre os modos Chat, Cowork ou Code enquanto estiver no controle."
+    "summary": "O CoCoWork unifica fluxos de trabalho multimodelos, servidores MCP, habilidades e channles personalizados dentro de uma experiência de desktop para que você possa alternar entre os modos Chat, Cowork ou Code enquanto estiver no controle."
   },
   "dialog": {
     "title": "Configuração Rápida",
@@ -1350,15 +1350,15 @@
     "provider": "Fornecedor de Mercados",
     "providerDesc": "Selecione de onde obter habilidades",
     "selectProvider": "Selecionar um provedor",
-    "skillsmpDesc": "Mercado de competências OpenCowork (chave opcional API)",
+    "skillsmpDesc": "Mercado de competências CoCoWork (chave opcional API)",
     "builtinLabel": "Incorporado",
     "builtinDesc": "Lista local de competências agrupadas (sem chave API necessária)",
     "builtinInfo": "Utiliza as habilidades empacotadas enviadas com o aplicativo. Marketplace instala baixar o pacote de habilidade oficial e executar verificações de segurança local antes da instalação.",
     "skillsmpInfo": "Fetches the latest skills catalog from skills.open-cowork.shop. Navegar não requer mais uma chave API; se você precisar de recursos extras, crie um no Dashboard e use Docs para configuração.",
     "apiKey": "Chave da API",
-    "apiKeyDesc": "Opcional: sua chave de API OpenCowork Skills, se você tiver uma",
+    "apiKeyDesc": "Opcional: sua chave de API CoCoWork Skills, se você tiver uma",
     "apiKeyPlaceholder": "sk live...",
-    "apiKeyRequired": "Navegar no mercado de Habilidades OpenCowork não requer mais uma chave API.",
+    "apiKeyRequired": "Navegar no mercado de Habilidades CoCoWork não requer mais uma chave API.",
     "getApiKey": "Obter a Chave da API",
     "openDocs": "Abrir os Documentos",
     "test": "Testar a Ligação",
@@ -1371,7 +1371,7 @@
   },
   "soulmarket": {
     "title": "Mercado da Soul",
-    "desc": "Navegue no OpenCowork SOULs com a chave de API de mercado de Skills compartilhada.",
+    "desc": "Navegue no CoCoWork SOULs com a chave de API de mercado de Skills compartilhada.",
     "apiKey": "Chave da API",
     "getApiKey": "Obter a Chave da API",
     "openDocs": "Abrir os Documentos",

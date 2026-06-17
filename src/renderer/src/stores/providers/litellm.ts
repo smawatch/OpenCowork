@@ -23,9 +23,5 @@ export const liteLLMPreset: BuiltinProviderPreset = {
   requiresApiKey: false,
   // 模型列表完全通过 LiteLLM /v1/models 接口动态加载
   // 这里提供空数组,启动时会自动调用 API 获取
-  defaultModels: [],
-  ui: {
-    description: '企业内置 AI 网关,通过 LiteLLM 统一管理多模型路由、负载均衡和审计',
-    features: ['多模型路由', '成本追踪', '负载均衡', '审计日志', '速率限制']
-  }
+  defaultModels: []
 }

@@ -57,7 +57,7 @@ export type ShellExecutionEndpoint =
   | 'pwsh'
   | 'cmd'
   | 'custom'
-export const DEFAULT_THEME_MODE = 'dark' as const
+export const DEFAULT_THEME_MODE = 'light' as const
 export const DEFAULT_SHELL_EXECUTION_ENDPOINT: ShellExecutionEndpoint = 'auto'
 const LEGACY_DEFAULT_THEME_MODE = 'system' as const
 const LEGACY_DEFAULT_APP_THEME_PRESET: AppThemePreset = 'studio'
@@ -68,6 +68,9 @@ const V17_DEFAULT_SSH_TERMINAL_THEME_PRESET: SshTerminalThemePreset = 'mulberry'
 const V18_DEFAULT_THEME_MODE = 'dark' as const
 const V18_DEFAULT_APP_THEME_PRESET: AppThemePreset = 'graphite'
 const V18_DEFAULT_SSH_TERMINAL_THEME_PRESET: SshTerminalThemePreset = 'graphite'
+const V24_DEFAULT_THEME_MODE = 'dark' as const
+const V24_DEFAULT_APP_THEME_PRESET: AppThemePreset = 'mulberry'
+const V24_DEFAULT_SSH_TERMINAL_THEME_PRESET: SshTerminalThemePreset = 'mulberry'
 
 export const DEFAULT_MAX_PARALLEL_TOOL_CALLS = 8
 export const MIN_MAX_PARALLEL_TOOL_CALLS = 1
@@ -459,7 +462,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'opencowork-settings',
-      version: 24,
+      version: 25,
       storage: createJSONStorage(() => ipcStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
@@ -479,6 +482,12 @@ export const useSettingsStore = create<SettingsStore>()(
           (state.themePreset === undefined || state.themePreset === V18_DEFAULT_APP_THEME_PRESET) &&
           (state.sshTerminalThemePreset === undefined ||
             state.sshTerminalThemePreset === V18_DEFAULT_SSH_TERMINAL_THEME_PRESET)
+        const matchesV24ThemeDefaults =
+          (state.theme === undefined || state.theme === V24_DEFAULT_THEME_MODE) &&
+          (state.themePreset === undefined ||
+            state.themePreset === V24_DEFAULT_APP_THEME_PRESET) &&
+          (state.sshTerminalThemePreset === undefined ||
+            state.sshTerminalThemePreset === V24_DEFAULT_SSH_TERMINAL_THEME_PRESET)
         if (typeof state.language === 'string') {
           state.language = normalizeLanguageCode(state.language)
         } else {
@@ -538,7 +547,8 @@ export const useSettingsStore = create<SettingsStore>()(
         } else if (
           (version < 17 && matchesLegacyThemeDefaults) ||
           (version < 18 && matchesV17ThemeDefaults) ||
-          (version < 19 && matchesV18ThemeDefaults)
+          (version < 19 && matchesV18ThemeDefaults) ||
+          (version < 25 && matchesV24ThemeDefaults)
         ) {
           state.theme = DEFAULT_THEME_MODE
         }
@@ -550,7 +560,8 @@ export const useSettingsStore = create<SettingsStore>()(
         } else if (
           (version < 17 && matchesLegacyThemeDefaults) ||
           (version < 18 && matchesV17ThemeDefaults) ||
-          (version < 19 && matchesV18ThemeDefaults)
+          (version < 19 && matchesV18ThemeDefaults) ||
+          (version < 25 && matchesV24ThemeDefaults)
         ) {
           state.themePreset = DEFAULT_APP_THEME_PRESET
         }
@@ -559,7 +570,8 @@ export const useSettingsStore = create<SettingsStore>()(
         } else if (
           (version < 17 && matchesLegacyThemeDefaults) ||
           (version < 18 && matchesV17ThemeDefaults) ||
-          (version < 19 && matchesV18ThemeDefaults)
+          (version < 19 && matchesV18ThemeDefaults) ||
+          (version < 25 && matchesV24ThemeDefaults)
         ) {
           state.sshTerminalThemePreset = DEFAULT_SSH_TERMINAL_THEME_PRESET
         }

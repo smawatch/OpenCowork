@@ -91,8 +91,8 @@
     "next": "Berikutnya",
     "back": "Sebelumnya",
     "intro": {
-      "title": "Hai, selamat datang di OpenCowork",
-      "subtitle": "OpenCowork adalah area kerja pertama untuk kolaborasi multi- agen AI. Ini dapat membaca konteks proyek Anda, menggunakan alat lokal dengan persetujuan, dan membantu agen bekerja bersama Anda dalam kode, penelitian, perencanaan, dan arus kerja harian.",
+      "title": "Hai, selamat datang di CoCoWork",
+      "subtitle": "CoCoWork adalah area kerja pertama untuk kolaborasi multi- agen AI. Ini dapat membaca konteks proyek Anda, menggunakan alat lokal dengan persetujuan, dan membantu agen bekerja bersama Anda dalam kode, penelitian, perencanaan, dan arus kerja harian.",
       "points": {
         "local": {
           "title": "Perkakas lokal, konteks sebenarnya",
@@ -116,13 +116,13 @@
       "en": "Inggris"
     },
     "nickname": {
-      "title": "OpenCowork harus memanggilmu apa?",
+      "title": "CoCoWork harus memanggilmu apa?",
       "subtitle": "Ini disimpan secara lokal dan ditulis ke USER.md sehingga agen dapat mengatasi Anda secara alami.",
       "placeholder": "Nama panggilan Anda"
     },
     "interests": {
       "title": "Kau tertarik pada area mana?",
-      "subtitle": "Pilih satu atau lebih. OpenCowork menggunakan ini untuk memilih default yang lebih baik dan personalisasi profil lokal Anda.",
+      "subtitle": "Pilih satu atau lebih. CoCoWork menggunakan ini untuk memilih default yang lebih baik dan personalisasi profil lokal Anda.",
       "options": {
         "content": "Penciptaan isi",
         "coding": "Coding dan pengembangan",
@@ -154,8 +154,8 @@
       "retry": "Coba lagi"
     },
     "done": {
-      "action": "Masukkan OpenCowork",
-      "toast": "OpenCowork siap",
+      "action": "Masukkan CoCoWork",
+      "toast": "CoCoWork siap",
       "failed": "Gagal menyelesaikan setup"
     }
   },

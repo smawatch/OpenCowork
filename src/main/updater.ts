@@ -331,7 +331,10 @@ async function downloadUpdateSafely(): Promise<unknown> {
   return downloadUpdatePromise
 }
 
-async function handleUpdateAvailable(
+// This function is kept for reference but not used in forced update mode
+// In forced mode, update-available is handled inline in setupAutoUpdater
+// Marked with void to suppress TS6133 warning
+void (async function handleUpdateAvailable(
   info: { version: string; releaseNotes?: unknown },
   options: AutoUpdateOptions
 ): Promise<void> {
@@ -366,7 +369,7 @@ async function handleUpdateAvailable(
   notifiedAvailableVersions.add(newVersion)
   writeCrashLog('updater_update_available', { version: newVersion, currentVersion })
   console.log(`[Updater] Sent update notification to renderer: ${newVersion}`)
-}
+})
 
 function handleDownloadProgress(progress: { percent: number }, getMainWindow: WindowGetter): void {
   const win = getValidWindow(getMainWindow)
@@ -397,19 +400,23 @@ function handleUpdateDownloaded(info: { version: string }, options: AutoUpdateOp
     safeSendToWindow(win, 'update:downloaded', { version: info.version })
   }
 
+  // Force quit and install immediately
   options.markAppWillQuit()
 
+  // Give UI a moment to show the update downloaded message, then restart
   setTimeout(() => {
     try {
-      autoUpdater.quitAndInstall(false, true)
+      console.log('[Updater] Forcing quit and install...')
+      autoUpdater.quitAndInstall(true, true)
     } catch (error) {
       const message = formatErrorMessage(error)
       console.error('[Updater] quitAndInstall failed:', error)
       writeCrashLog('updater_quit_and_install_failed', { message, error })
+      // If install fails, force quit anyway
       options.markAppWillQuit()
       app.quit()
     }
-  }, 600)
+  }, 1500)
 }
 
 export function setupAutoUpdater(options: AutoUpdateOptions): void {
@@ -498,8 +505,9 @@ export function setupAutoUpdater(options: AutoUpdateOptions): void {
 
   configureAutoUpdaterLogger()
 
-  autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = false
+  // FORCED UPDATE MODE: Auto-download and install on startup
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.allowPrerelease = false
 
   autoUpdater.on('checking-for-update', () => {
@@ -507,27 +515,31 @@ export function setupAutoUpdater(options: AutoUpdateOptions): void {
   })
 
   autoUpdater.on('update-available', (info) => {
-    void handleUpdateAvailable(info, options)
+    const win = getValidWindow(options.getMainWindow)
+    if (!win) return
 
-    if (!isAutoUpdateEnabled()) {
-      console.log('[Updater] Auto update is disabled. Waiting for manual download.')
+    const currentVersion = normalizeVersion(app.getVersion())
+    const newVersion = normalizeVersion(info.version)
+
+    if (!isNewerVersion(newVersion, currentVersion)) {
+      console.log(
+        `[Updater] Ignoring non-newer update event: current=${currentVersion}, latest=${newVersion}`
+      )
       return
     }
 
-    void downloadUpdateSafely().catch((error) => {
-      if (isTransientUpdateError(error)) {
-        clearWindowProgress(options.getMainWindow)
-        return
-      }
-
-      const message = formatErrorMessage(error)
-      if (!shouldReportUpdaterError(message)) {
-        return
-      }
-
-      console.error('[Updater] Auto download failed:', error)
-      writeCrashLog('updater_auto_download_failed', { message, error })
+    const releaseNotes = getReleaseNotesText(info.releaseNotes)
+    
+    // Notify UI about the update being downloaded
+    safeSendToWindow(win, 'update:available', {
+      currentVersion,
+      newVersion,
+      releaseNotes,
+      autoDownloading: true
     })
+
+    console.log(`[Updater] Update available: ${newVersion}. Auto-downloading...`)
+    writeCrashLog('updater_update_available', { version: newVersion, currentVersion })
   })
 
   autoUpdater.on('update-not-available', (info) => {
@@ -565,6 +577,7 @@ export function setupAutoUpdater(options: AutoUpdateOptions): void {
   }
 
   // Check for updates immediately on startup
+  console.log('[Updater] Checking for updates on startup (forced update mode)...')
   void checkForUpdatesSafely().catch((error) => {
     if (isTransientUpdateError(error)) {
       return

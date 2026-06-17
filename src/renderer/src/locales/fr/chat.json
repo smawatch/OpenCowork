@@ -44,7 +44,7 @@
     "newProject": "Nouveau projet",
     "projectName": "Nom du projet",
     "projectNameHint": "Sélectionner un dossier utilise le nom du dossier comme nom du projet.",
-    "projectNamePlaceholder": "Par exemple: OpenCowork",
+    "projectNamePlaceholder": "Par exemple: CoCoWork",
     "createProject": "Créer un projet",
     "createProjectSubtitle": "Choisissez un dossier local ou SSH. Le nom du projet suit le nom du dossier.",
     "projectSource": "Source du projet",

@@ -44,7 +44,7 @@
     "newProject": "المشروع الجديد",
     "projectName": "اسم المشروع",
     "projectNameHint": "اختيار ملف يستخدم اسم الملف باسم المشروع",
-    "projectNamePlaceholder": "For example: OpenCowork",
+    "projectNamePlaceholder": "For example: CoCoWork",
     "createProject": "مشروع إنشاء",
     "createProjectSubtitle": "اختر ملفا محليا أو SSH، اسم المشروع يتبع اسم الملف.",
     "projectSource": "مصدر المشروع",

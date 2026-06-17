@@ -1588,19 +1588,6 @@ async function ensureBuiltinPresets(): Promise<void> {
     if (!existing) {
       const provider = createProviderFromPreset(preset)
       useProviderStore.getState().addProvider(provider)
-      
-      // 如果是 LiteLLM 服务商,自动触发模型发现
-      if (preset.builtinId === 'enterprise-litellm' && preset.defaultApiKey && preset.defaultBaseUrl) {
-        // 延迟执行,等待 provider 添加完成
-        setTimeout(async () => {
-          try {
-            await discoverLiteLLMModels(provider.id)
-            console.log('[LiteLLM] Models discovered successfully')
-          } catch (error) {
-            console.error('[LiteLLM] Model discovery failed:', error)
-          }
-        }, 1000)
-      }
     } else {
       // Sync provider-level fields from preset (e.g. requiresApiKey, userAgent, defaultModel)
       const patch: Partial<Omit<AIProvider, 'id'>> = {}
@@ -1894,6 +1881,20 @@ async function ensureBuiltinPresets(): Promise<void> {
     }
   }
 
+  // Auto-discover models for LiteLLM providers on every startup
+  const litellmPreset = builtinProviderPresets.find((p) => p.builtinId === 'enterprise-litellm')
+  if (litellmPreset) {
+    const litellmProvider = useProviderStore
+      .getState()
+      .providers.find((p) => p.builtinId === 'enterprise-litellm')
+    if (litellmProvider && litellmProvider.baseUrl && litellmProvider.apiKey) {
+      // Fire and forget — don't block the rest of initialization
+      discoverLiteLLMModels(litellmProvider.id).catch((err) => {
+        console.error('[LiteLLM] Model discovery failed:', err)
+      })
+    }
+  }
+
   if (!useProviderStore.getState().activeProviderId) {
     const providers = useProviderStore.getState().providers
     const firstAvailableProviderId = resolveFirstProviderIdByCategory(providers, 'chat')
@@ -2018,11 +2019,11 @@ async function ensureBuiltinPresets(): Promise<void> {
 export function initProviderStore(): void {
   // If already rehydrated (e.g. sync storage), run immediately
   if (useProviderStore.persist.hasHydrated()) {
-    ensureBuiltinPresets()
+    ensureBuiltinPresets().catch(console.error)
   }
   // Also register for when rehydration finishes (async IPC storage)
   useProviderStore.persist.onFinishHydration(() => {
-    ensureBuiltinPresets()
+    ensureBuiltinPresets().catch(console.error)
   })
 }
 

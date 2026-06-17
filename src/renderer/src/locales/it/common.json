@@ -91,8 +91,8 @@
     "next": "Il prossimo",
     "back": "Precedente",
     "intro": {
-      "title": "Ciao, benvenuto a OpenCowork",
-      "subtitle": "OpenCowork è un primo spazio di lavoro locale per la collaborazione AI multi-agente, che può leggere il contesto del progetto, utilizzare strumenti locali con approvazione e aiutare gli agenti a lavorare insieme a voi in codice, ricerca, pianificazione e flussi di lavoro giornalieri.",
+      "title": "Ciao, benvenuto a CoCoWork",
+      "subtitle": "CoCoWork è un primo spazio di lavoro locale per la collaborazione AI multi-agente, che può leggere il contesto del progetto, utilizzare strumenti locali con approvazione e aiutare gli agenti a lavorare insieme a voi in codice, ricerca, pianificazione e flussi di lavoro giornalieri.",
       "points": {
         "local": {
           "title": "Strumenti locali, contesto reale",
@@ -116,13 +116,13 @@
       "en": "Inglese"
     },
     "nickname": {
-      "title": "Cosa dovrebbe chiamarti OpenCowork?",
+      "title": "Cosa dovrebbe chiamarti CoCoWork?",
       "subtitle": "Questo viene memorizzato localmente e scritto in USER.md in modo che gli agenti possono rivolgersi naturalmente.",
       "placeholder": "Il tuo soprannome"
     },
     "interests": {
       "title": "Quali aree ti interessano?",
-      "subtitle": "Scegli uno o più. OpenCowork utilizza questo per scegliere meglio i default e personalizzare il tuo profilo locale.",
+      "subtitle": "Scegli uno o più. CoCoWork utilizza questo per scegliere meglio i default e personalizzare il tuo profilo locale.",
       "options": {
         "content": "Creazione di contenuti",
         "coding": "Coding e sviluppo",
@@ -154,8 +154,8 @@
       "retry": "Reazione"
     },
     "done": {
-      "action": "Inserisci OpenCowork",
-      "toast": "OpenCowork è pronto",
+      "action": "Inserisci CoCoWork",
+      "toast": "CoCoWork è pronto",
       "failed": "Non è riuscito a finire la configurazione"
     }
   },

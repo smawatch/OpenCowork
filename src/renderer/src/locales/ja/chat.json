@@ -44,7 +44,7 @@
     "newProject": "新規プロジェクト",
     "projectName": "プロジェクト名",
     "projectNameHint": "フォルダを選択すると、フォルダ名をプロジェクト名として使用します。",
-    "projectNamePlaceholder": "例えば: OpenCoWork",
+    "projectNamePlaceholder": "例えば: CoCoWork",
     "createProject": "プロジェクトの作成",
     "createProjectSubtitle": "ローカルまたはSSHフォルダを選択します。 プロジェクト名は、フォルダ名に従います。",
     "projectSource": "プロジェクトソース",
