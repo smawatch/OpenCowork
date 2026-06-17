@@ -23,6 +23,8 @@ import { liteLLMPreset } from './litellm'
 import type { BuiltinProviderPreset } from './types'
 
 export const builtinProviderPresets: BuiltinProviderPreset[] = [
+  // 企业内置服务商置顶显示
+  liteLLMPreset,
   routinAiPreset,
   routinAiPlanPreset,
   openaiPreset,
@@ -48,6 +50,5 @@ export const builtinProviderPresets: BuiltinProviderPreset[] = [
   xiaomiCodingPreset,
   xiaomiPreset,
   bigmodelCodingPreset,
-  bigmodelPreset,
-  liteLLMPreset
+  bigmodelPreset
 ]
