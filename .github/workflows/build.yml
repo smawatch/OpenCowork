@@ -104,23 +104,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      
-      - name: Setup MSVC
-        if: matrix.platform == 'win'
-        uses: ilammy/msvc-dev-cmd@v1
-      
-      - name: Configure node-gyp
-        if: matrix.platform == 'win'
-        shell: cmd
-        run: |
-          npm config set msvs_version 2022
-      
-      - name: Verify Visual Studio
-        if: matrix.platform == 'win'
-        shell: cmd
-        run: |
-          where cl
-          cl
 
       - name: Install Linux build dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential libx11-dev libxtst-dev libpng++-dev
@@ -171,15 +154,11 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Windows 需要设置 MSVC 编译环境来编译原生模块 (@jitsi/robotjs)
-      - name: Setup MSVC Dev Command Prompt
+      - name: Setup MSVC dev environment
         if: matrix.platform == 'win'
         uses: ilammy/msvc-dev-cmd@v1
-
-      # Linux 需要构建原生模块的依赖
-      - name: Install Linux build dependencies
-        if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y build-essential libx11-dev libxtst-dev libpng++-dev
+        with:
+          arch: ${{ matrix.build_arch == 'arm64' && 'arm64' || 'x64' }}
 
       - name: Install dependencies
         run: npm ci
