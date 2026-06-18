@@ -39,7 +39,8 @@ interface OpenCoworkAPI {
   teamWorkerStopTeam: (args: StopIsolatedTeamWorkersArgs) => Promise<{ success: true }>
   // User system APIs
   userLogin: (credentials: { username: string; password: string }) => Promise<any>
-  userRegister: (userData: { username: string; password: string; realName?: string; email?: string; phone?: string; departmentId?: number }) => Promise<any>
+  userRegister: (userData: { username: string; email: string }) => Promise<any>
+  userUpdatePassword: (data: { oldPassword: string; newPassword: string }) => Promise<any>
   userGetProfile: () => Promise<any>
   userLogout: () => Promise<any>
   userRefreshToken: () => Promise<any>

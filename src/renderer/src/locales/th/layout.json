@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "การสนทนา",
     "newConversation": "การสนทนาใหม่ (Ctrl+N)",
     "exportAll": "ส่งออกการสนทนาทั้งหมด",
@@ -995,7 +995,7 @@
     "agentReviewFailed": "ล้มเหลว",
     "agentReviewing": "กําลังทบทวน...",
     "downloading": "กําลังดาวน์โหลด...",
-    "noApiKeyTitle": "กุญแจ OpenCoworks API ไม่ได้ปรับแต่ง",
+    "noApiKeyTitle": "กุญแจ CoCoWorks API ไม่ได้ปรับแต่ง",
     "noApiKeyDesc": "ตั้งค่าปุ่มพิมพ์ API ของคุณผ่านทางไอคอน ⚙️ ในแถบด้านบน เพื่อเรียกดูความสามารถ. open-cowork. market",
     "getApiKey": "รับคีย์ API"
   },

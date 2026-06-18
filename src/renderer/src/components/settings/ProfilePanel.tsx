@@ -1,6 +1,6 @@
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Edit3, ImageOff, Loader2, Save, Upload, UserRound, X } from 'lucide-react'
+import { CalendarDays, Edit3, ImageOff, Loader2, Save, Upload, UserRound, X, Lock, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, AvatarFallback, AvatarImage } from '@renderer/components/ui/avatar'
 import { Badge } from '@renderer/components/ui/badge'
@@ -10,7 +10,9 @@ import { IPC } from '@renderer/lib/ipc/channels'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useSettingsStore } from '@renderer/stores/settings-store'
+import { useAuthStore } from '@renderer/stores/auth-store'
 import { resolveIntlLocale } from '@renderer/lib/i18n-language'
+import { toast } from 'sonner'
 import {
   getUsageActivityByModel,
   getUsageActivityByProvider,
@@ -566,6 +568,7 @@ function ActivityHeatmap({
 export function ProfilePanel(): React.JSX.Element {
   const { t, i18n } = useTranslation('settings')
   const settings = useSettingsStore()
+  const authStore = useAuthStore()
   const sessionCount = useChatStore((state) => state.sessions.length)
   const tokenLocale = resolveIntlLocale(i18n.language)
   const today = useMemo(() => startOfDay(new Date()), [])
@@ -581,6 +584,52 @@ export function ProfilePanel(): React.JSX.Element {
   const [models, setModels] = useState<UsageAnalyticsGroupRow[]>([])
   const [providers, setProviders] = useState<UsageAnalyticsGroupRow[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Password change state
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showOldPassword, setShowOldPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+
+  const handlePasswordChange = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error(t('profile.password.fillAll', { defaultValue: '请填写所有密码字段' }))
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error(t('profile.password.notMatch', { defaultValue: '两次输入的新密码不一致' }))
+      return
+    }
+    if (newPassword.length < 6) {
+      toast.error(t('profile.password.tooShort', { defaultValue: '密码长度至少为 6 位' }))
+      return
+    }
+
+    setPasswordLoading(true)
+    try {
+      const result = await window.api.userUpdatePassword?.({
+        oldPassword,
+        newPassword
+      })
+      if (result?.success) {
+        toast.success(t('profile.password.changed', { defaultValue: '密码修改成功' }))
+        setShowPasswordForm(false)
+        setOldPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } else {
+        toast.error(result?.error || t('profile.password.changeFailed', { defaultValue: '密码修改失败' }))
+      }
+    } catch (error: any) {
+      toast.error(error.message || t('profile.password.changeFailed', { defaultValue: '密码修改失败' }))
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (editing) return
@@ -829,6 +878,102 @@ export function ProfilePanel(): React.JSX.Element {
           </label>
         </section>
       ) : null}
+
+      {/* Change Password Section */}
+      <section className="mx-auto w-full max-w-xl rounded-xl border border-border/60 bg-muted/15 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Lock className="size-4" />
+            {t('profile.changePassword', { defaultValue: '修改密码' })}
+          </h3>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 text-xs"
+            onClick={() => setShowPasswordForm(!showPasswordForm)}
+          >
+            {showPasswordForm ? t('action.cancel', { ns: 'common', defaultValue: '取消' }) : t('profile.edit', { defaultValue: '修改' })}
+          </Button>
+        </div>
+
+        {showPasswordForm && (
+          <div className="mt-4 space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">{t('profile.password.oldPassword', { defaultValue: '当前密码' })}</label>
+              <div className="relative">
+                <Input
+                  type={showOldPassword ? 'text' : 'password'}
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className="text-sm pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOldPassword(!showOldPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showOldPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">{t('profile.password.newPassword', { defaultValue: '新密码' })}</label>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="text-sm pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">{t('profile.password.confirmPassword', { defaultValue: '确认新密码' })}</label>
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="text-sm pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+            <Button
+              onClick={handlePasswordChange}
+              disabled={passwordLoading || !oldPassword || !newPassword || !confirmPassword}
+              className="w-full"
+              size="sm"
+            >
+              {passwordLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-3 animate-spin" />
+                  {t('profile.password.changing', { defaultValue: '修改中...' })}
+                </>
+              ) : (
+                t('profile.password.save', { defaultValue: '保存新密码' })
+              )}
+            </Button>
+          </div>
+        )}
+      </section>
 
       <section className="grid overflow-hidden rounded-xl border border-border/60 bg-background/70 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] sm:grid-cols-5">
         <StatTile

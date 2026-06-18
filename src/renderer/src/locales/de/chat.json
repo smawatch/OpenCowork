@@ -44,7 +44,7 @@
     "newProject": "Neues Projekt",
     "projectName": "Projektbezeichnung",
     "projectNameHint": "Beim Auswählen eines Ordners wird der Ordnername als Projektname verwendet.",
-    "projectNamePlaceholder": "Zum Beispiel: OpenCowork",
+    "projectNamePlaceholder": "Zum Beispiel: CoCoWork",
     "createProject": "Projekt erstellen",
     "createProjectSubtitle": "Wählen Sie einen lokalen oder SSH-Ordner. Der Projektname folgt dem Ordnernamen.",
     "projectSource": "Projektquelle",

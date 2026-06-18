@@ -859,7 +859,7 @@ export class SyncEngine {
       {
         type: 'webdav',
         displayName: 'WebDAV',
-        description: 'Sync OpenCowork data through any WebDAV-compatible storage.'
+        description: 'Sync CoCoWork data through any WebDAV-compatible storage.'
       }
     ]
   }

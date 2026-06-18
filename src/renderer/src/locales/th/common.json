@@ -91,7 +91,7 @@
     "next": "ต่อไป",
     "back": "ก่อนหน้า",
     "intro": {
-      "title": "สวัสดี, ยินดีต้อนรับสู่ OpenCowork",
+      "title": "สวัสดี, ยินดีต้อนรับสู่ CoCoWork",
       "subtitle": "OpenCooWork is a local-first language for multiple-AI Profile. มันสามารถอ่านบริบทโครงการของคุณได้, ใช้เครื่องมือในท้องถิ่นได้อย่างอนุมัติ, และช่วยเหลือเจ้าหน้าที่ที่ทํางานร่วมกับคุณในการเข้ารหัส, งานวิจัย, วางแผน และการทํางานประจําวัน",
       "points": {
         "local": {
@@ -154,8 +154,8 @@
       "retry": "ลองใหม่"
     },
     "done": {
-      "action": "ป้อนงาน OpenCowork",
-      "toast": "งาน OpenCowork เรียบร้อยแล้ว",
+      "action": "ป้อนงาน CoCoWork",
+      "toast": "งาน CoCoWork เรียบร้อยแล้ว",
       "failed": "ล้มเหลวในการตั้งค่า"
     }
   },

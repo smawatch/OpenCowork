@@ -44,7 +44,7 @@
     "newProject": "Nieuw project",
     "projectName": "Projectnaam",
     "projectNameHint": "Een map selecteren gebruikt de mapnaam als projectnaam.",
-    "projectNamePlaceholder": "Bijvoorbeeld: OpenCowork",
+    "projectNamePlaceholder": "Bijvoorbeeld: CoCoWork",
     "createProject": "Project aanmaken",
     "createProjectSubtitle": "Kies een lokale of SSH-map. De projectnaam volgt de mapnaam.",
     "projectSource": "Projectbron",

@@ -44,7 +44,7 @@
     "newProject": "新建项目",
     "projectName": "项目名",
     "projectNameHint": "选择目录后会使用目录名作为项目名。",
-    "projectNamePlaceholder": "例如：OpenCoWork",
+    "projectNamePlaceholder": "例如：CoCoWork",
     "createProject": "创建项目",
     "createProjectSubtitle": "选择本地目录或 SSH 目录，项目名会自动使用目录名。",
     "projectSource": "项目来源",

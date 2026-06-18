@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "会話",
     "newConversation": "新しい会話(Ctrl+N)",
     "exportAll": "すべての会話をエクスポートする",
@@ -995,7 +995,7 @@
     "agentReviewFailed": "失敗した",
     "agentReviewing": "レビュー...",
     "downloading": "ダウンロード...",
-    "noApiKeyTitle": "OpenCoWork スキル API キーが設定されていない",
+    "noApiKeyTitle": "CoCoWork スキル API キーが設定されていない",
     "noApiKeyDesc": "APIキーをトップバーの ◀``` アイコンで設定して、スキルを閲覧できます。open-cowork.shop マーケットプレース。",
     "getApiKey": "APIキーの取得"
   },

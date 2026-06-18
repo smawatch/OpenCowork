@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "openCowork": "OpenCowork",
+    "CoCoWork": "CoCoWork",
     "conversations": "Percakapan",
     "newConversation": "Percakapan baru (Ctrl+N)",
     "exportAll": "Ekspor semua percakapan",
@@ -995,7 +995,7 @@
     "agentReviewFailed": "Gagal",
     "agentReviewing": "Ulasan...",
     "downloading": "Mengunduh...",
-    "noApiKeyTitle": "Kunci OpenCowork Skills API tidak dikonfigurasi",
+    "noApiKeyTitle": "Kunci CoCoWork Skills API tidak dikonfigurasi",
     "noApiKeyDesc": "Set kunci API Anda melalui ikon Singapura di bar atas untuk browse skills-cowork.shop pasar.",
     "getApiKey": "Dapatkan Kunci API"
   },

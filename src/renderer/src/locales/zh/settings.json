@@ -2,7 +2,7 @@
   "page": {
     "title": "设置",
     "subtitle": "偏好与模型设置",
-    "poweredBy": "Powered by OpenCowork",
+    "poweredBy": "Powered by CoCoWork",
     "groups": {
       "foundation": "基础",
       "system": "系统",
@@ -14,13 +14,13 @@
   "profile": {
     "title": "个人资料",
     "subtitle": "本地身份与 Token 活动",
-    "defaultName": "OpenCowork 用户",
+    "defaultName": "CoCoWork 用户",
     "localAccount": "本地资料",
     "edit": "编辑",
     "save": "保存",
     "cancel": "取消",
     "displayName": "显示名称",
-    "displayNamePlaceholder": "OpenCowork 用户",
+    "displayNamePlaceholder": "CoCoWork 用户",
     "chooseAvatar": "选择头像",
     "removeAvatar": "移除头像",
     "avatarInvalid": "请选择图片文件。",
@@ -235,7 +235,7 @@
   },
   "sync": {
     "title": "同步",
-    "subtitle": "通过 WebDAV 进行 OpenCowork 数据记录级同步。",
+    "subtitle": "通过 WebDAV 进行 CoCoWork 数据记录级同步。",
     "loading": "正在加载同步设置...",
     "provider": {
       "title": "同步提供商",
@@ -300,7 +300,7 @@
     "shell": {
       "endpoint": {
         "title": "Shell 执行端",
-        "desc": "选择 OpenCowork 在 Bash 工具调用中使用哪个 shell。可选项会根据当前操作系统过滤。",
+        "desc": "选择 CoCoWork 在 Bash 工具调用中使用哪个 shell。可选项会根据当前操作系统过滤。",
         "selectLabel": "可用 Shell",
         "options": {
           "auto": {
@@ -347,7 +347,7 @@
         "desc": "管理注入到新建本地 shell 会话中的额外环境变量。",
         "placeholder": "FOO=bar\nPATH=/tmp/test-bin:$PATH\n# export HELLO=world",
         "formatHint": "一行一个变量。支持 KEY=VALUE 或 export KEY=VALUE。",
-        "precedenceHint": "当变量名冲突时，OpenCoWork 配置值会覆盖当前进程环境变量。",
+        "precedenceHint": "当变量名冲突时，CoCoWork 配置值会覆盖当前进程环境变量。",
         "newSessionHint": "仅影响新建的本地 shell 会话、后台进程和终端标签页。",
         "validationError": "第 {{line}} 行格式无效，未保存。请使用 KEY=VALUE 或 export KEY=VALUE。"
       }
@@ -643,9 +643,9 @@
       "cookiesCleared": "浏览器 Cookie 已清理",
       "cookiesClearFailed": "清理浏览器 Cookie 失败",
       "userDataReuse": "模拟本机浏览器 Profile",
-      "userDataReuseDesc": "默认开启。内置浏览器会使用所选浏览器的身份，同时将 OpenCowork 存储保持在隔离目录，避免写入本机浏览器数据。",
+      "userDataReuseDesc": "默认开启。内置浏览器会使用所选浏览器的身份，同时将 CoCoWork 存储保持在隔离目录，避免写入本机浏览器数据。",
       "userDataSource": "浏览器数据来源",
-      "userDataSourceDesc": "选择 OpenCowork 优先尝试复用哪一个已安装浏览器的 Profile。",
+      "userDataSourceDesc": "选择 CoCoWork 优先尝试复用哪一个已安装浏览器的 Profile。",
       "sources": {
         "auto": "自动检测",
         "chrome": "Google Chrome",
@@ -654,9 +654,9 @@
         "chromium": "Chromium"
       },
       "activeProfile": "检测到的来源 Profile：{{browserName}} / {{profileName}} — {{path}}",
-      "profileFallback": "未检测到所选来源的 Profile，当前使用 OpenCowork 自己的浏览器身份。",
+      "profileFallback": "未检测到所选来源的 Profile，当前使用 CoCoWork 自己的浏览器身份。",
       "isolatedStorage": "隔离存储目录：{{path}}",
-      "restartRequired": "重启 OpenCowork 后，此浏览器 Profile 模式才会完全生效。",
+      "restartRequired": "重启 CoCoWork 后，此浏览器 Profile 模式才会完全生效。",
       "blockedDomains": "禁止访问域名",
       "blockedDomainsDesc": "命中的域名及其子域名会被拒绝导航。",
       "allowedDomains": "允许访问域名",
@@ -732,7 +732,7 @@
   },
   "migration": {
     "title": "迁移中心",
-    "subtitle": "预览并迁移 OpenCode 配置到 OpenCowork",
+    "subtitle": "预览并迁移 OpenCode 配置到 CoCoWork",
     "sourceTitle": "OpenCode 迁移源",
     "sourceDesc": "当前仅支持读取 ~/.config/opencode/opencode.json，并迁移 provider、模型选择、commands、agents、MCP 和 instructions。",
     "reloadAction": "重新预览",
@@ -796,7 +796,7 @@
     "framework": "框架",
     "ui": "UI",
     "license": "许可证",
-    "description": "OpenCowork 是一个开源的 AI 协作平台，支持多种大语言模型提供商。",
+    "description": "CoCoWork 是一个开源的 AI 协作平台，支持多种大语言模型提供商。",
     "github": "GitHub",
     "heroTagline": "AI 协作工作台",
     "heroDescription": "在同一个桌面原生体验中协调多模型、智能体与技能。",
@@ -818,7 +818,7 @@
         "desc": "无缝连接 MCP 服务器、Skills 与第三方聊天频道。"
       }
     },
-    "summary": "OpenCowork 将多模型工作流、MCP 服务器、Skills 与自定义聊天频道统一在一个桌面体验里，你可以在 Chat / Cowork / Code 模式间自由切换，并保持对所有数据的本地掌控。"
+    "summary": "CoCoWork 将多模型工作流、MCP 服务器、Skills 与自定义聊天频道统一在一个桌面体验里，你可以在 Chat / Cowork / Code 模式间自由切换，并保持对所有数据的本地掌控。"
   },
   "dialog": {
     "title": "快速设置",
@@ -1395,13 +1395,13 @@
     "provider": "市场提供商",
     "providerDesc": "选择从哪里获取技能",
     "selectProvider": "选择提供商",
-    "skillsmpDesc": "OpenCoWork Skills 在线市场（API 密钥可选）",
+    "skillsmpDesc": "CoCoWork Skills 在线市场（API 密钥可选）",
     "builtinLabel": "内置",
     "builtinDesc": "本地内置技能列表（无需 API 密钥）",
     "builtinInfo": "使用随应用打包的内置技能。安装市场技能时会下载官方技能包并在本地执行安全检查。",
     "skillsmpInfo": "从 skills.open-cowork.shop 获取最新技能目录。搜索无需 API 密钥；如需额外能力，可在 Dashboard 生成密钥并参考 Docs 配置。",
     "apiKey": "API 密钥",
-    "apiKeyDesc": "可选：您的 OpenCoWork Skills API 密钥（如有）",
+    "apiKeyDesc": "可选：您的 CoCoWork Skills API 密钥（如有）",
     "apiKeyPlaceholder": "sk_live_...",
     "apiKeyRequired": "当前浏览技能市场无需 API 密钥。",
     "getApiKey": "获取 API 密钥",
@@ -1416,7 +1416,7 @@
   },
   "soulmarket": {
     "title": "SOUL 市场",
-    "desc": "使用共享的 Skills 市场 API 密钥浏览 OpenCoWork SOUL。",
+    "desc": "使用共享的 Skills 市场 API 密钥浏览 CoCoWork SOUL。",
     "apiKey": "API 密钥",
     "getApiKey": "获取 API 密钥",
     "openDocs": "打开文档",
@@ -1477,7 +1477,7 @@
     "installed": "插件已安装",
     "loading": "正在加载插件...",
     "emptyTitle": "尚未安装自定义插件",
-    "emptyDesc": "选择包含 extension.json 的文件夹，为 OpenCowork 添加自定义工具。",
+    "emptyDesc": "选择包含 extension.json 的文件夹，为 CoCoWork 添加自定义工具。",
     "noRenderers": "无自定义渲染器"
   },
   "shortcuts": {

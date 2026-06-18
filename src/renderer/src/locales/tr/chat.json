@@ -44,7 +44,7 @@
     "newProject": "Yeni proje",
     "projectName": "Proje adı",
     "projectNameHint": "Bir klasör seçmek, proje adı olarak klasör ismini kullanır.",
-    "projectNamePlaceholder": "Örneğin: OpenCowork",
+    "projectNamePlaceholder": "Örneğin: CoCoWork",
     "createProject": "Create project Create project",
     "createProjectSubtitle": "Yerel veya SSH klasörü seçin. Proje adı klasör adını takip eder.",
     "projectSource": "Project source",
