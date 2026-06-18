@@ -8,7 +8,6 @@ import {
   Server,
   Cable,
   Loader2,
-  Github,
   Sparkles,
   ShieldCheck,
   Layers,
