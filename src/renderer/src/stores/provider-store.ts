@@ -274,11 +274,14 @@ function createProviderFromPreset(preset: BuiltinProviderPreset): AIProvider {
     ? (resolveModelIdByKey(models, preset.defaultModel) ?? preset.defaultModel)
     : undefined
 
+  // 如果是只读模式,使用内置的 API Key
+  const apiKey = preset.readonly && preset.defaultApiKey ? preset.defaultApiKey : ''
+
   return {
     id: nanoid(),
     name: preset.name.trim(),
     type: preset.type,
-    apiKey: '',
+    apiKey,
     baseUrl: preset.defaultBaseUrl.trim(),
     enabled: preset.defaultEnabled ?? false,
     models,
@@ -295,7 +298,9 @@ function createProviderFromPreset(preset: BuiltinProviderPreset): AIProvider {
     ...(preset.instructionsPrompt ? { instructionsPrompt: preset.instructionsPrompt } : {}),
     ...(preset.ui ? { ui: { ...preset.ui } } : {}),
     ...(preset.websocketUrl ? { websocketUrl: preset.websocketUrl } : {}),
-    ...(preset.websocketMode ? { websocketMode: preset.websocketMode } : {})
+    ...(preset.websocketMode ? { websocketMode: preset.websocketMode } : {}),
+    // 标记只读状态
+    ...(preset.readonly ? { readonly: true } : {})
   }
 }
 
@@ -1572,7 +1577,7 @@ function migrateLegacyOAuthProviders(): void {
  * Ensure built-in presets exist and pick a default active provider.
  * Safe to call multiple times — idempotent.
  */
-function ensureBuiltinPresets(): void {
+async function ensureBuiltinPresets(): Promise<void> {
   migrateLegacyOAuthProviders()
   syncManagedModelsWithBuiltins()
   for (const preset of builtinProviderPresets) {
@@ -1583,6 +1588,19 @@ function ensureBuiltinPresets(): void {
     if (!existing) {
       const provider = createProviderFromPreset(preset)
       useProviderStore.getState().addProvider(provider)
+      
+      // 如果是 LiteLLM 服务商,自动触发模型发现
+      if (preset.builtinId === 'enterprise-litellm' && preset.defaultApiKey && preset.defaultBaseUrl) {
+        // 延迟执行,等待 provider 添加完成
+        setTimeout(async () => {
+          try {
+            await discoverLiteLLMModels(provider.id)
+            console.log('[LiteLLM] Models discovered successfully')
+          } catch (error) {
+            console.error('[LiteLLM] Model discovery failed:', error)
+          }
+        }, 1000)
+      }
     } else {
       // Sync provider-level fields from preset (e.g. requiresApiKey, userAgent, defaultModel)
       const patch: Partial<Omit<AIProvider, 'id'>> = {}
@@ -2005,5 +2023,41 @@ export function initProviderStore(): void {
   // Also register for when rehydration finishes (async IPC storage)
   useProviderStore.persist.onFinishHydration(() => {
     ensureBuiltinPresets()
+  })
+}
+
+/**
+ * Discover models from LiteLLM API
+ * @param providerId The provider ID to refresh models for
+ * @returns Updated provider with discovered models
+ */
+export async function discoverLiteLLMModels(providerId: string): Promise<void> {
+  const { discoverLiteLLMModels: fetchModels } = await import('../lib/api/litellm-discovery')
+
+  const state = useProviderStore.getState()
+  const provider = state.providers.find((p) => p.id === providerId)
+
+  if (!provider) {
+    throw new Error(`Provider ${providerId} not found`)
+  }
+
+  if (!provider.builtinId || provider.builtinId !== 'enterprise-litellm') {
+    throw new Error('Model discovery is only supported for LiteLLM providers')
+  }
+
+  if (!provider.apiKey || !provider.baseUrl) {
+    throw new Error('Provider API key and base URL are required for model discovery')
+  }
+
+  // Fetch models from LiteLLM
+  const discoveredModels = await fetchModels(provider.baseUrl, provider.apiKey)
+
+  if (discoveredModels.length === 0) {
+    throw new Error('No models discovered from LiteLLM')
+  }
+
+  // Update provider with discovered models
+  useProviderStore.getState().updateProvider(providerId, {
+    models: discoveredModels
   })
 }

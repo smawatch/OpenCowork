@@ -19,9 +19,12 @@ import { codexOAuthPreset } from './codex-oauth'
 import { copilotOAuthPreset } from './copilot-oauth'
 import { xiaomiCodingPreset, xiaomiPreset } from './xiaomi'
 import { bigmodelCodingPreset, bigmodelPreset } from './bigmodel'
+import { liteLLMPreset } from './litellm'
 import type { BuiltinProviderPreset } from './types'
 
 export const builtinProviderPresets: BuiltinProviderPreset[] = [
+  // 企业内置服务商置顶显示
+  liteLLMPreset,
   routinAiPreset,
   routinAiPlanPreset,
   openaiPreset,
