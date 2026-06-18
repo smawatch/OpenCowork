@@ -87,7 +87,7 @@ export function UpdateRestartDialogProvider(): React.JSX.Element {
     [handleRestartLater]
   )
 
-  if (!dialog) return null
+  if (!dialog) return <></>
 
   return (
     <AlertDialog open={!!dialog} onOpenChange={handleOpenChange}>

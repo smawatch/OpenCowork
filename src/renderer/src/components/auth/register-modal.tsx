@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
-import { Loader2, CheckCircle2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+
+// Extend Window interface for temporary login data
+declare global {
+  interface Window {
+    _pendingUser?: any;
+    _pendingToken?: string;
+  }
+}
 
 interface RegisterModalProps {
   onSwitchToLogin?: () => void;
