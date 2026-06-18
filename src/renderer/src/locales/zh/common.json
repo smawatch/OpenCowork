@@ -264,7 +264,11 @@
       "delayed": "已推迟更新",
       "downloadedTitle": "更新已下载",
       "downloadedDescription": "版本 {{version}} 将在重启后安装",
-      "failed": "更新失败"
+      "failed": "更新失败",
+      "restartTitle": "更新准备就绪",
+      "restartDescription": "新版本 ({{version}}) 已下载完成。您想立即重启以应用更新，还是稍后重启？",
+      "restartNow": "立即重启",
+      "restartLater": "稍后重启"
     },
     "errors": {
       "unhandledTitle": "未处理的错误"
