@@ -281,6 +281,11 @@ export function registerUserSystemHandlers(): void {
   ipcMain.handle('auth:saveToken', async (_event, token: string) => {
     const settings = readSettings();
     settings.authToken = token;
+    
+    // 立即写入磁盘，避免应用关闭时丢失
+    const { flushSettingsSync } = await import('./settings-handlers');
+    flushSettingsSync();
+    
     return { success: true };
   });
 
@@ -289,6 +294,11 @@ export function registerUserSystemHandlers(): void {
     const settings = readSettings();
     delete settings.authToken;
     delete settings.currentUser;
+    
+    // 立即写入磁盘
+    const { flushSettingsSync } = await import('./settings-handlers');
+    flushSettingsSync();
+    
     return { success: true };
   });
 

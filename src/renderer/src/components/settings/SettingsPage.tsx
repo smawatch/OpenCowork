@@ -3351,16 +3351,16 @@ function AboutPanel(): React.JSX.Element {
           <h2 className="text-lg font-semibold">{t('about.title')}</h2>
           <p className="text-sm text-muted-foreground">{t('about.subtitle')}</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs"
-          onClick={() =>
-            window.open('https://github.com/AIDotNet/OpenCowork', '_blank', 'noopener')
-          }
-        >
-          <Github className="size-3.5" /> GitHub
-        </Button>
+        {/*<Button*/}
+        {/*  variant="outline"*/}
+        {/*  size="sm"*/}
+        {/*  className="gap-1.5 text-xs"*/}
+        {/*  onClick={() =>*/}
+        {/*    window.open('https://github.com/AIDotNet/OpenCowork', '_blank', 'noopener')*/}
+        {/*  }*/}
+        {/*>*/}
+        {/*  <Github className="size-3.5" /> GitHub*/}
+        {/*</Button>*/}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -3381,7 +3381,7 @@ function AboutPanel(): React.JSX.Element {
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 {t('about.heroTagline')}
               </p>
-              <h3 className="text-2xl font-semibold text-foreground">OpenCowork</h3>
+              <h3 className="text-2xl font-semibold text-foreground">CoCowork</h3>
               <p className="text-sm text-muted-foreground">{t('about.heroDescription')}</p>
             </div>
           </div>

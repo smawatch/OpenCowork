@@ -9,6 +9,7 @@ import { OnboardingPage } from './components/onboarding/OnboardingPage'
 import { Toaster } from './components/ui/sonner'
 import { Button } from './components/ui/button'
 import { ConfirmDialogProvider } from './components/ui/confirm-dialog'
+import { UpdateRestartDialogProvider, showUpdateDialog } from './components/ui/update-restart-dialog'
 import {
   Dialog,
   DialogContent,
@@ -805,14 +806,21 @@ function App(): React.JSX.Element {
     })
 
     const offUpdateDownloaded = ipcClient.on('update:downloaded', (data: unknown) => {
-      const d = data as { version: string }
+      const d = data as { version: string; readyToInstall?: boolean }
       setUpdateDownloadPending(false)
       setUpdateDownloadProgress(null)
-      setUpdateDialogOpen(false)
-      setAvailableUpdate(null)
-      toast.success(t('app.update.downloadedTitle'), {
-        description: t('app.update.downloadedDescription', { version: d.version })
-      })
+      
+      // If update is ready to install, show restart confirmation dialog
+      if (d.readyToInstall) {
+        // Get release notes from the available update if exists
+        const releaseNotes = availableUpdate?.releaseNotes
+        showUpdateDialog(d.version, releaseNotes)
+      } else {
+        // Legacy behavior: just show toast
+        toast.success(t('app.update.downloadedTitle'), {
+          description: t('app.update.downloadedDescription', { version: d.version })
+        })
+      }
     })
 
     const offUpdateError = ipcClient.on('update:error', (data: unknown) => {
@@ -926,6 +934,7 @@ function App(): React.JSX.Element {
           <SshPage />
           <Toaster position="bottom-left" theme="system" richColors />
           <ConfirmDialogProvider />
+          <UpdateRestartDialogProvider />
           <NotifyToastContainer />
         </ThemeProvider>
       </ErrorBoundary>
@@ -940,6 +949,7 @@ function App(): React.JSX.Element {
           <DetachedSessionPage sessionId={detachedSessionId} />
           <Toaster position="bottom-left" theme="system" richColors />
           <ConfirmDialogProvider />
+          <UpdateRestartDialogProvider />
           <NotifyToastContainer />
         </ThemeProvider>
       </ErrorBoundary>
@@ -1098,6 +1108,7 @@ function App(): React.JSX.Element {
 
         <Toaster position="bottom-left" theme="system" richColors />
         <ConfirmDialogProvider />
+        <UpdateRestartDialogProvider />
         <NotifyToastContainer />
       </ThemeProvider>
     </ErrorBoundary>
