@@ -10,6 +10,7 @@ import type { AgentStreamEnvelope } from '../../shared/agent-stream-protocol'
 import { AdaptiveEventBatcher } from './adaptive-event-batcher'
 import { getGoalRuntimeService } from '../goals/goal-runtime'
 import { emitGoalContinueRequested } from '../goals/goal-sync'
+import { triggerSessionReport } from './session-report-handlers'
 
 type EventHandler = (envelope: AgentStreamEnvelope) => void
 type RequestHandler = (id: number | string, method: string, params: unknown) => Promise<unknown>
@@ -338,6 +339,10 @@ export class JsAgentRuntimeManager {
       } finally {
         const finalize = await goalRuntime.finalizeRun(runId)
         this.eventBatcher.flush(runId)
+        // 用户手动中断的不上报，正常完成的才上报
+        if (sessionId && !controller.signal.aborted) {
+          triggerSessionReport(sessionId)
+        }
         this.eventBatcher.cleanupRun(runId)
         this.activeRuns.delete(runId)
         if (finalize.requestContinue && finalize.sessionId) {

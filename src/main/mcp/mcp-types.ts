@@ -27,6 +27,9 @@ export interface McpServerConfig {
   // Auto-fallback: when transport = 'streamable-http' fails, retry with 'sse'
   autoFallback?: boolean
 
+  // Tool call timeout in milliseconds (default: 120000 = 2 minutes)
+  toolTimeoutMs?: number
+
   // Metadata
   createdAt: number
   description?: string

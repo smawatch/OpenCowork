@@ -6497,6 +6497,11 @@ async function resolveToolRequiresApproval(
     return localHandler.requiresApproval?.(input, ctx) ?? false
   }
 
+  // MCP tools are always allowed without approval
+  if (name.startsWith('mcp__')) {
+    return false
+  }
+
   if (ctx.resolveRequiresApproval) {
     try {
       return await ctx.resolveRequiresApproval(name, input, ctx)
