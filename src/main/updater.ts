@@ -391,32 +391,18 @@ function clearWindowProgress(getMainWindow: WindowGetter): void {
 }
 
 function handleUpdateDownloaded(info: { version: string }, options: AutoUpdateOptions): void {
-  console.log(`[Updater] Update ${info.version} downloaded. Installing...`)
+  console.log(`[Updater] Update ${info.version} downloaded. Waiting for user confirmation...`)
   writeCrashLog('updater_update_downloaded', { version: info.version })
   clearWindowProgress(options.getMainWindow)
 
   const win = getValidWindow(options.getMainWindow)
   if (win) {
-    safeSendToWindow(win, 'update:downloaded', { version: info.version })
+    // Notify UI that update is downloaded and ready to install
+    safeSendToWindow(win, 'update:downloaded', { 
+      version: info.version,
+      readyToInstall: true 
+    })
   }
-
-  // Force quit and install immediately
-  options.markAppWillQuit()
-
-  // Give UI a moment to show the update downloaded message, then restart
-  setTimeout(() => {
-    try {
-      console.log('[Updater] Forcing quit and install...')
-      autoUpdater.quitAndInstall(true, true)
-    } catch (error) {
-      const message = formatErrorMessage(error)
-      console.error('[Updater] quitAndInstall failed:', error)
-      writeCrashLog('updater_quit_and_install_failed', { message, error })
-      // If install fails, force quit anyway
-      options.markAppWillQuit()
-      app.quit()
-    }
-  }, 1500)
 }
 
 export function setupAutoUpdater(options: AutoUpdateOptions): void {
@@ -481,6 +467,41 @@ export function setupAutoUpdater(options: AutoUpdateOptions): void {
       }
       return { success: false, error: message }
     }
+  })
+
+  // Register IPC handler for install trigger (after user confirmation)
+  ipcMain.handle('update:install', async () => {
+    try {
+      console.log('[Updater] User confirmed install. Restarting...')
+      options.markAppWillQuit()
+      
+      // Give UI a moment to prepare for restart
+      setTimeout(() => {
+        try {
+          autoUpdater.quitAndInstall(true, true)
+        } catch (error) {
+          const message = formatErrorMessage(error)
+          console.error('[Updater] quitAndInstall failed:', error)
+          writeCrashLog('updater_quit_and_install_failed', { message, error })
+          // If install fails, force quit anyway
+          options.markAppWillQuit()
+          app.quit()
+        }
+      }, 500)
+      
+      return { success: true }
+    } catch (error) {
+      const message = formatErrorMessage(error)
+      console.error('[Updater] Install trigger failed:', error)
+      return { success: false, error: message }
+    }
+  })
+
+  // Register IPC handler to postpone update
+  ipcMain.handle('update:postpone', async () => {
+    console.log('[Updater] User postponed update. Will install on next app restart.')
+    // No action needed - update will be installed when app naturally restarts
+    return { success: true }
   })
 
   if (!app.isPackaged) {

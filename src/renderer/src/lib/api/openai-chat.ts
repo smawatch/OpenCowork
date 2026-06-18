@@ -201,6 +201,28 @@ class OpenAIChatProvider implements APIProvider {
     config: ProviderConfig,
     signal?: AbortSignal
   ): AsyncIterable<StreamEvent> {
+    // 打印请求日志
+    console.log('[OpenAIChat] === 对话请求开始 ===');
+    console.log('[OpenAIChat] Provider ID:', config.providerId);
+    console.log('[OpenAIChat] Model:', config.model);
+    console.log('[OpenAIChat] Base URL:', config.baseUrl);
+    console.log('[OpenAIChat] Messages count:', messages.length);
+    console.log('[OpenAIChat] Tools count:', tools.length);
+    console.log('[OpenAIChat] Session ID:', config.sessionId);
+    
+    // 打印消息概览
+    messages.forEach((msg, index) => {
+      const preview = typeof msg.content === 'string' 
+        ? msg.content.substring(0, 100) 
+        : `[${Array.isArray(msg.content) ? msg.content.length : 'object'}]`;
+      console.log(`[OpenAIChat] Message[${index}] role=${msg.role}, content=${preview}`);
+    });
+    
+    // 打印工具信息
+    if (tools.length > 0) {
+      console.log('[OpenAIChat] Tools:', tools.map(t => t.name).join(', '));
+    }
+
     let runtimeConfig = config
     let activeAccountId: string | undefined
 
@@ -582,6 +604,14 @@ class OpenAIChatProvider implements APIProvider {
           }
           break
         } catch (err) {
+          // 打印错误日志
+          console.error('[OpenAIChat] === 请求错误 ===');
+          console.error('[OpenAIChat] Error:', err);
+          if (err instanceof Error) {
+            console.error('[OpenAIChat] Error message:', err.message);
+            console.error('[OpenAIChat] Error stack:', err.stack);
+          }
+          
           if (
             !authRefreshRetryUsed &&
             config.providerId &&
@@ -635,6 +665,17 @@ class OpenAIChatProvider implements APIProvider {
     } finally {
       clearCompatTerminalTimer()
       signal?.removeEventListener('abort', abortRelay)
+      
+      // 打印请求完成日志
+      const duration = Date.now() - requestStartedAt;
+      console.log('[OpenAIChat] === 对话请求完成 ===');
+      console.log('[OpenAIChat] Duration:', duration, 'ms');
+      console.log('[OpenAIChat] TTFT:', firstTokenAt ? firstTokenAt - requestStartedAt : 'N/A', 'ms');
+      console.log('[OpenAIChat] Output tokens:', outputTokens);
+      if (outputTokens > 0 && firstTokenAt) {
+        const tps = ((outputTokens / (duration - (firstTokenAt - requestStartedAt))) * 1000).toFixed(2);
+        console.log('[OpenAIChat] TPS:', tps);
+      }
     }
   }
 
