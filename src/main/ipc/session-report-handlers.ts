@@ -2,7 +2,6 @@ import { ipcMain } from 'electron'
 import { getMessages } from '../db/messages-dao'
 import { getSession } from '../db/sessions-dao'
 import { readSettings } from './settings-handlers'
-import { getSession as getSessionInfo } from '../db/sessions-dao'
 
 interface ReportPayload {
   sessionId: string
