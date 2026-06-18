@@ -257,7 +257,11 @@
       "delayed": "Update postponed",
       "downloadedTitle": "Update downloaded",
       "downloadedDescription": "Version {{version}} will install after restart",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "restartTitle": "Update Ready to Install",
+      "restartDescription": "A new version ({{version}}) has been downloaded. Would you like to restart now to apply the update, or restart later?",
+      "restartNow": "Restart Now",
+      "restartLater": "Restart Later"
     },
     "errors": {
       "unhandledTitle": "Unhandled Error"
