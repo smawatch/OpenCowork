@@ -421,6 +421,7 @@ function ChangeDiffDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        showCloseButton={false}
         className={cn(
           'agent-files-diff-dialog grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0',
           fullscreen

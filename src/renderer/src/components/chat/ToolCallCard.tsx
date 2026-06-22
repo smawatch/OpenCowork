@@ -3223,11 +3223,28 @@ function ToolCallCardInner({
   const isProcessing = status === 'streaming' || status === 'running'
   const isActive = isProcessing || status === 'pending_approval'
   const hasVisualOutput = hasImageBlocks(output)
-  const [open, setOpen] = React.useState(isActive || hasVisualOutput)
+  const isReadTextTool = name === 'Read' && !hasVisualOutput
+  const [open, setOpen] = React.useState((isActive && !isReadTextTool) || hasVisualOutput)
+  // Text Read output can be large; only mount it after the user opens the Read card.
+  const [readTextOutputRevealed, setReadTextOutputRevealed] = React.useState(false)
   const prevIsActiveRef = React.useRef(isActive)
+  const toggleOpen = React.useCallback(() => {
+    if (name === 'Read' && !open) {
+      setReadTextOutputRevealed(true)
+    }
+    setOpen((current) => !current)
+  }, [name, open])
+
   React.useEffect(() => {
     if (hasVisualOutput) {
       setOpen(true)
+      prevIsActiveRef.current = isActive
+      return
+    }
+    if (isReadTextTool) {
+      if (!readTextOutputRevealed) {
+        setOpen(false)
+      }
       prevIsActiveRef.current = isActive
       return
     }
@@ -3235,7 +3252,7 @@ function ToolCallCardInner({
       setOpen(false)
     }
     prevIsActiveRef.current = isActive
-  }, [hasVisualOutput, isActive])
+  }, [hasVisualOutput, isActive, isReadTextTool, readTextOutputRevealed])
   const outputText = React.useMemo(() => outputAsString(output), [output])
   const extensionToolResult = React.useMemo(() => parseExtensionToolResult(output), [output])
   const summary = React.useMemo(
@@ -3319,7 +3336,7 @@ function ToolCallCardInner({
     >
       {/* Header — click to toggle */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         className={cn(
           useCompactToolHeader
             ? 'group w-full rounded-lg p-0 text-left transition-colors'
@@ -3504,6 +3521,7 @@ function ToolCallCardInner({
                     output &&
                     name === 'Read' &&
                     !hasImageBlocks(output) &&
+                    readTextOutputRevealed &&
                     outputText && (
                       <ReadOutputBlock
                         output={outputText}

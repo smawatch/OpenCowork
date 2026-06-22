@@ -97,13 +97,16 @@ export function SkillsMenu({
 
   const mcpServers = useMcpStore((s) => s.servers)
   const mcpStatuses = useMcpStore((s) => s.serverStatuses)
-  const activeMcpIds = useMcpStore((s) =>
-    resolveEffectiveActiveMcpIds({
-      projectId,
-      activeMcpIdsByProject: s.activeMcpIdsByProject,
-      servers: s.servers,
-      serverStatuses: s.serverStatuses
-    })
+  const activeMcpIdsByProject = useMcpStore((s) => s.activeMcpIdsByProject)
+  const activeMcpIds = React.useMemo(
+    () =>
+      resolveEffectiveActiveMcpIds({
+        projectId,
+        activeMcpIdsByProject,
+        servers: mcpServers,
+        serverStatuses: mcpStatuses
+      }),
+    [activeMcpIdsByProject, mcpServers, mcpStatuses, projectId]
   )
   const toggleActiveMcp = useMcpStore((s) => s.toggleActiveMcp)
   const loadMcpServers = useMcpStore((s) => s.loadServers)

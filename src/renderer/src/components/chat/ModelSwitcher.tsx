@@ -28,6 +28,7 @@ import { useUIStore } from '@renderer/stores/ui-store'
 import { useTranslation } from 'react-i18next'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@renderer/components/ui/hover-card'
 
 import {
   ProviderIcon,
@@ -759,6 +760,41 @@ export function ModelSwitcher({
       ? t('topbar.autoModel')
       : (autoSelection?.modelName ?? t('topbar.autoModel'))
     : (displayModel?.name ?? displayModelId ?? t('topbar.noModel'))
+  const triggerAriaLabel = isAutoModeActive
+    ? autoRoutingState === 'routing'
+      ? t('topbar.autoModelRoutingShort')
+      : t('topbar.autoModel')
+    : (displayModel?.name ?? displayModelId ?? t('topbar.noModel'))
+  const triggerProviderName = isAutoModeActive
+    ? (autoResolvedProvider?.name ?? t('topbar.autoModel'))
+    : (displayProvider?.name ?? null)
+  const triggerModel = isAutoModeActive ? (autoResolvedModel ?? null) : (displayModel ?? null)
+  const triggerProviderType = isAutoModeActive ? autoResolvedProvider?.type : displayProvider?.type
+  const triggerDetail = isAutoModeActive
+    ? autoRoutingState === 'routing'
+      ? t('topbar.autoModelRouting')
+      : autoSelection?.modelName
+        ? t('topbar.autoModelTooltip', {
+            route: t(
+              autoSelection.target === 'main' ? 'topbar.autoModelMain' : 'topbar.autoModelFast'
+            ),
+            model: autoSelection.modelName,
+            taskType: autoSelection.taskType ?? t('topbar.autoModelTaskTypeUnknown'),
+            confidence: autoSelection.confidence ?? t('topbar.autoModelConfidenceUnknown'),
+            complexity: autoSelection.complexity
+              ? t(`topbar.autoModelComplexity.${autoSelection.complexity}`)
+              : '',
+            risk: autoSelection.risk ? t(`topbar.autoModelRisk.${autoSelection.risk}`) : '',
+            reason: autoSelection.fallbackReason
+              ? t(`topbar.autoModelFallback.${autoSelection.fallbackReason}`, {
+                  defaultValue: autoSelection.fallbackReason
+                })
+              : ''
+          })
+        : t('topbar.autoModelTooltipIdle')
+    : displayModelId && displayModel?.name && displayModel.name !== displayModelId
+      ? displayModelId
+      : null
 
   const codexQuota = useMemo(() => {
     if (!displayProvider || displayProvider.builtinId !== 'codex-oauth') return null
@@ -906,43 +942,73 @@ export function ModelSwitcher({
     <div className="inline-flex h-8 items-center rounded-lg border border-transparent hover:border-border/50 hover:bg-muted/30 transition-colors">
       {/* Model icon trigger — opens model list */}
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <button
-            className="inline-flex h-8 min-w-0 items-center gap-2 rounded-l-lg px-2.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-            aria-label={
-              isAutoModeActive
-                ? autoRoutingState === 'routing'
-                  ? t('topbar.autoModelRoutingShort')
-                  : t('topbar.autoModel')
-                : (displayModel?.name ?? displayModelId ?? t('topbar.noModel'))
-            }
-            title={
-              isAutoModeActive
-                ? autoRoutingState === 'routing'
-                  ? t('topbar.autoModelRouting')
-                  : (autoSelection?.modelName ?? t('topbar.autoModel'))
-                : (displayModel?.name ?? displayModelId ?? t('topbar.noModel'))
-            }
-          >
-            {isAutoModeActive ? (
-              autoRoutingState === 'routing' ? (
-                <Loader2 size={16} className="animate-spin text-amber-500" />
-              ) : (
-                <AutoModelIcon size={16} />
-              )
-            ) : (
-              <ModelIcon
-                icon={displayModel?.icon}
-                modelId={displayModelId}
-                providerBuiltinId={displayProvider?.builtinId}
-                size={20}
-              />
+        <HoverCard openDelay={180} closeDelay={100}>
+          <HoverCardTrigger asChild>
+            <PopoverTrigger asChild>
+              <button
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-l-lg text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                aria-label={triggerAriaLabel}
+              >
+                {isAutoModeActive ? (
+                  autoRoutingState === 'routing' ? (
+                    <Loader2 size={16} className="animate-spin text-amber-500" />
+                  ) : (
+                    <AutoModelIcon size={18} />
+                  )
+                ) : (
+                  <ModelIcon
+                    icon={displayModel?.icon}
+                    modelId={displayModelId}
+                    providerBuiltinId={displayProvider?.builtinId}
+                    size={20}
+                  />
+                )}
+              </button>
+            </PopoverTrigger>
+          </HoverCardTrigger>
+          <HoverCardContent side="top" align="start" className="w-72 p-3">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/45">
+                {isAutoModeActive ? (
+                  autoRoutingState === 'routing' ? (
+                    <Loader2 size={16} className="animate-spin text-amber-500" />
+                  ) : (
+                    <AutoModelIcon size={18} />
+                  )
+                ) : (
+                  <ModelIcon
+                    icon={displayModel?.icon}
+                    modelId={displayModelId}
+                    providerBuiltinId={displayProvider?.builtinId}
+                    size={20}
+                  />
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-foreground">{triggerLabel}</div>
+                {triggerProviderName && (
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {triggerProviderName}
+                  </div>
+                )}
+              </div>
+            </div>
+            {triggerDetail && (
+              <div className="mt-2 break-words text-[11px] leading-4 text-muted-foreground/85">
+                {triggerDetail}
+              </div>
             )}
-            <span className="max-w-[128px] truncate text-xs text-foreground/80">
-              {triggerLabel}
-            </span>
-          </button>
-        </PopoverTrigger>
+            {triggerModel && (
+              <div className="mt-2 border-t border-border/60 pt-2">
+                <ModelCapabilityTags
+                  model={triggerModel}
+                  providerType={triggerProviderType}
+                  t={t}
+                />
+              </div>
+            )}
+          </HoverCardContent>
+        </HoverCard>
         <PopoverContent
           className="w-64 max-w-[calc(100vw-2rem)] overflow-visible p-0"
           align="start"

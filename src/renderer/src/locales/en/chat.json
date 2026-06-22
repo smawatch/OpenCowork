@@ -730,6 +730,8 @@
     "copied": "Copied!",
     "loadOlder": "Load earlier messages ({{count}} hidden)",
     "loadingOlder": "Loading earlier messages...",
+    "pendingRetryTitle": "Reconnecting to the model",
+    "pendingTeamTitle": "Coordinating teammates",
     "scrollToBottom": "Scroll to bottom",
     "userLocator": {
       "title": "User messages",
@@ -870,7 +872,7 @@
     "ranCommandsInline": "ran {{count}} commands",
     "processResponse": "response",
     "processTools": "tools",
-    "generatingResponse": "Generating response",
+    "thinkingStatus": "Thinking...",
     "streamingText": "streaming text",
     "activeTools": "{{count}} active tools",
     "toolExecutions": "{{count}} tool executions",

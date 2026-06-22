@@ -117,6 +117,7 @@ import {
 } from '@renderer/lib/preview/viewers/markdown-components'
 import { imageBlockToAttachment } from '@renderer/lib/image-attachments'
 import { useImageEditStore } from '@renderer/stores/image-edit-store'
+import { ModelIcon } from '@renderer/components/settings/provider-icons'
 
 type AssistantRenderMode = 'default' | 'transcript' | 'static'
 
@@ -156,6 +157,14 @@ interface InlineCompactSummaryEntry {
   message: UnifiedMessage
   afterContentBlockCount: number
   afterToolUseId?: string
+}
+
+interface ModelThinkingIndicatorProps {
+  modelName: string
+  modelId?: string | null
+  modelIcon?: string
+  providerBuiltinId?: string
+  label: string
 }
 
 const MARKDOWN_WRAPPER_CLASS = 'text-sm leading-relaxed text-foreground break-words'
@@ -673,8 +682,6 @@ function GenerationProcessLine({
       >
         {active ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
       </span>
-      <span className="shrink-0 text-muted-foreground/55">assistant</span>
-      <span className="shrink-0 text-muted-foreground/40">&gt;</span>
       <span className="shrink-0 font-mono font-medium text-foreground/82">{label}</span>
       {detail ? (
         <span className="min-w-0 flex-1 truncate text-muted-foreground/60">({detail})</span>
@@ -703,6 +710,44 @@ function GenerationProcessLine({
   }
 
   return <div className={className}>{content}</div>
+}
+
+function ModelThinkingIndicator({
+  modelName,
+  modelId,
+  modelIcon,
+  providerBuiltinId,
+  label
+}: ModelThinkingIndicatorProps): React.JSX.Element {
+  const statusLabel = modelName ? `${modelName} ${label}` : label
+
+  return (
+    <div className="flex flex-col items-start gap-1.5 py-1" role="status" aria-label={statusLabel}>
+      <span
+        className="pending-assistant-avatar flex size-8 shrink-0 items-center justify-center rounded-full border border-border/55 bg-muted/35 shadow-sm"
+        title={modelName}
+      >
+        <ModelIcon
+          icon={modelIcon}
+          modelId={modelId ?? undefined}
+          providerBuiltinId={providerBuiltinId}
+          size={20}
+        />
+      </span>
+      <span className="flex min-h-4 items-center gap-1.5 text-xs leading-4 text-muted-foreground/72">
+        <span className="flex items-center gap-1" aria-hidden="true">
+          {[0, 1, 2].map((index) => (
+            <span
+              key={index}
+              className="pending-assistant-dot size-1.5 rounded-full bg-primary/65"
+              style={{ animationDelay: `${index * 150}ms` }}
+            />
+          ))}
+        </span>
+        <span>{label}</span>
+      </span>
+    </div>
+  )
 }
 
 function MermaidImageCopyButton({ svg }: { svg: string }): React.JSX.Element {
@@ -1409,6 +1454,28 @@ export function AssistantMessage({
       }
     })
   )
+  const thinkingModel = useProviderStore(
+    useShallow((state) => {
+      const providerId = sessionModelBinding.providerId ?? state.activeProviderId
+      const provider = providerId ? state.providers.find((item) => item.id === providerId) : null
+      const fallbackModelId =
+        provider?.defaultModel ??
+        provider?.models.find((item) => item.enabled)?.id ??
+        provider?.models[0]?.id ??
+        ''
+      const modelId =
+        sessionModelBinding.modelId ??
+        (provider?.id === state.activeProviderId ? state.activeModelId : fallbackModelId)
+      const model = provider?.models.find((item) => item.id === modelId)
+
+      return {
+        modelId: modelId || null,
+        modelName: model?.name ?? modelId ?? 'AI',
+        modelIcon: model?.icon,
+        providerBuiltinId: provider?.builtinId
+      }
+    })
+  )
   const canEditGeneratedImages = useProviderStore((state) => {
     if (renderMode !== 'default') return false
 
@@ -1761,10 +1828,14 @@ export function AssistantMessage({
     if (isStreaming && hasEmptyContent) {
       return (
         <div className={liveComponentClassName || undefined}>
-          <GenerationProcessLine
-            active
-            label={t('assistantMessage.generatingResponse')}
-            detail={t('thinking.thinkingEllipsis')}
+          <ModelThinkingIndicator
+            modelName={thinkingModel.modelName}
+            modelId={thinkingModel.modelId}
+            modelIcon={thinkingModel.modelIcon}
+            providerBuiltinId={thinkingModel.providerBuiltinId}
+            label={t('assistantMessage.thinkingStatus', {
+              defaultValue: 'Thinking...'
+            })}
           />
         </div>
       )
@@ -1782,10 +1853,14 @@ export function AssistantMessage({
         return (
           <div className="space-y-2">
             {isStreaming ? (
-              <GenerationProcessLine
-                active
-                label={t('assistantMessage.generatingResponse')}
-                detail={t('assistantMessage.streamingText')}
+              <ModelThinkingIndicator
+                modelName={thinkingModel.modelName}
+                modelId={thinkingModel.modelId}
+                modelIcon={thinkingModel.modelIcon}
+                providerBuiltinId={thinkingModel.providerBuiltinId}
+                label={t('assistantMessage.thinkingStatus', {
+                  defaultValue: 'Thinking...'
+                })}
               />
             ) : null}
             <div className={MARKDOWN_WRAPPER_CLASS}>
@@ -1808,10 +1883,14 @@ export function AssistantMessage({
       return (
         <div className="space-y-2">
           {isStreaming ? (
-            <GenerationProcessLine
-              active
-              label={t('assistantMessage.generatingResponse')}
-              detail={t('assistantMessage.streamingText')}
+            <ModelThinkingIndicator
+              modelName={thinkingModel.modelName}
+              modelId={thinkingModel.modelId}
+              modelIcon={thinkingModel.modelIcon}
+              providerBuiltinId={thinkingModel.providerBuiltinId}
+              label={t('assistantMessage.thinkingStatus', {
+                defaultValue: 'Thinking...'
+              })}
             />
           ) : null}
           {segments.map((seg, idx) => {
@@ -2079,7 +2158,7 @@ export function AssistantMessage({
         liveStatus === 'streaming' || liveStatus === 'running' || liveStatus === 'pending_approval'
       )
     }).length
-    const showProcessLine = showWorkspaceToggle || isStreaming
+    const showProcessLine = showWorkspaceToggle || (isStreaming && workspaceToolCount > 0)
     const processDetail =
       workspaceSummary ||
       (activeWorkspaceToolCount > 0

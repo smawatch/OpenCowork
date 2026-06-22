@@ -292,16 +292,20 @@ function ContextRing({
 
 function ActiveMcpsBadge({ projectId }: { projectId?: string | null }): React.JSX.Element | null {
   const { t } = useTranslation('chat')
-  const activeMcpIds = useMcpStore((s) =>
-    resolveEffectiveActiveMcpIds({
-      projectId,
-      activeMcpIdsByProject: s.activeMcpIdsByProject,
-      servers: s.servers,
-      serverStatuses: s.serverStatuses
-    })
-  )
+  const activeMcpIdsByProject = useMcpStore((s) => s.activeMcpIdsByProject)
   const servers = useMcpStore((s) => s.servers)
+  const serverStatuses = useMcpStore((s) => s.serverStatuses)
   const serverTools = useMcpStore((s) => s.serverTools)
+  const activeMcpIds = React.useMemo(
+    () =>
+      resolveEffectiveActiveMcpIds({
+        projectId,
+        activeMcpIdsByProject,
+        servers,
+        serverStatuses
+      }),
+    [activeMcpIdsByProject, projectId, serverStatuses, servers]
+  )
   if (activeMcpIds.length === 0) return null
   const activeServers = servers.filter((s) => activeMcpIds.includes(s.id))
   return (

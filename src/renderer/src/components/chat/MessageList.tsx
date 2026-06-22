@@ -900,7 +900,7 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
       id: pendingAssistantRowKey,
       role: 'assistant',
       content: '',
-      createdAt: 0
+      createdAt: Date.now()
     }),
     [pendingAssistantRowKey]
   )

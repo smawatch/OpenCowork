@@ -730,6 +730,8 @@
     "copied": "已复制！",
     "loadOlder": "加载更早消息（还有 {{count}} 条）",
     "loadingOlder": "正在加载更早消息...",
+    "pendingRetryTitle": "正在重新连接模型",
+    "pendingTeamTitle": "正在协调队友",
     "scrollToBottom": "滚动到底部",
     "userLocator": {
       "title": "用户消息",
@@ -870,7 +872,7 @@
     "ranCommandsInline": "ran {{count}} commands",
     "processResponse": "response",
     "processTools": "tools",
-    "generatingResponse": "正在生成回复",
+    "thinkingStatus": "正在思考中...",
     "streamingText": "流式输出正文",
     "activeTools": "{{count}} 个工具运行中",
     "toolExecutions": "{{count}} 个工具执行",
