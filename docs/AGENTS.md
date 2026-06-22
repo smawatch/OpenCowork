@@ -13,7 +13,7 @@
 ## Build, Test, and Development Commands
 
 - `npm install`: install dependencies (triggers `postinstall` MDX generation).
-- `npm run dev`: start local development server at `http://localhost:3000`.
+- `npm run dev`: start local development server at `http://localhost:3002`.
 - `npm run types:check`: regenerate doc collections, run Next type generation, then `tsc --noEmit`.
 - `npm run build`: create a production build (`output: "standalone"`).
 - `npm run start`: serve the production build.

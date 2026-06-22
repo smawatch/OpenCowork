@@ -12,7 +12,8 @@ import {
   Cable,
   ClipboardList,
   Target,
-  Puzzle
+  Puzzle,
+  BookOpen
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Switch } from '@renderer/components/ui/switch'
@@ -30,11 +31,14 @@ import {
   DropdownMenuTrigger
 } from '@renderer/components/ui/dropdown-menu'
 import { cn } from '@renderer/lib/utils'
+import { ipcClient } from '@renderer/lib/ipc/ipc-client'
+import { IPC } from '@renderer/lib/ipc/channels'
 import { useSkillsStore } from '@renderer/stores/skills-store'
 import { useChannelStore } from '@renderer/stores/channel-store'
 import { useMcpStore } from '@renderer/stores/mcp-store'
 import { useUIStore } from '@renderer/stores/ui-store'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
+import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
 import { useAppPluginStore } from '@renderer/stores/app-plugin-store'
 import {
   APP_PLUGIN_DESCRIPTORS,
@@ -107,6 +111,11 @@ export function SkillsMenu({
   const refreshAllMcpServers = useMcpStore((s) => s.refreshAllServers)
   const mcpStatuses = useMcpStore((s) => s.serverStatuses)
   const mcpTools = useMcpStore((s) => s.serverTools)
+
+  const selectedDatasetIds = useKnowledgeStore((s) => s.selectedDatasetIds)
+  const toggleDataset = useKnowledgeStore((s) => s.toggleDataset)
+  const [kbDatasets, setKbDatasets] = React.useState<Array<{ id: string; name: string; intro?: string }>>([])
+  const [kbLoading, setKbLoading] = React.useState(false)
   const pluginsByProject = useAppPluginStore((s) => s.pluginsByProject)
   const availablePlugins = React.useMemo(() => {
     const projectPlugins = pluginsByProject[projectId ?? '__global__'] ?? []
@@ -170,6 +179,18 @@ export function SkillsMenu({
     refreshAllMcpServers()
 
     let cancelled = false
+
+    // Fetch knowledge base list
+    setKbLoading(true)
+    void ipcClient
+      .invoke(IPC.KNOWLEDGE_LIST_DATASETS)
+      .then((r: any) => {
+        if (!cancelled && r?.success) setKbDatasets(r.data ?? [])
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setKbLoading(false)
+      })
     setCommandsLoading(true)
     void listCommands()
       .then((items) => {
@@ -566,6 +587,75 @@ export function SkillsMenu({
                 >
                   <Settings2 className="mr-2 size-3.5" />
                   {t('skills.configureMcpServers')}
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+        </DropdownMenuGroup>
+
+        {/* Knowledge Base selection */}
+        <DropdownMenuGroup>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <BookOpen className="mr-2 size-4" />
+              <span>知识库</span>
+              {selectedDatasetIds.length > 0 && (
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  {selectedDatasetIds.length}
+                </span>
+              )}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent
+                className={cn('w-56 max-h-80 overflow-y-auto', menuClassName)}
+              >
+                <DropdownMenuLabel>选择知识库</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {kbLoading ? (
+                  <div className="flex items-center justify-center gap-2 px-2 py-4 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" />
+                    加载中...
+                  </div>
+                ) : kbDatasets.length === 0 ? (
+                  <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                    <p>暂无知识库</p>
+                  </div>
+                ) : (
+                  kbDatasets.map((ds) => {
+                    const isActive = selectedDatasetIds.includes(ds.id)
+                    return (
+                      <DropdownMenuItem
+                        key={ds.id}
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          toggleDataset(ds.id)
+                        }}
+                        className="flex cursor-pointer items-center gap-2 py-1.5"
+                      >
+                        <span
+                          className={`flex size-4 items-center justify-center rounded border ${
+                            isActive
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-muted-foreground/30'
+                          }`}
+                        >
+                          {isActive && <Check className="size-3" />}
+                        </span>
+                        <span className="flex-1 truncate text-xs">{ds.name}</span>
+                      </DropdownMenuItem>
+                    )
+                  })
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOpen(false)
+                    useUIStore.getState().openKnowledgePage()
+                  }}
+                  className="text-xs"
+                >
+                  <Settings2 className="mr-2 size-3.5" />
+                  管理知识库
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuPortal>

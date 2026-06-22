@@ -141,6 +141,7 @@ import {
   getDefaultPluginToolNamesForType
 } from '@renderer/lib/channel/plugin-tools'
 import { useMcpStore } from '@renderer/stores/mcp-store'
+
 import {
   registerMcpTools,
   unregisterMcpTools,

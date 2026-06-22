@@ -348,6 +348,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
   const resourcesPageOpen = useUIStore((state) => state.resourcesPageOpen)
   const drawPageOpen = useUIStore((state) => state.drawPageOpen)
   const translatePageOpen = useUIStore((state) => state.translatePageOpen)
+  const knowledgePageOpen = useUIStore((state) => state.knowledgePageOpen)
   const tasksPageOpen = useUIStore((state) => state.tasksPageOpen)
   const leftSidebarWidth = useUIStore((state) => state.leftSidebarWidth)
   const setLeftSidebarWidth = useUIStore((state) => state.setLeftSidebarWidth)
@@ -489,9 +490,10 @@ export function WorkspaceSidebar(): React.JSX.Element {
     !resourcesPageOpen &&
     !drawPageOpen &&
     !translatePageOpen &&
+    !knowledgePageOpen &&
     !tasksPageOpen
   const featureMenuActive =
-    resourcesPageOpen || skillsPageOpen || soulsPageOpen || syncPageOpen || drawPageOpen
+    resourcesPageOpen || skillsPageOpen || soulsPageOpen || syncPageOpen || drawPageOpen || knowledgePageOpen
   const sessionsByProject = useMemo(() => {
     const next = new Map<string, SessionListItem[]>()
     for (const session of sessions) {
@@ -930,6 +932,13 @@ export function WorkspaceSidebar(): React.JSX.Element {
       icon: <CalendarDays className="size-4 shrink-0" />,
       active: tasksPageOpen,
       onClick: () => useUIStore.getState().openTasksPage()
+    },
+    {
+      key: 'knowledge',
+      label: t('navRail.knowledge'),
+      icon: <BookOpen className="size-4 shrink-0" />,
+      active: knowledgePageOpen,
+      onClick: () => useUIStore.getState().openKnowledgePage()
     }
   ]
 
@@ -1293,6 +1302,13 @@ export function WorkspaceSidebar(): React.JSX.Element {
                 >
                   <CloudSync className="size-4" />
                   <span>{t('navRail.sync')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => useUIStore.getState().openKnowledgePage()}
+                  className={cn(knowledgePageOpen && 'bg-accent text-accent-foreground')}
+                >
+                  <BookOpen className="size-4" />
+                  <span>{t('navRail.knowledge')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

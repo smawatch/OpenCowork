@@ -417,7 +417,13 @@ export const IPC = {
   SSH_IMPORT_APPLY: 'ssh:import:apply',
 
   // SSH Remote Exec
-  SSH_EXEC: 'ssh:exec'
+  SSH_EXEC: 'ssh:exec',
+
+  // Knowledge Base
+  KNOWLEDGE_LIST_DATASETS: 'knowledge:list-datasets',
+  KNOWLEDGE_LIST_COLLECTIONS: 'knowledge:list-collections',
+  KNOWLEDGE_LIST_CHUNKS: 'knowledge:list-chunks',
+  KNOWLEDGE_SEARCH: 'knowledge:search'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

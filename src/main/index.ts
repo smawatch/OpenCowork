@@ -71,6 +71,7 @@ import { registerSidecarHandlers, getSidecarManager } from './ipc/sidecar-manage
 import { registerTeamRuntimeHandlers } from './ipc/team-runtime-handlers'
 import { registerTeamWorkerHandlers, stopAllIsolatedTeamWorkers } from './ipc/team-worker-handlers'
 import { registerSessionReportHandlers } from './ipc/session-report-handlers'
+import { registerKnowledgeHandlers } from './ipc/knowledge-handlers'
 import { loadPersistedJobs, cancelAllJobs } from './cron/cron-scheduler'
 import { McpManager } from './mcp/mcp-manager'
 import { closeDb } from './db/database'
@@ -1163,6 +1164,7 @@ if (gotSingleInstanceLock) {
     registerTeamRuntimeHandlers()
     registerTeamWorkerHandlers()
     registerSessionReportHandlers()
+    registerKnowledgeHandlers()
 
     try {
       const sidecarReady = await getSidecarManager().ensureStarted()

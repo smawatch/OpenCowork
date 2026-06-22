@@ -706,8 +706,14 @@
     "sync": "Sync",
     "draw": "Draw",
     "translate": "Translate",
+    "knowledge": "Knowledge",
     "ssh": "SSH",
     "settings": "Settings"
+  },
+  "knowledgePage": {
+    "title": "Knowledge Base",
+    "subtitle": "Browse your knowledge bases",
+    "empty": "No knowledge bases available"
   },
   "resourcesPage": {
     "title": "Resources",

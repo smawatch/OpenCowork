@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   CalendarDays,
   CloudSync,
   FolderOpen,
@@ -25,6 +26,7 @@ const navItems: { value: NavItem | 'ssh'; icon: React.ReactNode; labelKey: strin
   { value: 'souls', icon: <Sparkles className="size-5" />, labelKey: 'navRail.souls' },
   { value: 'sync', icon: <CloudSync className="size-5" />, labelKey: 'navRail.sync' },
   { value: 'draw', icon: <Image className="size-5" />, labelKey: 'navRail.draw' },
+  { value: 'knowledge', icon: <BookOpen className="size-5" />, labelKey: 'navRail.knowledge' },
   { value: 'ssh', icon: <Monitor className="size-5" />, labelKey: 'navRail.ssh' }
 ]
 
@@ -38,6 +40,7 @@ export function NavRail(): React.JSX.Element {
   const syncPageOpen = useUIStore((s) => s.syncPageOpen)
   const resourcesPageOpen = useUIStore((s) => s.resourcesPageOpen)
   const drawPageOpen = useUIStore((s) => s.drawPageOpen)
+  const knowledgePageOpen = useUIStore((s) => s.knowledgePageOpen)
   const translatePageOpen = useUIStore((s) => s.translatePageOpen)
   const tasksPageOpen = useUIStore((s) => s.tasksPageOpen)
 
@@ -70,6 +73,10 @@ export function NavRail(): React.JSX.Element {
       useUIStore.getState().openTranslatePage()
       return
     }
+    if (item === 'knowledge') {
+      useUIStore.getState().openKnowledgePage()
+      return
+    }
     if (item === 'ssh') {
       void ipcClient.invoke(IPC.SSH_WINDOW_OPEN)
       return
@@ -83,6 +90,7 @@ export function NavRail(): React.JSX.Element {
     if (ui.resourcesPageOpen) ui.closeResourcesPage()
     if (ui.drawPageOpen) ui.closeDrawPage()
     if (ui.translatePageOpen) ui.closeTranslatePage()
+    if (ui.knowledgePageOpen) ui.closeKnowledgePage()
     if (ui.tasksPageOpen) ui.closeTasksPage()
     if (activeNavItem === item && leftSidebarOpen) {
       ui.toggleLeftSidebar()
@@ -113,6 +121,7 @@ export function NavRail(): React.JSX.Element {
                     (item.value === 'sync' && syncPageOpen) ||
                     (item.value === 'draw' && drawPageOpen) ||
                     (item.value === 'translate' && translatePageOpen) ||
+                    (item.value === 'knowledge' && knowledgePageOpen) ||
                     (![
                       'tasks',
                       'resources',
@@ -121,6 +130,7 @@ export function NavRail(): React.JSX.Element {
                       'sync',
                       'draw',
                       'translate',
+                      'knowledge',
                       'ssh'
                     ].includes(item.value) &&
                       activeNavItem === item.value &&
