@@ -3816,6 +3816,15 @@ export function useChatActions(): {
           !!sessionGoalSnapshot &&
           sessionGoalSnapshot.status !== 'paused' &&
           sessionGoalSnapshot.status !== 'complete'
+        let mcpStore = useMcpStore.getState()
+        if (mcpStore.servers.length === 0) {
+          await mcpStore.loadServers()
+          mcpStore = useMcpStore.getState()
+        }
+        if (mcpStore.servers.some((server) => server.enabled)) {
+          // Keep the renderer cache in sync with main-process auto-connects before resolving MCP tools.
+          await mcpStore.refreshAllServers()
+        }
         const chatMcpContext =
           mode === 'chat' ? resolveActiveMcpContext(session?.projectId ?? null) : null
         const registeredToolDefs = toolRegistry.getDefinitions()

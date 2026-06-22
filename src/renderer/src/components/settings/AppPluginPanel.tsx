@@ -29,7 +29,7 @@ import {
 } from '@renderer/stores/provider-store'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
-import { useMcpStore } from '@renderer/stores/mcp-store'
+import { resolveEffectiveActiveMcpIds, useMcpStore } from '@renderer/stores/mcp-store'
 import { useSettingsStore } from '@renderer/stores/settings-store'
 import { toast } from 'sonner'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
@@ -279,7 +279,12 @@ export function AppPluginPanel(): React.JSX.Element {
   })
   const browserAllowedDomainText = (selectedPlugin.browserAllowedDomains ?? []).join('\n')
   const browserBlockedDomainText = (selectedPlugin.browserBlockedDomains ?? []).join('\n')
-  const activeMcpIds = activeMcpIdsByProject[activeProjectId ?? '__global__'] ?? []
+  const activeMcpIds = resolveEffectiveActiveMcpIds({
+    projectId: activeProjectId,
+    activeMcpIdsByProject,
+    servers: mcpServers,
+    serverStatuses: mcpStatuses
+  })
   const hasShareTarget = mcpServers.some((server) => {
     if (!server.enabled || mcpStatuses[server.id] !== 'connected') return false
     if (!activeMcpIds.includes(server.id)) return false

@@ -84,7 +84,7 @@ import { SkillsMenu } from './SkillsMenu'
 import { ModelSwitcher } from './ModelSwitcher'
 import { FileAwareEditor, type FileAwareEditorHandle } from './FileAwareEditor'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
-import { useMcpStore } from '@renderer/stores/mcp-store'
+import { resolveEffectiveActiveMcpIds, useMcpStore } from '@renderer/stores/mcp-store'
 import { usePlanStore } from '@renderer/stores/plan-store'
 import { useGoalStore } from '@renderer/stores/goal-store'
 import { useSkillsStore } from '@renderer/stores/skills-store'
@@ -292,8 +292,14 @@ function ContextRing({
 
 function ActiveMcpsBadge({ projectId }: { projectId?: string | null }): React.JSX.Element | null {
   const { t } = useTranslation('chat')
-  const activeMcpIdsByProject = useMcpStore((s) => s.activeMcpIdsByProject)
-  const activeMcpIds = activeMcpIdsByProject[projectId ?? '__global__'] ?? []
+  const activeMcpIds = useMcpStore((s) =>
+    resolveEffectiveActiveMcpIds({
+      projectId,
+      activeMcpIdsByProject: s.activeMcpIdsByProject,
+      servers: s.servers,
+      serverStatuses: s.serverStatuses
+    })
+  )
   const servers = useMcpStore((s) => s.servers)
   const serverTools = useMcpStore((s) => s.serverTools)
   if (activeMcpIds.length === 0) return null

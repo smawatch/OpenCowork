@@ -49,6 +49,56 @@ interface McpStore {
   setSelectedServer: (id: string | null) => void
 }
 
+function resolveProjectMcpKey(projectId?: string | null): string {
+  return projectId ?? '__global__'
+}
+
+function matchesProject(server: McpServerConfig, projectId?: string | null): boolean {
+  return !projectId || !server.projectId || server.projectId === projectId
+}
+
+function resolveStoredOrDefaultMcpIds(params: {
+  projectId?: string | null
+  activeMcpIdsByProject: Record<string, string[]>
+  servers: McpServerConfig[]
+  serverStatuses: Record<string, McpServerStatus>
+}): string[] {
+  const projectKey = resolveProjectMcpKey(params.projectId)
+  if (Object.prototype.hasOwnProperty.call(params.activeMcpIdsByProject, projectKey)) {
+    return params.activeMcpIdsByProject[projectKey] ?? []
+  }
+
+  // Treat connected servers as active by default until the user makes an explicit selection.
+  return params.servers
+    .filter(
+      (server) =>
+        server.enabled &&
+        params.serverStatuses[server.id] === 'connected' &&
+        matchesProject(server, params.projectId)
+    )
+    .map((server) => server.id)
+}
+
+export function resolveEffectiveActiveMcpIds(params: {
+  projectId?: string | null
+  activeMcpIdsByProject: Record<string, string[]>
+  servers: McpServerConfig[]
+  serverStatuses: Record<string, McpServerStatus>
+}): string[] {
+  const availableServerIds = new Set(
+    params.servers
+      .filter(
+        (server) =>
+          server.enabled &&
+          params.serverStatuses[server.id] === 'connected' &&
+          matchesProject(server, params.projectId)
+      )
+      .map((server) => server.id)
+  )
+
+  return resolveStoredOrDefaultMcpIds(params).filter((id) => availableServerIds.has(id))
+}
+
 export const useMcpStore = create<McpStore>((set, get) => ({
   servers: [],
   serverStatuses: {},
@@ -196,40 +246,55 @@ export const useMcpStore = create<McpStore>((set, get) => ({
   },
 
   getActiveMcpIds: (projectId) => {
-    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? '__global__'
-    return get().activeMcpIdsByProject[resolvedProjectId] ?? []
+    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? null
+    const { activeMcpIdsByProject, servers, serverStatuses } = get()
+    return resolveEffectiveActiveMcpIds({
+      projectId: resolvedProjectId,
+      activeMcpIdsByProject,
+      servers,
+      serverStatuses
+    })
   },
 
   toggleActiveMcp: (id, projectId) => {
-    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? '__global__'
+    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? null
     set((s) => {
-      const currentIds = s.activeMcpIdsByProject[resolvedProjectId] ?? []
+      const projectKey = resolveProjectMcpKey(resolvedProjectId)
+      const currentIds = resolveStoredOrDefaultMcpIds({
+        projectId: resolvedProjectId,
+        activeMcpIdsByProject: s.activeMcpIdsByProject,
+        servers: s.servers,
+        serverStatuses: s.serverStatuses
+      })
       const isActive = currentIds.includes(id)
       return {
         activeMcpIdsByProject: {
           ...s.activeMcpIdsByProject,
-          [resolvedProjectId]: isActive
-            ? currentIds.filter((mid) => mid !== id)
-            : [...currentIds, id]
+          [projectKey]: isActive ? currentIds.filter((mid) => mid !== id) : [...currentIds, id]
         }
       }
     })
   },
 
   clearActiveMcps: (projectId) => {
-    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? '__global__'
+    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? null
     set((s) => ({
       activeMcpIdsByProject: {
         ...s.activeMcpIdsByProject,
-        [resolvedProjectId]: []
+        [resolveProjectMcpKey(resolvedProjectId)]: []
       }
     }))
   },
 
   getActiveMcps: (projectId) => {
-    const { servers } = get()
+    const { servers, serverStatuses } = get()
     const activeMcpIds = get().getActiveMcpIds(projectId)
-    return servers.filter((s) => activeMcpIds.includes(s.id))
+    return servers.filter(
+      (server) =>
+        activeMcpIds.includes(server.id) &&
+        server.enabled &&
+        serverStatuses[server.id] === 'connected'
+    )
   },
 
   getActiveMcpTools: (projectId) => {
