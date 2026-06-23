@@ -5,6 +5,7 @@ import { getRegisteredSkills } from '../tools/skill-tool'
 import { buildLeadCoordinatorPrompt } from './teams/prompts'
 import type { ActiveTeam } from '../../stores/team-store'
 import { resolveLanguageName } from '../i18n-language'
+import { useKnowledgeStore } from '../../stores/knowledge-store'
 
 export type PromptEnvironmentContext = {
   target: 'local' | 'ssh'
@@ -167,10 +168,6 @@ function buildModePromptBody(
       `2. **Act**: Execute using tools - read files, make edits, run commands.`,
       `3. **Observe**: Check results, verify correctness, report what happened.`,
       `Repeat the loop until the task is complete. Always read files before editing them.`,
-      `\n**Knowledge Base:**`,
-      `- Use the KnowledgeSearch tool to search the user's knowledge base`,
-      `- Base your answer on the retrieved content and cite the source files when available.`,
-      `- If KnowledgeSearch returns no results or "未选择知识库", answer using your own knowledge.`,
       `\n**Collaboration style:**`,
       `- Communicate what you're doing at each step so the user can steer.`,
       `- When running terminal commands via the Bash tool, explain what you're doing and why.`,
@@ -208,6 +205,20 @@ function buildModePromptBody(
     `- Be terse. Minimize explanation - let the code speak. Only explain non-obvious choices.`,
     `- Do not narrate what the code does; only comment on why when it's not self-evident.`,
     `- After making changes, briefly confirm what was done and any follow-up needed.`
+  ].join('\n')
+}
+
+function buildKnowledgeBaseReminder(): string | null {
+  const selectedIds = useKnowledgeStore.getState().selectedDatasetIds
+  if (selectedIds.length === 0) return null
+
+  return [
+    '<system-reminder>',
+    `Knowledge Base: User has selected ${selectedIds.length} knowledge base(s).`,
+    'You MUST call the KnowledgeSearch tool to search the selected knowledge bases BEFORE answering questions that could benefit from the user\'s knowledge base content.',
+    'Base your answer on the retrieved content and cite the source files when available.',
+    'If KnowledgeSearch returns no results, answer using your own knowledge.',
+    '</system-reminder>'
   ].join('\n')
 }
 
@@ -495,6 +506,11 @@ export function buildSystemPrompt(options: {
     const skillsReminder = buildSkillsReminder()
     if (skillsReminder) {
       parts.push(`\n${skillsReminder}`)
+    }
+
+    const knowledgeReminder = buildKnowledgeBaseReminder()
+    if (knowledgeReminder) {
+      parts.push(`\n${knowledgeReminder}`)
     }
 
     // User-Defined Rules

@@ -1,6 +1,6 @@
 import { toolRegistry } from '../agent/tool-registry'
 import { IPC } from '../ipc/channels'
-import { encodeStructuredToolResult, encodeToolError } from './tool-result-format'
+import { encodeToolError } from './tool-result-format'
 import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
 import type { ToolHandler } from './tool-types'
 
@@ -8,7 +8,7 @@ const knowledgeSearchHandler: ToolHandler = {
   definition: {
     name: 'KnowledgeSearch',
     description:
-      '搜索知识库，根据关键词或问题检索相关文档片段。返回最匹配的内容摘要、来源文件和相似度评分。如果用户已选择特定知识库，则只搜索已选的知识库。',
+      '搜索知识库，根据关键词或问题检索相关文档片段。返回最匹配的内容摘要、来源文件和相似度评分。当用户已选择知识库时，你必须在回答问题前优先调用此工具搜索相关知识库内容，基于检索结果回答并引用来源。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -44,7 +44,7 @@ const knowledgeSearchHandler: ToolHandler = {
 
     // No KBs selected — tell agent to proceed without KB results
     if (selectedIds.length === 0) {
-      return encodeStructuredToolResult({ message: '未选择知识库，请使用自有知识回答' })
+      return '未选择知识库，请使用自有知识回答。'
     }
 
     console.log(`[知识库搜索] 开始检索 | query=${query} | selectedIds=${JSON.stringify(selectedIds)}`)
@@ -72,7 +72,7 @@ const knowledgeSearchHandler: ToolHandler = {
 
     const items = result.data ?? []
     if (items.length === 0) {
-      return encodeStructuredToolResult({ message: '未找到相关内容' })
+      return '知识库中未找到与该问题相关的内容，请使用自有知识回答。'
     }
 
     const resultText = items
@@ -81,7 +81,11 @@ const knowledgeSearchHandler: ToolHandler = {
           `【结果${i + 1}】来源: ${item.source || '未知'} | 相似度: ${Math.round(item.score * 100)}%\n${item.content}`
       )
       .join('\n\n---\n\n')
-    return encodeStructuredToolResult({ query, results: resultText, count: items.length })
+    return [
+      `以下是知识库检索结果（共 ${items.length} 条），请基于以下内容回答用户问题并引用来源：`,
+      '',
+      resultText
+    ].join('\n')
   },
 
   requiresApproval: () => false
