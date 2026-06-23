@@ -52,7 +52,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSwitchToRegis
   };
 
   if (showRegister) {
-    return <RegisterModal onClose={onClose} onSwitchToLogin={() => setShowRegister(false)} />;
+    return <RegisterModal onSwitchToLogin={() => setShowRegister(false)} />;
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

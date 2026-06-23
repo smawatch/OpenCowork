@@ -66,6 +66,18 @@ const xiaomiTextModels: AIModelConfig[] = [
     supportsFunctionCall: true,
     supportsThinking: true,
     thinkingConfig: xiaomiThinkingConfig
+  },
+  {
+    id: 'mimo-v2.5-pro-ultraspeed',
+    name: 'MiMo V2.5 Pro UltraSpeed',
+    icon: 'mimo',
+    enabled: true,
+    contextLength: 1_000_000,
+    maxOutputTokens: 131_072,
+    supportsVision: false,
+    supportsFunctionCall: true,
+    supportsThinking: true,
+    thinkingConfig: xiaomiThinkingConfig
   }
 ]
 
@@ -119,6 +131,12 @@ export const xiaomiPreset: BuiltinProviderPreset = {
       inputPrice: 0.1,
       outputPrice: 0.3,
       cacheHitPrice: 0.01
+    },
+    {
+      ...xiaomiTextModels[5],
+      inputPrice: 1.305,
+      outputPrice: 2.61,
+      cacheHitPrice: 0.0108
     }
   ]
 }

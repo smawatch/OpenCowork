@@ -784,7 +784,7 @@ function createTray(): void {
 
   tray = new Tray(getTrayIcon())
 
-  tray.setToolTip('OpenCoWork')
+  tray.setToolTip('CoCoWork')
 
   const contextMenu = Menu.buildFromTemplate([
     {

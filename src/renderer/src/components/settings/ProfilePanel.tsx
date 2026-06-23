@@ -10,7 +10,6 @@ import { IPC } from '@renderer/lib/ipc/channels'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useSettingsStore } from '@renderer/stores/settings-store'
-import { useAuthStore } from '@renderer/stores/auth-store'
 import { resolveIntlLocale } from '@renderer/lib/i18n-language'
 import { toast } from 'sonner'
 import {
@@ -568,7 +567,6 @@ function ActivityHeatmap({
 export function ProfilePanel(): React.JSX.Element {
   const { t, i18n } = useTranslation('settings')
   const settings = useSettingsStore()
-  const authStore = useAuthStore()
   const sessionCount = useChatStore((state) => state.sessions.length)
   const tokenLocale = resolveIntlLocale(i18n.language)
   const today = useMemo(() => startOfDay(new Date()), [])

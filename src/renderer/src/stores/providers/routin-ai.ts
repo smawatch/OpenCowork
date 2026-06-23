@@ -30,6 +30,19 @@ export const routinAiPreset: BuiltinProviderPreset = {
       }
     },
     {
+      id: 'kimi-k2.7-code',
+      name: 'Kimi K2.7 Code',
+      icon: 'kimi',
+      enabled: true,
+      contextLength: 262_144,
+      maxOutputTokens: 32_768,
+      supportsVision: true,
+      supportsFunctionCall: true,
+      inputPrice: 6.5,
+      outputPrice: 27,
+      cacheHitPrice: 1.3
+    },
+    {
       id: 'kimi-k2.5',
       name: 'Kimi K2.5',
       icon: 'kimi',
@@ -95,6 +108,21 @@ export const routinAiPreset: BuiltinProviderPreset = {
       cacheHitPrice: 0.3
     },
     {
+      id: 'glm-5.2',
+      name: 'GLM 5.2',
+      icon: 'chatglm',
+      enabled: true,
+      contextLength: 1_000_000,
+      maxOutputTokens: 131_072,
+      supportsVision: false,
+      supportsFunctionCall: true,
+      supportsThinking: true,
+      thinkingConfig: {
+        bodyParams: { thinking: { type: 'enabled' } },
+        disabledBodyParams: { thinking: { type: 'disabled' } }
+      }
+    },
+    {
       id: 'glm-4.5',
       name: 'GLM 4.5',
       icon: 'chatglm',
@@ -141,6 +169,21 @@ export const routinAiPreset: BuiltinProviderPreset = {
       supportsFunctionCall: true,
       inputPrice: 0.09,
       outputPrice: 0.29,
+      supportsThinking: true,
+      thinkingConfig: {
+        bodyParams: { thinking: { type: 'enabled' } },
+        disabledBodyParams: { thinking: { type: 'disabled' } }
+      }
+    },
+    {
+      id: 'mimo-v2.5-pro-ultraspeed',
+      name: 'MiMo V2.5 Pro UltraSpeed',
+      icon: 'mimo',
+      enabled: true,
+      contextLength: 1_000_000,
+      maxOutputTokens: 131_072,
+      supportsVision: false,
+      supportsFunctionCall: true,
       supportsThinking: true,
       thinkingConfig: {
         bodyParams: { thinking: { type: 'enabled' } },

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface User {
   id: string;
@@ -28,90 +29,102 @@ interface AuthState {
   updateUser: (user: Partial<User>) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: null,
-  isAuthenticated: false,
-  isLoading: false,
-  registrationStatus: 'none',
-
-  checkAuth: async () => {
-    const result = await window.api.authCheck();
-    if (result.authenticated && result.user) {
-      set({ 
-        isAuthenticated: true, 
-        user: result.user,
-        token: localStorage.getItem('authToken')
-      });
-    }
-  },
-
-  login: async (username: string, password: string) => {
-    set({ isLoading: true });
-    try {
-      const result = await window.api.userLogin({ username, password });
-      
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-
-      const { user, tokens } = result.data;
-      localStorage.setItem('authToken', tokens.accessToken);
-      localStorage.setItem('refreshToken', tokens.refreshToken);
-      
-      await window.api.authSaveToken(tokens.accessToken);
-
-      set({
-        isAuthenticated: true,
-        user,
-        token: tokens.accessToken,
-        isLoading: false
-      });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  register: async (data: { username: string; email: string }) => {
-    set({ isLoading: true });
-    try {
-      const result = await window.api.userRegister(data);
-      
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-
-      // Registration succeeded — account is pending activation by admin
-      set({
-        registrationStatus: 'pending',
-        isLoading: false
-      });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  resetRegistration: () => {
-    set({ registrationStatus: 'none' });
-  },
-
-  logout: async () => {
-    await window.api.authClear();
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
-    
-    set({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
       user: null,
       token: null,
-      isAuthenticated: false
-    });
-  },
+      isAuthenticated: false,
+      isLoading: false,
+      registrationStatus: 'none',
 
-  updateUser: (userData: Partial<User>) => {
-    set((state) => ({
-      user: state.user ? { ...state.user, ...userData } : null
-    }));
-  }
-}));
+      checkAuth: async () => {
+        const result = await window.api.authCheck();
+        if (result.authenticated && result.user) {
+          set({ 
+            isAuthenticated: true, 
+            user: result.user,
+            token: localStorage.getItem('authToken')
+          });
+        }
+      },
+
+      login: async (username: string, password: string) => {
+        set({ isLoading: true });
+        try {
+          const result = await window.api.userLogin({ username, password });
+          
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          const { user, tokens } = result.data;
+          localStorage.setItem('authToken', tokens.accessToken);
+          localStorage.setItem('refreshToken', tokens.refreshToken);
+          
+          await window.api.authSaveToken(tokens.accessToken);
+
+          set({
+            isAuthenticated: true,
+            user,
+            token: tokens.accessToken,
+            isLoading: false
+          });
+        } catch (error) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
+      register: async (data: { username: string; email: string }) => {
+        set({ isLoading: true });
+        try {
+          const result = await window.api.userRegister(data);
+          
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          // Registration succeeded — account is pending activation by admin
+          set({
+            registrationStatus: 'pending',
+            isLoading: false
+          });
+        } catch (error) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
+      resetRegistration: () => {
+        set({ registrationStatus: 'none' });
+      },
+
+      logout: async () => {
+        await window.api.authClear();
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false
+        });
+      },
+
+      updateUser: (userData: Partial<User>) => {
+        set((state) => ({
+          user: state.user ? { ...state.user, ...userData } : null
+        }));
+      }
+    }),
+    {
+      name: 'auth-storage',
+      partialize: (state) => ({ 
+        user: state.user, 
+        token: state.token, 
+        isAuthenticated: state.isAuthenticated 
+      }),
+    }
+  )
+);

@@ -84,7 +84,14 @@
     "clarify": "澄清",
     "cowork": "协作",
     "code": "编程",
-    "acp": "ACP"
+    "acp": "ACP",
+    "descriptions": {
+      "chat": "快速对话，不调用项目工具",
+      "clarify": "厘清需求，先产出可评审计划",
+      "cowork": "边规划边执行，与你协同验证",
+      "code": "专注动手编码实现",
+      "acp": "负责架构设计并委派子代理"
+    }
   },
   "onboarding": {
     "start": "开始",
@@ -257,7 +264,11 @@
       "delayed": "已推迟更新",
       "downloadedTitle": "更新已下载",
       "downloadedDescription": "版本 {{version}} 将在重启后安装",
-      "failed": "更新失败"
+      "failed": "更新失败",
+      "restartTitle": "更新准备就绪",
+      "restartDescription": "新版本 ({{version}}) 已下载完成。您想立即重启以应用更新，还是稍后重启？",
+      "restartNow": "立即重启",
+      "restartLater": "稍后重启"
     },
     "errors": {
       "unhandledTitle": "未处理的错误"

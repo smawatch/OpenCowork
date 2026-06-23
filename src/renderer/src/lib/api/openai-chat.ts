@@ -15,7 +15,8 @@ import { getGlobalPromptCacheKey, registerProvider } from './provider'
 import { sanitizeMessagesForToolReplay } from '../tools/tool-input-sanitizer'
 import {
   summarizeOpenAITextAndImages,
-  supportsOpenAIImageParts
+  supportsOpenAIImageParts,
+  type OpenAIImageReference
 } from '../../../../shared/openai-message-support'
 import {
   extractOpenAIChatToolCallFragments,
@@ -154,6 +155,15 @@ function buildOpenAIChatImagePart(block: Extract<ContentBlock, { type: 'image' }
   return url ? { type: 'image_url', image_url: { url } } : null
 }
 
+function getOpenAIImageReference(
+  block: Extract<ContentBlock, { type: 'image' }>
+): OpenAIImageReference {
+  return {
+    ...(block.source.filePath ? { filePath: block.source.filePath } : {}),
+    ...(block.source.type === 'url' && block.source.url ? { url: block.source.url } : {})
+  }
+}
+
 function formatOpenAIChatToolResultContent(
   content: Extract<ContentBlock, { type: 'tool_result' }>['content']
 ): unknown {
@@ -168,7 +178,11 @@ function formatOpenAIChatToolResultContent(
 
   // Chat-compatible tool messages are text-only on many OpenAI-compatible backends.
   if (imageBlocks.length > 0 && !supportsOpenAIImageParts('chat-completions', 'tool')) {
-    return summarizeOpenAITextAndImages(textParts, imageBlocks.length)
+    return summarizeOpenAITextAndImages(
+      textParts,
+      imageBlocks.length,
+      imageBlocks.map(getOpenAIImageReference)
+    )
   }
 
   return [
@@ -187,6 +201,28 @@ class OpenAIChatProvider implements APIProvider {
     config: ProviderConfig,
     signal?: AbortSignal
   ): AsyncIterable<StreamEvent> {
+    // 打印请求日志
+    console.log('[OpenAIChat] === 对话请求开始 ===');
+    console.log('[OpenAIChat] Provider ID:', config.providerId);
+    console.log('[OpenAIChat] Model:', config.model);
+    console.log('[OpenAIChat] Base URL:', config.baseUrl);
+    console.log('[OpenAIChat] Messages count:', messages.length);
+    console.log('[OpenAIChat] Tools count:', tools.length);
+    console.log('[OpenAIChat] Session ID:', config.sessionId);
+    
+    // 打印消息概览
+    messages.forEach((msg, index) => {
+      const preview = typeof msg.content === 'string' 
+        ? msg.content.substring(0, 100) 
+        : `[${Array.isArray(msg.content) ? msg.content.length : 'object'}]`;
+      console.log(`[OpenAIChat] Message[${index}] role=${msg.role}, content=${preview}`);
+    });
+    
+    // 打印工具信息
+    if (tools.length > 0) {
+      console.log('[OpenAIChat] Tools:', tools.map(t => t.name).join(', '));
+    }
+
     let runtimeConfig = config
     let activeAccountId: string | undefined
 
@@ -568,6 +604,14 @@ class OpenAIChatProvider implements APIProvider {
           }
           break
         } catch (err) {
+          // 打印错误日志
+          console.error('[OpenAIChat] === 请求错误 ===');
+          console.error('[OpenAIChat] Error:', err);
+          if (err instanceof Error) {
+            console.error('[OpenAIChat] Error message:', err.message);
+            console.error('[OpenAIChat] Error stack:', err.stack);
+          }
+          
           if (
             !authRefreshRetryUsed &&
             config.providerId &&
@@ -621,6 +665,17 @@ class OpenAIChatProvider implements APIProvider {
     } finally {
       clearCompatTerminalTimer()
       signal?.removeEventListener('abort', abortRelay)
+      
+      // 打印请求完成日志
+      const duration = Date.now() - requestStartedAt;
+      console.log('[OpenAIChat] === 对话请求完成 ===');
+      console.log('[OpenAIChat] Duration:', duration, 'ms');
+      console.log('[OpenAIChat] TTFT:', firstTokenAt ? firstTokenAt - requestStartedAt : 'N/A', 'ms');
+      console.log('[OpenAIChat] Output tokens:', outputTokens);
+      if (outputTokens > 0 && firstTokenAt) {
+        const tps = ((outputTokens / (duration - (firstTokenAt - requestStartedAt))) * 1000).toFixed(2);
+        console.log('[OpenAIChat] TPS:', tps);
+      }
     }
   }
 
@@ -717,8 +772,23 @@ class OpenAIChatProvider implements APIProvider {
       // Handle assistant with tool_use blocks
       const toolUses = blocks.filter((b) => b.type === 'tool_use')
       const textBlocks = blocks.filter((b) => b.type === 'text')
+      const imageBlocks = blocks.filter(
+        (b): b is Extract<ContentBlock, { type: 'image' }> => b.type === 'image'
+      )
       const thinkingBlocks = blocks.filter((b) => b.type === 'thinking')
       const textContent = textBlocks.map((b) => (b.type === 'text' ? b.text : '')).join('')
+      const imageReferenceText =
+        imageBlocks.length > 0
+          ? summarizeOpenAITextAndImages(
+              [],
+              imageBlocks.length,
+              imageBlocks.map(getOpenAIImageReference)
+            )
+          : ''
+      const assistantTextContent = [textContent, imageReferenceText]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join('\n\n')
       const reasoningContent = thinkingBlocks
         .map((b) => (b.type === 'thinking' ? b.thinking : ''))
         .join('')
@@ -734,7 +804,7 @@ class OpenAIChatProvider implements APIProvider {
         : undefined
 
       const hasAssistantPayload =
-        textContent.length > 0 ||
+        assistantTextContent.length > 0 ||
         reasoningContent.length > 0 ||
         !!googleThinkingSignature ||
         toolUses.length > 0
@@ -743,7 +813,7 @@ class OpenAIChatProvider implements APIProvider {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const msg: any = {
         role: 'assistant',
-        content: textContent.length > 0 ? textContent : null
+        content: assistantTextContent.length > 0 ? assistantTextContent : null
       }
       if (reasoningContent) msg.reasoning_content = reasoningContent
       if (googleThinkingSignature) {
