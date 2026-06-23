@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid'
 import { toolRegistry } from '../tool-registry'
 import type { AgentLoopConfig } from '../types'
 import { MessageQueue } from '../types'
-import type { ProviderConfig, UnifiedMessage } from '../../api/types'
+import type { MessageRequestModelMeta, ProviderConfig, UnifiedMessage } from '../../api/types'
 import type { SubAgentRunConfig, SubAgentResult } from './types'
 import { createSubAgentPromptMessage } from './input-message'
 import { buildRuntimeCompression } from '../context-compression-runtime'
@@ -21,6 +21,12 @@ import {
 import { resolveSubAgentMaxTurns } from './limits'
 import { useProviderStore } from '../../../stores/provider-store'
 import { useSettingsStore } from '../../../stores/settings-store'
+import { withSubAgentRuntimeCachePolicy } from './runtime-cache-policy'
+import { buildParallelToolCallsPrompt } from '../parallel-tool-calls-prompt'
+import {
+  appendSystemPromptSection,
+  resolveSubAgentWorkspaceProtocolPrompt
+} from './workspace-protocol'
 
 const READ_ONLY_SET = new Set([
   'Read',
@@ -72,7 +78,8 @@ function hasUsableProviderConfig(
 
 function resolveSubAgentProviderConfig(
   parentProvider: ProviderConfig,
-  definition: SubAgentRunConfig['definition']
+  definition: SubAgentRunConfig['definition'],
+  options: { sessionId?: string | null; runScopeId?: string | null } = {}
 ): ProviderConfig {
   const providerStore = useProviderStore.getState()
   const settings = useSettingsStore.getState()
@@ -80,7 +87,7 @@ function resolveSubAgentProviderConfig(
   const baseProvider = hasUsableProviderConfig(fastProvider) ? fastProvider : parentProvider
   const model = baseProvider.model
 
-  return {
+  const providerConfig: ProviderConfig = {
     ...baseProvider,
     systemPrompt: definition.systemPrompt,
     model,
@@ -95,6 +102,29 @@ function resolveSubAgentProviderConfig(
             baseProvider.responsesSessionScope ?? parentProvider.responsesSessionScope
         }
       : {})
+  }
+
+  return withSubAgentRuntimeCachePolicy(providerConfig, {
+    agentName: definition.name,
+    sessionId: options.sessionId ?? baseProvider.sessionId ?? parentProvider.sessionId,
+    runScopeId: options.runScopeId ?? definition.name
+  })
+}
+
+function buildRequestModelMeta(providerConfig: ProviderConfig): MessageRequestModelMeta {
+  const providers = useProviderStore.getState().providers
+  const provider = providerConfig.providerId
+    ? providers.find((item) => item.id === providerConfig.providerId)
+    : null
+  const model = provider?.models.find((item) => item.id === providerConfig.model) ?? null
+
+  return {
+    providerId: providerConfig.providerId ?? null,
+    providerName: provider?.name ?? null,
+    providerBuiltinId: providerConfig.providerBuiltinId ?? provider?.builtinId ?? null,
+    modelId: providerConfig.model,
+    modelName: model?.name ?? providerConfig.model,
+    modelIcon: model?.icon ?? null
   }
 }
 
@@ -120,6 +150,25 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
     onEvent
   })
 
+  const innerProvider = resolveSubAgentProviderConfig(parentProvider, definition, {
+    sessionId: toolContext.sessionId,
+    runScopeId: toolUseId
+  })
+  const workspaceProtocolPrompt = await resolveSubAgentWorkspaceProtocolPrompt({
+    ipc: toolContext.ipc,
+    workingFolder: toolContext.workingFolder,
+    sshConnectionId: toolContext.sshConnectionId,
+    scope: toolContext.pluginId ? 'channel' : 'main'
+  })
+  const innerSystemPrompt = appendSystemPromptSection(
+    appendSystemPromptSection(
+      innerProvider.systemPrompt ?? definition.systemPrompt,
+      buildParallelToolCallsPrompt()
+    ),
+    workspaceProtocolPrompt
+  )
+  innerProvider.systemPrompt = innerSystemPrompt
+  const requestModel = buildRequestModelMeta(innerProvider)
   const promptMessage = createSubAgentPromptMessage(input, Date.now(), definition.initialPrompt)
   onEvent?.({
     type: 'sub_agent_start',
@@ -131,7 +180,7 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
 
   const { tools: resolvedInnerTools, invalidTools } = resolveSubAgentTools(
     definition,
-    toolRegistry.getDefinitions()
+    toolRegistry.getStableDefinitions()
   )
 
   // Inject the SubmitReport tool so the sub-agent can explicitly end its own
@@ -147,15 +196,13 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
   const innerTools =
     resolvedInnerTools.length > 0 ? [...resolvedInnerTools, submitReportTool.definition] : []
 
-  const innerProvider = resolveSubAgentProviderConfig(parentProvider, definition)
-
   const compression = buildRuntimeCompression(innerProvider, innerAbort.signal)
 
   const loopConfig: AgentLoopConfig = {
     maxIterations: resolveSubAgentMaxTurns(definition.maxTurns),
     provider: innerProvider,
     tools: innerTools,
-    systemPrompt: definition.systemPrompt,
+    systemPrompt: innerSystemPrompt,
     workingFolder: toolContext.workingFolder,
     signal: innerAbort.signal,
     messageQueue,
@@ -277,7 +324,8 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
                   id: nanoid(),
                   role: 'assistant',
                   content: '',
-                  createdAt: Date.now()
+                  createdAt: Date.now(),
+                  meta: { requestModel }
                 }
               })
               break
@@ -372,7 +420,8 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
                 subAgentName: definition.name,
                 toolUseId,
                 usage: event.usage,
-                providerResponseId: event.providerResponseId
+                providerResponseId: event.providerResponseId,
+                requestModel
               })
               break
 

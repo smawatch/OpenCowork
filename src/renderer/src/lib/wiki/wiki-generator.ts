@@ -203,7 +203,7 @@ function validateTreeStructure(nodes: WikiTreeNodeDraft[]): WikiTreeNodeDraft[] 
 }
 
 function pickToolDefs(names: string[], extra: ToolDefinition[] = []): ToolDefinition[] {
-  const defs = toolRegistry.getDefinitions().filter((tool) => names.includes(tool.name))
+  const defs = toolRegistry.getStableDefinitions().filter((tool) => names.includes(tool.name))
   return [...defs, ...extra]
 }
 

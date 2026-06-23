@@ -18,7 +18,17 @@ import {
   Ellipsis,
   Command,
   Target,
-  Puzzle
+  Puzzle,
+  Activity,
+  Brain,
+  CheckCircle2,
+  Clock,
+  ImageIcon,
+  RefreshCcw,
+  ShieldAlert,
+  Users,
+  Wrench,
+  type LucideIcon
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -31,11 +41,25 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { useProviderStore, modelSupportsVision } from '@renderer/stores/provider-store'
-import type { AIModelConfig, SelectedFileReference } from '@renderer/lib/api/types'
+import type {
+  AIModelConfig,
+  RequestTiming,
+  SelectedFileReference,
+  TokenUsage,
+  UnifiedMessage
+} from '@renderer/lib/api/types'
 import { useSettingsStore } from '@renderer/stores/settings-store'
 import { updateWebSearchToolRegistration } from '@renderer/lib/tools'
 import { useUIStore, type AppMode } from '@renderer/stores/ui-store'
-import { formatTokens } from '@renderer/lib/format-tokens'
+import {
+  estimateTokens,
+  formatCacheHitRate,
+  formatTokens,
+  getBillableInputTokens,
+  getCacheCreationTokens,
+  getCacheHitRate
+} from '@renderer/lib/format-tokens'
+import { formatDurationMs } from '@renderer/lib/format-duration'
 import {
   getEffectiveContextWindow,
   resolveCompressionContextLength,
@@ -45,6 +69,7 @@ import {
 import { useDebouncedTokens } from '@renderer/hooks/use-estimated-tokens'
 import { usePromptRecommendation } from '@renderer/hooks/use-prompt-recommendation'
 import { useChatStore } from '@renderer/stores/chat-store'
+import { useAgentStore } from '@renderer/stores/agent-store'
 import {
   getSessionInputDraftKey,
   hasInputDraftContent,
@@ -83,8 +108,9 @@ import {
 import { SkillsMenu } from './SkillsMenu'
 import { ModelSwitcher } from './ModelSwitcher'
 import { FileAwareEditor, type FileAwareEditorHandle } from './FileAwareEditor'
+import { TokenCounter } from './TokenCounter'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
-import { useMcpStore } from '@renderer/stores/mcp-store'
+import { resolveEffectiveActiveMcpIds, useMcpStore } from '@renderer/stores/mcp-store'
 import { usePlanStore } from '@renderer/stores/plan-store'
 import { useGoalStore } from '@renderer/stores/goal-store'
 import { useSkillsStore } from '@renderer/stores/skills-store'
@@ -293,9 +319,19 @@ function ContextRing({
 function ActiveMcpsBadge({ projectId }: { projectId?: string | null }): React.JSX.Element | null {
   const { t } = useTranslation('chat')
   const activeMcpIdsByProject = useMcpStore((s) => s.activeMcpIdsByProject)
-  const activeMcpIds = activeMcpIdsByProject[projectId ?? '__global__'] ?? []
   const servers = useMcpStore((s) => s.servers)
+  const serverStatuses = useMcpStore((s) => s.serverStatuses)
   const serverTools = useMcpStore((s) => s.serverTools)
+  const activeMcpIds = React.useMemo(
+    () =>
+      resolveEffectiveActiveMcpIds({
+        projectId,
+        activeMcpIdsByProject,
+        servers,
+        serverStatuses
+      }),
+    [activeMcpIdsByProject, projectId, serverStatuses, servers]
+  )
   if (activeMcpIds.length === 0) return null
   const activeServers = servers.filter((s) => activeMcpIds.includes(s.id))
   return (
@@ -372,6 +408,547 @@ const FALLBACK_MAX_VIEWPORT_RATIO = 0.6
 const MAX_SLASH_COMMAND_RESULTS = 8
 const BUILTIN_SLASH_COMMANDS: CommandCatalogItem[] = []
 type ContextCompressionStatus = 'idle' | 'compressing' | ManualCompressionResult
+
+interface RuntimeOutputSnapshot {
+  text: string
+  hasTextOutput: boolean
+  hasActiveThinking: boolean
+}
+
+type RuntimeMetricTone = 'input' | 'cacheHit' | 'cacheCreate' | 'output' | 'speed' | 'latency'
+
+interface RuntimeStatusView {
+  text: string
+  Icon: LucideIcon
+  className: string
+  spin?: boolean
+}
+
+interface RuntimeUsageTotals {
+  inputTokens: number
+  outputTokens: number
+  billableInputTokens: number
+  cacheReadTokens: number
+  cacheCreationTokens: number
+  latestRequestTiming: RequestTiming | null
+}
+
+function normalizeTokenCount(value: number | null | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 0
+  return Math.floor(value)
+}
+
+function toFinitePositiveNumber(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+function getLatestRequestTiming(usage: TokenUsage | undefined): RequestTiming | null {
+  const timings = usage?.requestTimings
+  if (!timings?.length) return null
+  for (let index = timings.length - 1; index >= 0; index -= 1) {
+    const timing = timings[index]
+    if (
+      toFinitePositiveNumber(timing?.ttftMs) !== null ||
+      toFinitePositiveNumber(timing?.tps) !== null
+    ) {
+      return timing
+    }
+  }
+  return null
+}
+
+function formatRuntimeThroughput(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  return value >= 100 ? value.toFixed(1) : value.toFixed(2)
+}
+
+function formatRuntimeTtft(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0s'
+  if (ms < 10_000) return `${(ms / 1000).toFixed(2)}s`
+  return formatDurationMs(ms)
+}
+
+function createEmptyRuntimeUsageTotals(): RuntimeUsageTotals {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    billableInputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+    latestRequestTiming: null
+  }
+}
+
+function getBillableInputForUsage(usage: TokenUsage): number {
+  return normalizeTokenCount(getBillableInputTokens(usage))
+}
+
+function addUsageToTotals(totals: RuntimeUsageTotals, usage: TokenUsage | undefined): void {
+  if (!usage) return
+  totals.inputTokens += normalizeTokenCount(usage.inputTokens)
+  totals.outputTokens += normalizeTokenCount(usage.outputTokens)
+  totals.billableInputTokens += getBillableInputForUsage(usage)
+  totals.cacheReadTokens += normalizeTokenCount(usage.cacheReadTokens)
+  totals.cacheCreationTokens += normalizeTokenCount(getCacheCreationTokens(usage))
+  totals.latestRequestTiming = getLatestRequestTiming(usage) ?? totals.latestRequestTiming
+}
+
+function collectRuntimeOutputSnapshot(
+  content: UnifiedMessage['content'] | undefined
+): RuntimeOutputSnapshot {
+  if (!content) {
+    return { text: '', hasTextOutput: false, hasActiveThinking: false }
+  }
+
+  if (typeof content === 'string') {
+    return {
+      text: content,
+      hasTextOutput: content.trim().length > 0,
+      hasActiveThinking: false
+    }
+  }
+
+  const parts: string[] = []
+  let hasTextOutput = false
+  let hasActiveThinking = false
+
+  for (const block of content) {
+    if (block.type === 'text') {
+      if (block.text) {
+        parts.push(block.text)
+        hasTextOutput = hasTextOutput || block.text.trim().length > 0
+      }
+      continue
+    }
+
+    if (block.type === 'thinking') {
+      if (block.thinking) {
+        parts.push(block.thinking)
+      }
+      if (!block.completedAt && block.thinking.trim().length > 0) {
+        hasActiveThinking = true
+      }
+    }
+  }
+
+  return {
+    text: parts.join('\n'),
+    hasTextOutput,
+    hasActiveThinking
+  }
+}
+
+function SmoothTokenNumber({
+  value,
+  animate = true,
+  duration = 650
+}: {
+  value: number
+  animate?: boolean
+  duration?: number
+}): React.JSX.Element {
+  const safeValue = normalizeTokenCount(value)
+  const previousValueRef = React.useRef(safeValue)
+  const startFrom =
+    animate && safeValue > previousValueRef.current ? previousValueRef.current : safeValue
+
+  React.useEffect(() => {
+    previousValueRef.current = safeValue
+  }, [safeValue])
+
+  return (
+    <TokenCounter
+      target={safeValue}
+      startFrom={startFrom}
+      duration={duration}
+      animate={animate && safeValue !== startFrom}
+    />
+  )
+}
+
+const metricToneClasses: Record<RuntimeMetricTone, string> = {
+  input: 'text-sky-500/85 dark:text-sky-300/85',
+  cacheHit: 'text-emerald-500/85 dark:text-emerald-300/85',
+  cacheCreate: 'text-amber-500/90 dark:text-amber-300/90',
+  output: 'text-violet-500/85 dark:text-violet-300/85',
+  speed: 'text-cyan-500/85 dark:text-cyan-300/85',
+  latency: 'text-rose-500/80 dark:text-rose-300/80'
+}
+
+function RuntimeMetric({
+  label,
+  value,
+  tone,
+  animate = true,
+  duration = 600,
+  suffix
+}: {
+  label: string
+  value: number
+  tone: RuntimeMetricTone
+  animate?: boolean
+  duration?: number
+  suffix?: string
+}): React.JSX.Element {
+  return (
+    <span className="shrink-0">
+      <span className="text-muted-foreground/60">{label}</span>{' '}
+      <span className={cn('tabular-nums font-medium', metricToneClasses[tone])}>
+        <SmoothTokenNumber value={value} animate={animate} duration={duration} />
+      </span>
+      {suffix && <span className="ml-0.5 tabular-nums text-muted-foreground/50">{suffix}</span>}
+    </span>
+  )
+}
+
+function RuntimeTextMetric({
+  label,
+  value,
+  tone,
+  suffix
+}: {
+  label: string
+  value: string
+  tone: RuntimeMetricTone
+  suffix?: string
+}): React.JSX.Element {
+  return (
+    <span className="shrink-0">
+      <span className="text-muted-foreground/60">{label}</span>{' '}
+      <span className={cn('tabular-nums font-medium', metricToneClasses[tone])}>{value}</span>
+      {suffix && <span className="ml-0.5 tabular-nums text-muted-foreground/50">{suffix}</span>}
+    </span>
+  )
+}
+
+interface ComposerRuntimeStatusProps {
+  sessionId: string
+  isStreaming: boolean
+  draftInputTokens: number
+  isOptimizing?: boolean
+  pendingImageReads?: number
+  contextCompressionStatus: ContextCompressionStatus
+  contextCompressionStatusLabel: string
+  className?: string
+}
+
+function ComposerRuntimeStatus({
+  sessionId,
+  isStreaming,
+  draftInputTokens,
+  isOptimizing = false,
+  pendingImageReads = 0,
+  contextCompressionStatus,
+  contextCompressionStatusLabel,
+  className
+}: ComposerRuntimeStatusProps): React.JSX.Element {
+  const { t } = useTranslation('chat')
+  const live = useChatStore(
+    useShallow((s) => {
+      const targetSessionId = sessionId
+      const streamingMessageId = s.streamingMessages[targetSessionId] ?? null
+      const idx = s.sessionsById[targetSessionId]
+      const totals = createEmptyRuntimeUsageTotals()
+      const message =
+        idx !== undefined && streamingMessageId
+          ? s.sessions[idx]?.messages.find((item) => item.id === streamingMessageId)
+          : undefined
+      const messages = idx !== undefined ? s.sessions[idx]?.messages : undefined
+      if (messages) {
+        for (const item of messages) {
+          addUsageToTotals(totals, item.usage)
+        }
+      }
+      const messageIndex =
+        messages && streamingMessageId
+          ? messages.findIndex((item) => item.id === streamingMessageId)
+          : -1
+      let previousUserMessage: UnifiedMessage | undefined
+      if (messages && messageIndex > 0) {
+        for (let index = messageIndex - 1; index >= 0; index -= 1) {
+          if (messages[index]?.role === 'user') {
+            previousUserMessage = messages[index]
+            break
+          }
+        }
+      }
+
+      return {
+        targetSessionId,
+        streamingMessageId,
+        content: message?.content,
+        previousUserContent: previousUserMessage?.content,
+        revision: message?._revision ?? 0,
+        currentInputTokens: normalizeTokenCount(message?.usage?.inputTokens),
+        currentOutputTokens: normalizeTokenCount(message?.usage?.outputTokens),
+        currentContextTokens: normalizeTokenCount(message?.usage?.contextTokens),
+        cumulativeInputTokens: totals.inputTokens,
+        cumulativeOutputTokens: totals.outputTokens,
+        cumulativeBillableInputTokens: totals.billableInputTokens,
+        cumulativeCacheReadTokens: totals.cacheReadTokens,
+        cumulativeCacheCreationTokens: totals.cacheCreationTokens,
+        latestRequestTiming: totals.latestRequestTiming,
+        isGeneratingImage: streamingMessageId
+          ? Boolean(s.generatingImageMessages[streamingMessageId])
+          : false
+      }
+    })
+  )
+  const targetSessionId = live.targetSessionId
+  const agentRuntime = useAgentStore(
+    useShallow((s) => {
+      const useLiveBuckets = targetSessionId === s.liveSessionId
+      const cache = targetSessionId ? s.sessionToolCallsCache[targetSessionId] : undefined
+      const subAgentCache = targetSessionId
+        ? s.sessionSubAgentLiveCache[targetSessionId]
+        : undefined
+      const pending = useLiveBuckets ? s.pendingToolCalls : (cache?.pending ?? [])
+      const executed = useLiveBuckets ? s.executedToolCalls : (cache?.executed ?? [])
+      const activeSubAgents = useLiveBuckets ? s.activeSubAgents : (subAgentCache?.active ?? {})
+      const allToolCalls = [...pending, ...executed]
+      const activeTool = [...allToolCalls]
+        .reverse()
+        .find((toolCall) => toolCall.status === 'streaming' || toolCall.status === 'running')
+      const pendingApprovalTool = pending.find((toolCall) => toolCall.status === 'pending_approval')
+      const activeSubAgentCount = Object.values(activeSubAgents).filter(
+        (subAgent) => subAgent.isRunning
+      ).length
+
+      return {
+        sessionStatus: targetSessionId ? (s.runningSessions[targetSessionId] ?? null) : null,
+        retryAttempt: targetSessionId
+          ? (s.sessionRequestRetryState[targetSessionId]?.attempt ?? null)
+          : null,
+        retryMaxAttempts: targetSessionId
+          ? (s.sessionRequestRetryState[targetSessionId]?.maxAttempts ?? null)
+          : null,
+        activeToolName: activeTool?.name ?? null,
+        pendingApprovalToolName: pendingApprovalTool?.name ?? null,
+        activeSubAgentCount
+      }
+    })
+  )
+  const outputSnapshot = collectRuntimeOutputSnapshot(live.content)
+  const estimatedOutputTokens = React.useMemo(
+    () => estimateTokens(outputSnapshot.text),
+    [outputSnapshot.text]
+  )
+  const previousUserInputSnapshot = collectRuntimeOutputSnapshot(live.previousUserContent)
+  const previousUserInputTokens = React.useMemo(
+    () => estimateTokens(previousUserInputSnapshot.text),
+    [previousUserInputSnapshot.text]
+  )
+  const currentEstimatedInputTokens = Math.max(
+    live.currentInputTokens,
+    live.currentContextTokens,
+    draftInputTokens,
+    previousUserInputTokens
+  )
+  const pendingInputTokens =
+    isStreaming && live.currentInputTokens === 0 ? currentEstimatedInputTokens : draftInputTokens
+  const inputTokens = live.cumulativeBillableInputTokens + pendingInputTokens
+  const outputTokens =
+    live.cumulativeOutputTokens +
+    (isStreaming ? Math.max(0, estimatedOutputTokens - live.currentOutputTokens) : 0)
+  const cacheReadTokens = live.cumulativeCacheReadTokens
+  const cacheCreationTokens = live.cumulativeCacheCreationTokens
+  const cacheHitRate = getCacheHitRate(inputTokens, cacheReadTokens)
+  const latestTps = toFinitePositiveNumber(live.latestRequestTiming?.tps)
+  const latestTtftMs = toFinitePositiveNumber(live.latestRequestTiming?.ttftMs)
+  const statusView = React.useMemo<RuntimeStatusView>(() => {
+    if (isOptimizing) {
+      return {
+        text: t('input.runtimeStatus.optimizing', { defaultValue: 'Optimizing' }),
+        Icon: Sparkles,
+        className: 'text-violet-500/80 dark:text-violet-300/80'
+      }
+    }
+    if (pendingImageReads > 0) {
+      return {
+        text: t('input.runtimeStatus.loadingMedia', { defaultValue: 'Loading media' }),
+        Icon: ImageIcon,
+        className: 'text-amber-500/85 dark:text-amber-300/85'
+      }
+    }
+    if (contextCompressionStatus !== 'idle' && contextCompressionStatusLabel) {
+      return {
+        text: contextCompressionStatusLabel,
+        Icon: contextCompressionStatus === 'compressed' ? CheckCircle2 : RefreshCcw,
+        className:
+          contextCompressionStatus === 'compressed'
+            ? 'text-emerald-500/80 dark:text-emerald-300/80'
+            : contextCompressionStatus === 'failed'
+              ? 'text-red-500/80 dark:text-red-300/80'
+              : 'text-amber-500/85 dark:text-amber-300/85',
+        spin: contextCompressionStatus === 'compressing'
+      }
+    }
+    if (agentRuntime.pendingApprovalToolName) {
+      return {
+        text: t('input.runtimeStatus.awaitingApproval', {
+          defaultValue: 'Awaiting approval: {{tool}}',
+          tool: agentRuntime.pendingApprovalToolName
+        }),
+        Icon: ShieldAlert,
+        className: 'text-amber-500/90 dark:text-amber-300/90'
+      }
+    }
+    if (agentRuntime.sessionStatus === 'retrying') {
+      const attempt =
+        agentRuntime.retryAttempt && agentRuntime.retryMaxAttempts
+          ? `${agentRuntime.retryAttempt}/${agentRuntime.retryMaxAttempts}`
+          : ''
+      return {
+        text: t('input.runtimeStatus.retrying', {
+          defaultValue: 'Retrying {{attempt}}',
+          attempt
+        }).trim(),
+        Icon: RefreshCcw,
+        className: 'text-amber-500/90 dark:text-amber-300/90',
+        spin: true
+      }
+    }
+    if (live.isGeneratingImage) {
+      return {
+        text: t('input.runtimeStatus.generatingImage', { defaultValue: 'Generating image' }),
+        Icon: ImageIcon,
+        className: 'text-violet-500/80 dark:text-violet-300/80'
+      }
+    }
+    if (agentRuntime.activeToolName) {
+      return {
+        text: t('input.runtimeStatus.runningTool', {
+          defaultValue: 'Running {{tool}}',
+          tool: agentRuntime.activeToolName
+        }),
+        Icon: Wrench,
+        className: 'text-sky-500/85 dark:text-sky-300/85'
+      }
+    }
+    if (agentRuntime.activeSubAgentCount > 0) {
+      return {
+        text: t('input.runtimeStatus.runningSubAgents', {
+          defaultValue: '{{count}} sub-agents running',
+          count: agentRuntime.activeSubAgentCount
+        }),
+        Icon: Users,
+        className: 'text-cyan-500/85 dark:text-cyan-300/85'
+      }
+    }
+    if (isStreaming && outputSnapshot.hasActiveThinking && !outputSnapshot.hasTextOutput) {
+      return {
+        text: t('input.runtimeStatus.thinking', { defaultValue: 'Thinking' }),
+        Icon: Brain,
+        className: 'text-violet-500/85 dark:text-violet-300/85'
+      }
+    }
+    if (isStreaming && (outputTokens > 0 || outputSnapshot.hasTextOutput)) {
+      return {
+        text: t('input.runtimeStatus.receiving', { defaultValue: 'Receiving' }),
+        Icon: Activity,
+        className: 'text-emerald-500/85 dark:text-emerald-300/85'
+      }
+    }
+    if (isStreaming) {
+      return {
+        text: t('input.runtimeStatus.waiting', { defaultValue: 'Waiting' }),
+        Icon: Clock,
+        className: 'text-sky-500/80 dark:text-sky-300/80'
+      }
+    }
+    return {
+      text: t('input.runtimeStatus.ready', { defaultValue: 'Ready' }),
+      Icon: CheckCircle2,
+      className: 'text-muted-foreground/55'
+    }
+  }, [
+    agentRuntime.activeSubAgentCount,
+    agentRuntime.activeToolName,
+    agentRuntime.pendingApprovalToolName,
+    agentRuntime.retryAttempt,
+    agentRuntime.retryMaxAttempts,
+    agentRuntime.sessionStatus,
+    contextCompressionStatus,
+    contextCompressionStatusLabel,
+    isOptimizing,
+    isStreaming,
+    live.isGeneratingImage,
+    outputSnapshot.hasActiveThinking,
+    outputSnapshot.hasTextOutput,
+    outputTokens,
+    pendingImageReads,
+    t
+  ])
+  const StatusIcon = statusView.Icon
+
+  return (
+    <div
+      className={cn(
+        'flex min-h-4 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[10px] leading-4 text-muted-foreground/65',
+        className
+      )}
+      aria-live={isStreaming ? 'polite' : 'off'}
+    >
+      <RuntimeMetric
+        label={t('input.runtimeMetrics.input', { defaultValue: 'Uncached input' })}
+        value={inputTokens}
+        tone="input"
+        animate={isStreaming}
+        duration={520}
+      />
+      <span className="shrink-0 text-muted-foreground/35">/</span>
+      <RuntimeMetric
+        label={t('input.runtimeMetrics.cacheHit', { defaultValue: 'Cache hit' })}
+        value={cacheReadTokens}
+        tone="cacheHit"
+        animate={isStreaming}
+        duration={620}
+        suffix={formatCacheHitRate(cacheHitRate)}
+      />
+      <span className="shrink-0 text-muted-foreground/35">/</span>
+      <RuntimeMetric
+        label={t('input.runtimeMetrics.cacheCreate', { defaultValue: 'Cache write' })}
+        value={cacheCreationTokens}
+        tone="cacheCreate"
+        animate={isStreaming}
+        duration={620}
+      />
+      <span className="shrink-0 text-muted-foreground/35">/</span>
+      <RuntimeMetric
+        label={t('input.runtimeMetrics.output', { defaultValue: 'Output' })}
+        value={outputTokens}
+        tone="output"
+        animate
+        duration={760}
+      />
+      {latestTps !== null && (
+        <>
+          <span className="shrink-0 text-muted-foreground/35">/</span>
+          <RuntimeTextMetric
+            label={t('input.runtimeMetrics.tps', { defaultValue: 'TPS' })}
+            value={formatRuntimeThroughput(latestTps)}
+            tone="speed"
+          />
+        </>
+      )}
+      {latestTtftMs !== null && (
+        <>
+          <span className="shrink-0 text-muted-foreground/35">/</span>
+          <RuntimeTextMetric
+            label={t('input.runtimeMetrics.ttft', { defaultValue: 'TTFT' })}
+            value={formatRuntimeTtft(latestTtftMs)}
+            tone="latency"
+          />
+        </>
+      )}
+      <span className="shrink-0 text-muted-foreground/35">/</span>
+      <span className={cn('inline-flex min-w-0 items-center gap-1 truncate', statusView.className)}>
+        <StatusIcon className={cn('size-3 shrink-0', statusView.spin && 'animate-spin')} />
+        <span className="min-w-0 truncate">{statusView.text}</span>
+      </span>
+    </div>
+  )
+}
 
 function getAppPluginPromptContent(pluginId: AppPluginId): string {
   if (pluginId === PRODUCT_DESIGN_PLUGIN_ID) {
@@ -3392,28 +3969,6 @@ export function InputArea({
                   isCompressing={isContextCompressing}
                 />
 
-                {contextCompressionStatus !== 'idle' && (
-                  <span
-                    className={cn(
-                      'composer-status-pill inline-flex max-w-[150px] items-center gap-1 rounded-full px-2 py-1 text-[10px]',
-                      contextCompressionStatus === 'compressed' && 'text-emerald-500',
-                      contextCompressionStatus === 'failed' && 'text-red-500',
-                      (contextCompressionStatus === 'blocked' ||
-                        contextCompressionStatus === 'skipped') &&
-                        'text-amber-500'
-                    )}
-                  >
-                    {isContextCompressing && <Spinner className="size-3" />}
-                    <span className="truncate">{contextCompressionStatusLabel}</span>
-                  </span>
-                )}
-
-                {debouncedTokens > 0 && (
-                  <span className="select-none tabular-nums text-[10px] text-muted-foreground/60">
-                    {formatTokens(debouncedTokens)} tokens
-                  </span>
-                )}
-
                 {showInlineClearConversation && hasMessages && !isStreaming && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -3468,6 +4023,19 @@ export function InputArea({
             </div>
           </div>
         </div>
+
+        {draftSessionId && (
+          <ComposerRuntimeStatus
+            sessionId={draftSessionId}
+            isStreaming={isStreaming}
+            draftInputTokens={debouncedTokens}
+            isOptimizing={isOptimizing}
+            pendingImageReads={pendingImageReads}
+            contextCompressionStatus={contextCompressionStatus}
+            contextCompressionStatusLabel={contextCompressionStatusLabel}
+            className="mt-1.5 px-3"
+          />
+        )}
       </div>
     </div>
   )

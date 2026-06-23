@@ -107,6 +107,21 @@ type LazySyntaxHighlighterProps = Record<string, unknown> & {
   className?: string
   customStyle?: React.CSSProperties
   codeTagProps?: React.HTMLAttributes<HTMLElement>
+  showLineNumbers?: boolean
+  startingLineNumber?: number
+  lineNumberStyle?: React.CSSProperties
+  lineProps?:
+    | React.HTMLAttributes<HTMLSpanElement>
+    | ((lineNumber: number) => React.HTMLAttributes<HTMLSpanElement>)
+  wrapLongLines?: boolean
+}
+
+function resolveLineProps(
+  lineProps: LazySyntaxHighlighterProps['lineProps'],
+  lineNumber: number
+): React.HTMLAttributes<HTMLSpanElement> {
+  if (typeof lineProps === 'function') return lineProps(lineNumber) ?? {}
+  return lineProps ?? {}
 }
 
 export function LazySyntaxHighlighter({
@@ -115,34 +130,87 @@ export function LazySyntaxHighlighter({
   className,
   customStyle,
   codeTagProps,
+  showLineNumbers,
+  startingLineNumber,
+  lineNumberStyle,
+  lineProps,
+  wrapLongLines,
   ...rest
 }: LazySyntaxHighlighterProps): React.JSX.Element {
   const { resolvedTheme } = useTheme()
   const normalizedLanguage = normalizeLanguage(language)
+  // Prism markdown wraps fenced code blocks as multi-line tokens, which collides with line numbers.
+  const forcePlainText = normalizedLanguage === 'markdown' && showLineNumbers === true
   const canHighlight =
-    normalizedLanguage !== 'plaintext' && Object.hasOwn(LANGUAGE_GRAMMARS, normalizedLanguage)
+    !forcePlainText &&
+    normalizedLanguage !== 'plaintext' &&
+    Object.hasOwn(LANGUAGE_GRAMMARS, normalizedLanguage)
 
   if (!canHighlight) {
+    const shouldShowLineNumbers = showLineNumbers === true
+    const firstLineNumber = typeof startingLineNumber === 'number' ? startingLineNumber : 1
+    const lines = children.split('\n')
+    const whiteSpace = wrapLongLines ? 'pre-wrap' : shouldShowLineNumbers ? 'pre' : 'pre-wrap'
+    const wordBreak = wrapLongLines ? 'break-word' : shouldShowLineNumbers ? 'normal' : 'break-all'
+
     return (
       <pre
         className={className ?? 'text-xs'}
         style={{
           margin: 0,
           overflowX: 'auto',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
+          background: 'var(--muted)',
+          color: 'var(--foreground)',
+          whiteSpace,
+          wordBreak,
           ...(customStyle ?? {})
         }}
       >
         <code
           {...codeTagProps}
           style={{
+            display: 'block',
+            minWidth: shouldShowLineNumbers && !wrapLongLines ? 'max-content' : undefined,
             fontFamily: 'inherit',
             fontSize: 'inherit',
             ...(codeTagProps?.style ?? {})
           }}
         >
-          {children}
+          {shouldShowLineNumbers
+            ? lines.map((line, index) => {
+                const lineNumber = firstLineNumber + index
+                const resolvedLineProps = resolveLineProps(lineProps, lineNumber)
+
+                return (
+                  <span
+                    key={index}
+                    {...resolvedLineProps}
+                    style={{
+                      display: 'block',
+                      whiteSpace,
+                      ...(resolvedLineProps.style ?? {})
+                    }}
+                  >
+                    <span
+                      className="react-syntax-highlighter-line-number"
+                      style={{
+                        display: 'inline-block',
+                        minWidth: '1.25em',
+                        paddingRight: '1em',
+                        textAlign: 'right',
+                        userSelect: 'none',
+                        color: 'var(--muted-foreground)',
+                        opacity: 0.72,
+                        ...(lineNumberStyle ?? {})
+                      }}
+                    >
+                      {lineNumber}
+                    </span>
+                    <span>{line}</span>
+                  </span>
+                )
+              })
+            : children}
         </code>
       </pre>
     )
@@ -155,6 +223,11 @@ export function LazySyntaxHighlighter({
       className={className}
       customStyle={customStyle}
       codeTagProps={codeTagProps}
+      showLineNumbers={showLineNumbers}
+      startingLineNumber={startingLineNumber}
+      lineNumberStyle={lineNumberStyle}
+      lineProps={lineProps}
+      wrapLongLines={wrapLongLines}
       {...rest}
     >
       {children}

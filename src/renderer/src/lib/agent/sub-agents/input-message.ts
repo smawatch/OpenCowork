@@ -14,6 +14,7 @@ Structure the \`report\` argument with these sections:
 ## Conclusion
 ## Key Findings
 ## Evidence
+## Validation
 ## Risks / Unknowns
 ## Next Steps`
 

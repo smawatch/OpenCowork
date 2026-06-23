@@ -6,7 +6,6 @@ import {
   XCircle,
   Copy,
   Check,
-  Loader2,
   Square,
   FileCode,
   Search,
@@ -30,7 +29,6 @@ import {
   HelpCircle,
   Code2,
   BookOpen,
-  Wrench,
   Folder,
   File,
   Clock,
@@ -633,109 +631,49 @@ export function WidgetOutputBlock({
     }
   }, [postWidgetCode, sendMessage])
 
-  if (isExecuting && !payload?.widgetCode) {
-    const title =
-      typeof input.title === 'string' && input.title.trim() ? input.title.trim() : 'widget'
-    const chars =
-      typeof input.widget_code_chars === 'number'
-        ? input.widget_code_chars
-        : typeof input.widget_code === 'string'
-          ? input.widget_code.length
-          : null
-    return (
-      <div className="my-2 rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        <div className="font-medium text-foreground/75">{title}</div>
-        <div className="mt-0.5 text-[11px]">
-          {chars !== null
-            ? t('toolCall.widget.renderingWithChars', { chars })
-            : t('toolCall.widget.rendering')}
-        </div>
+  if (!payload) return null
+  if (!payload.widgetCode) {
+    return isExecuting ? null : (
+      <div className="my-2 text-xs text-muted-foreground/60">
+        {t('toolCall.widget.waitingCode')}
       </div>
     )
   }
 
-  if (!payload) return null
-
-  const isPending = isExecuting && !loaded && !payload.widgetCode
+  const isPending = isExecuting && !loaded
   const loadingMessage = loadingMessages[loadingIndex] ?? defaultLoadingMessage
-  const widgetChars =
-    typeof input.widget_code_chars === 'number'
-      ? input.widget_code_chars
-      : payload.widgetCode
-        ? payload.widgetCode.length
-        : null
-  const stageLabel = isExecuting
-    ? payload.widgetCode
-      ? t('toolCall.widget.rendering')
-      : t('toolCall.receivingArgs')
-    : t('toolCall.widget.rendered')
 
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-border/50 bg-background/60 shadow-[0_10px_30px_rgba(15,23,42,0.04)] dark:border-white/[0.08] dark:bg-white/[0.025] dark:shadow-none">
-      <div className="flex items-center justify-between gap-3 border-b border-border/50 px-3 py-2 dark:border-white/[0.08]">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300">
-            {isExecuting ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Code2 className="size-3.5" />
-            )}
-          </span>
-          <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold text-foreground/88">
-              {payload.title}
-            </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground/65">
-              <span>{stageLabel}</span>
-              <span>{payload.kind.toUpperCase()}</span>
-              {widgetChars !== null ? (
-                <span>{t('toolCall.charCount', { count: widgetChars })}</span>
-              ) : null}
-            </div>
-          </div>
-        </div>
-        {!isExecuting ? (
-          <span className="hidden items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 sm:inline-flex dark:text-emerald-300">
-            <Check className="size-3" />
-            {t('toolCall.widget.renderComplete')}
-          </span>
-        ) : null}
-      </div>
+    <div className="my-2">
       <div
         className="relative overflow-hidden bg-transparent"
         style={{ width: '100%', border: 'none', backgroundColor: 'transparent' }}
       >
-        {payload.widgetCode ? (
-          <div
-            className="w-full overflow-hidden bg-transparent leading-none"
-            style={{ lineHeight: 0, fontSize: 0 }}
-          >
-            <iframe
-              key={frameKey}
-              ref={iframeRef}
-              title={payload.title}
-              sandbox="allow-scripts allow-forms"
-              srcDoc={buildWidgetDocument(payload)}
-              className="block border-0 bg-transparent transition-[height] duration-200"
-              style={{
-                width: 'calc(100% + 1px)',
-                height: `${frameHeight}px`,
-                marginRight: '-1px',
-                verticalAlign: 'top',
-                backgroundColor: 'transparent',
-                colorScheme: 'dark'
-              }}
-            />
-            {payload.kind === 'svg' ? <SvgWidgetCopyButton svg={payload.widgetCode} /> : null}
-          </div>
-        ) : (
-          <div className="flex h-48 items-center justify-center text-xs text-muted-foreground/60">
-            {t('toolCall.widget.waitingCode')}
-          </div>
-        )}
+        <div
+          className="w-full overflow-hidden bg-transparent leading-none"
+          style={{ lineHeight: 0, fontSize: 0 }}
+        >
+          <iframe
+            key={frameKey}
+            ref={iframeRef}
+            title={payload.title}
+            sandbox="allow-scripts allow-forms"
+            srcDoc={buildWidgetDocument(payload)}
+            className="block border-0 bg-transparent transition-[height] duration-200"
+            style={{
+              width: 'calc(100% + 1px)',
+              height: `${frameHeight}px`,
+              marginRight: '-1px',
+              verticalAlign: 'top',
+              backgroundColor: 'transparent',
+              colorScheme: 'dark'
+            }}
+          />
+          {payload.kind === 'svg' ? <SvgWidgetCopyButton svg={payload.widgetCode} /> : null}
+        </div>
         {isPending && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-[1px]">
-            <div className="rounded-md border border-border/60 bg-background/90 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+            <div className="rounded-md bg-background/90 px-3 py-2 text-xs text-muted-foreground shadow-sm">
               {loadingMessage}
             </div>
           </div>
@@ -2740,7 +2678,6 @@ const COMPACT_BUILTIN_TOOL_NAMES = new Set([
   'Glob',
   'Grep',
   'LS',
-  'ListMcpResourcesTool',
   'MemoryList',
   'MemoryRead',
   'MemorySearch',
@@ -2749,15 +2686,12 @@ const COMPACT_BUILTIN_TOOL_NAMES = new Set([
   'Notify',
   'PowerShell',
   'Read',
-  'ReadMcpResourceTool',
   'SavePlan',
   'Skill',
   'TaskCreate',
   'TaskGet',
   'TaskList',
   'TaskUpdate',
-  'TodoWrite',
-  'ToolSearch',
   'WebFetch',
   'WebSearch',
   'WikiGetDocumentByName',
@@ -2886,7 +2820,7 @@ function getBuiltinToolIcon(name: string): React.ReactNode {
   if (['Write', 'SavePlan'].includes(name)) return <FileCode className="size-3.5" />
   if (['Edit', 'NotebookEdit'].includes(name)) return <FileCode className="size-3.5" />
   if (name === 'Delete') return <Trash2 className="size-3.5" />
-  if (name.startsWith('Task') || name === 'TodoWrite') return <ListTodo className="size-3.5" />
+  if (name.startsWith('Task')) return <ListTodo className="size-3.5" />
   if (name.startsWith('Cron')) return <CalendarClock className="size-3.5" />
   if (name === 'Notify') return <Bell className="size-3.5" />
   if (name === 'AskUserQuestion') return <HelpCircle className="size-3.5" />
@@ -2899,8 +2833,6 @@ function getBuiltinToolIcon(name: string): React.ReactNode {
     if (name === 'BrowserSnapshot') return <Monitor className="size-3.5" />
     return <Globe2 className="size-3.5" />
   }
-  if (name.includes('McpResource')) return <Database className="size-3.5" />
-  if (name === 'ToolSearch') return <Wrench className="size-3.5" />
   if (name === 'Monitor') return <SquareTerminal className="size-3.5" />
   if (name === 'EnterPlanMode') return <LogIn className="size-3.5" />
   if (name === 'ExitPlanMode') return <LogOut className="size-3.5" />
@@ -2913,14 +2845,13 @@ function getBuiltinToolIcon(name: string): React.ReactNode {
 
 function getToolNamespace(name: string): string {
   if (['Read', 'Write', 'Edit', 'NotebookEdit', 'LS', 'Delete'].includes(name)) return 'files'
-  if (['Glob', 'Grep', 'ToolSearch'].includes(name)) return 'search'
+  if (['Glob', 'Grep'].includes(name)) return 'search'
   if (COMMAND_TOOL_NAMES.has(name) || name === 'Monitor') return 'shell'
   if (name.startsWith('Browser') || name === 'WebSearch' || name === 'WebFetch') return 'web'
-  if (name.startsWith('Task') || name === 'TodoWrite') return 'tasks'
+  if (name.startsWith('Task')) return 'tasks'
   if (name.startsWith('Cron')) return 'cron'
   if (name.startsWith('Memory')) return 'memory'
   if (name.startsWith('Wiki')) return 'wiki'
-  if (name.includes('McpResource')) return 'mcp'
   if (name.endsWith('goal')) return 'goal'
   if (name === 'visualize_show_widget') return 'widget'
   if (name === 'Notify') return 'notify'
@@ -3085,7 +3016,7 @@ function buildCompactToolHeaderModel({
     }
   }
 
-  if (name.startsWith('Task') || name === 'TodoWrite') {
+  if (name.startsWith('Task')) {
     const taskTitle = firstStringInput(input, ['title', 'subject', 'name', 'content'])
     const taskId = firstStringInput(input, ['taskId', 'task_id', 'id'])
     const taskStatus = firstStringInput(input, ['status', 'state'])
@@ -3158,9 +3089,6 @@ function buildCompactToolHeaderModel({
   if (
     [
       'Notify',
-      'ListMcpResourcesTool',
-      'ReadMcpResourceTool',
-      'ToolSearch',
       'Monitor',
       'EnterPlanMode',
       'ExitPlanMode',
@@ -3222,12 +3150,35 @@ function ToolCallCardInner({
   const { t } = useTranslation('chat')
   const isProcessing = status === 'streaming' || status === 'running'
   const isActive = isProcessing || status === 'pending_approval'
+  const toolNamePulseClass =
+    status === 'running'
+      ? 'tool-name-live-pulse tool-name-live-pulse--running'
+      : status === 'streaming'
+        ? 'tool-name-live-pulse tool-name-live-pulse--streaming'
+        : null
   const hasVisualOutput = hasImageBlocks(output)
-  const [open, setOpen] = React.useState(isActive || hasVisualOutput)
+  const isReadTextTool = name === 'Read' && !hasVisualOutput
+  const [open, setOpen] = React.useState((isActive && !isReadTextTool) || hasVisualOutput)
+  // Text Read output can be large; only mount it after the user opens the Read card.
+  const [readTextOutputRevealed, setReadTextOutputRevealed] = React.useState(false)
   const prevIsActiveRef = React.useRef(isActive)
+  const toggleOpen = React.useCallback(() => {
+    if (name === 'Read' && !open) {
+      setReadTextOutputRevealed(true)
+    }
+    setOpen((current) => !current)
+  }, [name, open])
+
   React.useEffect(() => {
     if (hasVisualOutput) {
       setOpen(true)
+      prevIsActiveRef.current = isActive
+      return
+    }
+    if (isReadTextTool) {
+      if (!readTextOutputRevealed) {
+        setOpen(false)
+      }
       prevIsActiveRef.current = isActive
       return
     }
@@ -3235,7 +3186,7 @@ function ToolCallCardInner({
       setOpen(false)
     }
     prevIsActiveRef.current = isActive
-  }, [hasVisualOutput, isActive])
+  }, [hasVisualOutput, isActive, isReadTextTool, readTextOutputRevealed])
   const outputText = React.useMemo(() => outputAsString(output), [output])
   const extensionToolResult = React.useMemo(() => parseExtensionToolResult(output), [output])
   const summary = React.useMemo(
@@ -3319,7 +3270,7 @@ function ToolCallCardInner({
     >
       {/* Header — click to toggle */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         className={cn(
           useCompactToolHeader
             ? 'group w-full rounded-lg p-0 text-left transition-colors'
@@ -3339,7 +3290,7 @@ function ToolCallCardInner({
         ) : (
           <>
             <ToolStatusDot status={status} />
-            <span className="font-medium">{displayName}</span>
+            <span className={cn('font-medium', toolNamePulseClass)}>{displayName}</span>
             {isProcessing && !error && (
               <>
                 {name === 'Write' && (input.file_path || input.path) ? (
@@ -3504,6 +3455,7 @@ function ToolCallCardInner({
                     output &&
                     name === 'Read' &&
                     !hasImageBlocks(output) &&
+                    readTextOutputRevealed &&
                     outputText && (
                       <ReadOutputBlock
                         output={outputText}

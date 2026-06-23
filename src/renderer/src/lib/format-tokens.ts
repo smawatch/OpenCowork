@@ -31,13 +31,23 @@ export function formatTokensDecimal(n: number): string {
 
 export function getBillableInputTokens(
   usage: TokenUsage,
-  requestType?: ProviderType | AIModelConfig['type']
+  _requestType?: ProviderType | AIModelConfig['type']
 ): number {
   if (usage.billableInputTokens != null) return usage.billableInputTokens
-  if (requestType === 'openai-responses') {
-    return Math.max(0, usage.inputTokens - (usage.cacheReadTokens ?? 0))
-  }
-  return usage.inputTokens ?? 0
+  return Math.max(
+    0,
+    (usage.inputTokens ?? 0) -
+      Math.max(0, usage.cacheReadTokens ?? 0) -
+      getCacheCreationTokens(usage)
+  )
+}
+
+export function getCacheCreationTokens(usage: Partial<TokenUsage> | null | undefined): number {
+  if (!usage) return 0
+  const direct = Math.max(0, usage.cacheCreationTokens ?? 0)
+  const detailed =
+    Math.max(0, usage.cacheCreation5mTokens ?? 0) + Math.max(0, usage.cacheCreation1hTokens ?? 0)
+  return Math.max(direct, detailed)
 }
 
 export function getCacheHitRate(billableInputTokens: number, cacheReadTokens: number): number {
@@ -51,6 +61,27 @@ export function getCacheHitRate(billableInputTokens: number, cacheReadTokens: nu
   return safeCacheReadTokens / totalInputTokens
 }
 
+export function getCacheReadRatio(inputTokens: number, cacheReadTokens: number): number {
+  const safeInputTokens = Number.isFinite(inputTokens) ? Math.max(0, inputTokens) : 0
+  const safeCacheReadTokens = Number.isFinite(cacheReadTokens) ? Math.max(0, cacheReadTokens) : 0
+
+  if (safeInputTokens <= 0) return 0
+  return Math.min(1, safeCacheReadTokens / safeInputTokens)
+}
+
+export function formatCacheHitRate(rate: number): string {
+  const safeRate = Number.isFinite(rate) ? Math.min(1, Math.max(0, rate)) : 0
+  const percent = Math.round(safeRate * 1000) / 10
+  return `${Number.isInteger(percent) ? percent.toFixed(0) : percent.toFixed(1)}%`
+}
+
+export function getUsageCacheHitRate(
+  usage: TokenUsage,
+  requestType?: ProviderType | AIModelConfig['type']
+): number {
+  return getCacheHitRate(getBillableInputTokens(usage, requestType), usage.cacheReadTokens ?? 0)
+}
+
 export function getBillableTotalTokens(
   usage: TokenUsage,
   requestType?: ProviderType | AIModelConfig['type']
@@ -62,9 +93,7 @@ export function resolveCacheCreationCost(
   usage: TokenUsage,
   model: AIModelConfig | null | undefined
 ): { price: number | null; cost: number | null } {
-  const totalCacheCreationTokens =
-    usage.cacheCreationTokens ??
-    (usage.cacheCreation5mTokens ?? 0) + (usage.cacheCreation1hTokens ?? 0)
+  const totalCacheCreationTokens = getCacheCreationTokens(usage)
 
   if (totalCacheCreationTokens <= 0) {
     return {
@@ -113,9 +142,7 @@ export function calculateCost(
   if (!model || model.inputPrice == null || model.outputPrice == null) return null
 
   const cacheRead = usage.cacheReadTokens ?? 0
-  const cacheCreationTokens =
-    usage.cacheCreationTokens ??
-    (usage.cacheCreation5mTokens ?? 0) + (usage.cacheCreation1hTokens ?? 0)
+  const cacheCreationTokens = getCacheCreationTokens(usage)
   const billableInput = getBillableInputTokens(usage, model.type)
   const cacheReadPrice = model.cacheHitPrice ?? model.inputPrice * 0.1
   const { cost: cacheCreationCost } = resolveCacheCreationCost(usage, model)

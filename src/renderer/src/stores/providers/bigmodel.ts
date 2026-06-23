@@ -14,8 +14,19 @@ export const bigmodelCodingPreset: BuiltinProviderPreset = {
   homepage: 'https://bigmodel.cn/glm-coding',
   apiKeyUrl: 'https://bigmodel.cn/usercenter/apikeys',
   defaultEnabled: false,
-  defaultModel: 'glm-4.7',
+  defaultModel: 'glm-5.2',
   defaultModels: [
+    {
+      id: 'glm-5.2',
+      name: 'GLM-5.2',
+      icon: 'bigmodel',
+      enabled: true,
+      contextLength: 1_000_000,
+      maxOutputTokens: 131_072,
+      supportsFunctionCall: true,
+      supportsThinking: true,
+      thinkingConfig: glmThinkingConfig()
+    },
     {
       id: 'glm-5.1',
       name: 'GLM-5.1',
@@ -70,9 +81,21 @@ export const bigmodelPreset: BuiltinProviderPreset = {
   defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
   homepage: 'https://bigmodel.cn',
   apiKeyUrl: 'https://bigmodel.cn/usercenter/apikeys',
-  defaultModel: 'glm-5.1',
+  defaultModel: 'glm-5.2',
   defaultModels: [
     // GLM-5 series
+    {
+      id: 'glm-5.2',
+      name: 'GLM-5.2',
+      icon: 'bigmodel',
+      enabled: true,
+      contextLength: 1_000_000,
+      maxOutputTokens: 131_072,
+      supportsVision: false,
+      supportsFunctionCall: true,
+      supportsThinking: true,
+      thinkingConfig: glmThinkingConfig()
+    },
     {
       id: 'glm-5.1',
       name: 'GLM-5.1',
@@ -87,18 +110,6 @@ export const bigmodelPreset: BuiltinProviderPreset = {
       inputPrice: 1.395,
       outputPrice: 4.4,
       cacheHitPrice: 0.3
-    },
-    {
-      id: 'glm-5.2',
-      name: 'GLM-5.2',
-      icon: 'bigmodel',
-      enabled: true,
-      contextLength: 1_000_000,
-      maxOutputTokens: 131_072,
-      supportsVision: false,
-      supportsFunctionCall: true,
-      supportsThinking: true,
-      thinkingConfig: glmThinkingConfig()
     },
     {
       id: 'glm-5',

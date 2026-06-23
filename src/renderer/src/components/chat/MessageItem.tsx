@@ -174,6 +174,7 @@ function MessageItemInner({
             hiddenToolUseIds={hiddenToolUseIds}
             requestRetryState={isLastAssistantMessage ? requestRetryState : null}
             requestDebugInfo={message.debugInfo}
+            meta={message.meta}
           />
         )
       case 'system':

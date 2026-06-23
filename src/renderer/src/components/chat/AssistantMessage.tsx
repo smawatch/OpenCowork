@@ -30,7 +30,8 @@ import {
   Pencil,
   Volume2,
   Share2,
-  GitFork
+  GitFork,
+  CircleHelp
 } from 'lucide-react'
 import { FadeIn, ScaleIn } from '@renderer/components/animate-ui'
 import { cn } from '@renderer/lib/utils'
@@ -50,7 +51,8 @@ import type {
   UnifiedMessage,
   TokenUsage,
   ToolResultContent,
-  RequestDebugInfo
+  RequestDebugInfo,
+  MessageMeta
 } from '@renderer/lib/api/types'
 import { useSettingsStore } from '@renderer/stores/settings-store'
 import { ToolCallCard, WidgetOutputBlock } from './ToolCallCard'
@@ -68,11 +70,10 @@ import { TASK_TOOL_NAME } from '@renderer/lib/agent/sub-agents/create-tool'
 import { TEAM_TOOL_NAMES } from '@renderer/lib/agent/teams/register'
 import { useProviderStore } from '@renderer/stores/provider-store'
 import {
-  formatTokens,
-  calculateCost,
-  formatCost,
   getBillableInputTokens,
-  getBillableTotalTokens
+  getCacheCreationTokens,
+  getUsageCacheHitRate,
+  formatCacheHitRate
 } from '@renderer/lib/format-tokens'
 import { formatDurationMs } from '@renderer/lib/format-duration'
 import { useMemoizedTokens } from '@renderer/hooks/use-estimated-tokens'
@@ -94,6 +95,7 @@ import {
 import { isBrowserToolName } from '@renderer/lib/app-plugin/browser-tool-names'
 import { LazySyntaxHighlighter } from './LazySyntaxHighlighter'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@renderer/components/ui/hover-card'
 import { aggregateDisplayableRunFileChanges } from './file-change-utils'
 import type { AggregatedFileChange } from './file-change-utils'
 import { decodeStructuredToolResult } from '@renderer/lib/tools/tool-result-format'
@@ -117,6 +119,7 @@ import {
 } from '@renderer/lib/preview/viewers/markdown-components'
 import { imageBlockToAttachment } from '@renderer/lib/image-attachments'
 import { useImageEditStore } from '@renderer/stores/image-edit-store'
+import { ModelIcon } from '@renderer/components/settings/provider-icons'
 
 type AssistantRenderMode = 'default' | 'transcript' | 'static'
 
@@ -142,6 +145,7 @@ interface AssistantMessageProps {
   hiddenToolUseIds?: Set<string>
   requestRetryState?: RequestRetryState | null
   requestDebugInfo?: RequestDebugInfo
+  meta?: MessageMeta
 }
 
 type AssistantRenderItem =
@@ -156,6 +160,11 @@ interface InlineCompactSummaryEntry {
   message: UnifiedMessage
   afterContentBlockCount: number
   afterToolUseId?: string
+}
+
+interface ModelThinkingIndicatorProps {
+  modelName: string
+  label: string
 }
 
 const MARKDOWN_WRAPPER_CLASS = 'text-sm leading-relaxed text-foreground break-words'
@@ -471,45 +480,175 @@ function toFiniteNumber(value: unknown): number | null {
   return null
 }
 
-interface CompletionMetricItem {
+interface CompletionTokenSegment {
+  key: string
+  label: string
+  value: number
+  color: string
+}
+
+interface CompletionDetailRow {
   key: string
   label: string
   value: string
-  tone?: 'default' | 'success'
+  color?: string
+  hint?: string
 }
 
-function CompletionSummaryBar({ items }: { items: CompletionMetricItem[] }): React.JSX.Element {
+interface CompletionSummaryData {
+  totalTokens: number
+  totalValue: string
+  estimated: boolean
+  modelName?: string | null
+  modelId?: string | null
+  modelIcon?: string
+  providerName?: string | null
+  providerBuiltinId?: string
+  segments: CompletionTokenSegment[]
+  tokenRows: CompletionDetailRow[]
+  metricRows: CompletionDetailRow[]
+}
+
+function formatTokenMetric(value: number): string {
+  const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0
+  if (safeValue < 1_000) return String(Math.round(safeValue))
+  if (safeValue < 1_000_000) return `${(safeValue / 1_000).toFixed(1)}K`
+  return `${(safeValue / 1_000_000).toFixed(safeValue < 10_000_000 ? 2 : 1)}M`
+}
+
+function formatPreciseDurationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0s'
+  if (ms < 10_000) return `${(ms / 1000).toFixed(2)}s`
+  return formatDurationMs(ms)
+}
+
+function formatThroughput(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  return value >= 100 ? value.toFixed(1) : value.toFixed(2)
+}
+
+function CompletionTokenSummary({
+  summary
+}: {
+  summary: CompletionSummaryData
+}): React.JSX.Element {
   const { t } = useTranslation('chat')
+  const totalForSegments = summary.segments.reduce((sum, segment) => sum + segment.value, 0)
+  const showDetails = summary.tokenRows.length > 0 || summary.metricRows.length > 0
+  const triggerTitle = t('assistantMessage.tokenTotal', {
+    defaultValue: 'Token total'
+  })
+  const trigger = (
+    <button
+      type="button"
+      className="inline-flex h-5 items-center rounded-md px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground/58 transition-colors hover:bg-muted/45 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50 dark:hover:bg-white/[0.045]"
+      title={`${triggerTitle}: ${new Intl.NumberFormat().format(summary.totalTokens)}`}
+    >
+      {summary.estimated ? '~' : ''}
+      {summary.totalValue}
+    </button>
+  )
 
   return (
-    <div className="mt-2 flex max-w-full flex-wrap items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground/70">
-      <span className="inline-flex h-6 items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/[0.07] px-1.5 font-medium text-emerald-700 dark:text-emerald-300">
-        <CheckCircle2 className="size-3" />
-        {t('assistantMessage.completionFinished')}
-      </span>
-      {items.map((item) => (
-        <span
-          key={item.key}
-          className={cn(
-            'inline-flex h-6 min-w-0 max-w-full items-center gap-1 rounded-md border border-border/45 bg-background/65 px-1.5 dark:border-white/[0.08] dark:bg-white/[0.025]',
-            item.tone === 'success' &&
-              'border-emerald-500/18 text-emerald-700 dark:text-emerald-300'
-          )}
-          title={`${item.label}: ${item.value}`}
-        >
-          <span className="shrink-0 text-muted-foreground/55">{item.label}</span>
-          <span
-            className={cn(
-              'min-w-0 truncate font-medium text-foreground/78',
-              item.tone === 'success' && 'text-emerald-700 dark:text-emerald-300'
-            )}
+    <div className="mt-1.5 flex justify-end">
+      {!showDetails ? (
+        trigger
+      ) : (
+        <HoverCard openDelay={120} closeDelay={120}>
+          <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
+          <HoverCardContent
+            side="top"
+            align="end"
+            sideOffset={6}
+            className="w-[280px] rounded-lg border-[#262626] bg-[#101010] p-3 text-zinc-100 shadow-2xl"
           >
-            {item.value}
-          </span>
-        </span>
-      ))}
+            <div className="mb-3 flex min-w-0 items-center gap-2">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#232323] ring-1 ring-white/8">
+                <ModelIcon
+                  icon={summary.modelIcon}
+                  modelId={summary.modelId ?? undefined}
+                  providerBuiltinId={summary.providerBuiltinId}
+                  size={18}
+                />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-xs font-medium leading-4 text-zinc-100">
+                  {summary.modelName ||
+                    t('assistantMessage.tokenUsage', { defaultValue: 'Token usage' })}
+                </div>
+                {summary.providerName || summary.modelId ? (
+                  <div className="truncate text-[10px] leading-3 text-zinc-500">
+                    {summary.providerName ?? summary.modelId}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {totalForSegments > 0 ? (
+              <div className="mb-2 flex h-1.5 overflow-hidden rounded-full bg-zinc-700/85">
+                {summary.segments.map((segment) => {
+                  const width = Math.max(0, (segment.value / totalForSegments) * 100)
+                  if (width <= 0) return null
+                  return (
+                    <span
+                      key={segment.key}
+                      className="h-full"
+                      title={`${segment.label}: ${segment.value}`}
+                      style={{ width: `${width}%`, backgroundColor: segment.color }}
+                    />
+                  )
+                })}
+              </div>
+            ) : null}
+
+            <div className="space-y-1">
+              {summary.tokenRows.map((row) => (
+                <div key={row.key} className="flex items-center justify-between gap-4 text-xs">
+                  <span className="flex min-w-0 items-center gap-1.5 text-zinc-400">
+                    {row.color ? (
+                      <span
+                        className="size-1.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: row.color }}
+                      />
+                    ) : null}
+                    <span className="truncate">{row.label}</span>
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums text-zinc-100">
+                    {row.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {summary.metricRows.length > 0 ? (
+              <div className="mt-2 space-y-1 border-t border-white/9 pt-2">
+                {summary.metricRows.map((row) => (
+                  <div key={row.key} className="flex items-center justify-between gap-4 text-xs">
+                    <span className="flex min-w-0 items-center gap-1.5 text-zinc-400">
+                      <span className="truncate">{row.label}</span>
+                      {row.hint ? (
+                        <CircleHelp
+                          className="size-3 shrink-0 text-zinc-500"
+                          aria-label={row.hint}
+                        />
+                      ) : null}
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums text-zinc-100">
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </HoverCardContent>
+        </HoverCard>
+      )}
     </div>
   )
+}
+
+function CompletionSummaryBar({ summary }: { summary: CompletionSummaryData }): React.JSX.Element {
+  return <CompletionTokenSummary summary={summary} />
 }
 
 function DebugToggleButton({ debugInfo }: { debugInfo: RequestDebugInfo }): React.JSX.Element {
@@ -522,6 +661,25 @@ function DebugToggleButton({ debugInfo }: { debugInfo: RequestDebugInfo }): Reac
       return debugInfo.body
     }
   })()
+  const cacheShapeRows = [
+    { label: 'System hash', value: debugInfo.systemHash },
+    { label: 'Tools hash', value: debugInfo.toolsHash },
+    { label: 'Message prefix hash', value: debugInfo.messagePrefixHash },
+    {
+      label: 'Tool count',
+      value: typeof debugInfo.toolCount === 'number' ? String(debugInfo.toolCount) : undefined
+    },
+    {
+      label: 'Cache read',
+      value:
+        typeof debugInfo.cacheReadRatio === 'number'
+          ? formatCacheHitRate(debugInfo.cacheReadRatio)
+          : undefined
+    }
+  ].filter(
+    (row): row is { label: string; value: string } =>
+      typeof row.value === 'string' && row.value.length > 0
+  )
 
   return (
     <>
@@ -563,6 +721,24 @@ function DebugToggleButton({ debugInfo }: { debugInfo: RequestDebugInfo }): Reac
                 </span>
               </div>
             </div>
+            {cacheShapeRows.length > 0 ? (
+              <div
+                className="space-y-1.5 border-b px-4 py-2 text-[11px]"
+                style={{ fontFamily: MONO_FONT }}
+              >
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Cache Shape
+                </div>
+                <div className="grid gap-1 sm:grid-cols-2">
+                  {cacheShapeRows.map((row) => (
+                    <div key={row.label} className="flex min-w-0 gap-2">
+                      <span className="shrink-0 text-muted-foreground/60">{row.label}</span>
+                      <span className="min-w-0 break-all text-foreground">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {bodyFormatted && (
               <div>
                 <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-1.5">
@@ -673,8 +849,6 @@ function GenerationProcessLine({
       >
         {active ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
       </span>
-      <span className="shrink-0 text-muted-foreground/55">assistant</span>
-      <span className="shrink-0 text-muted-foreground/40">&gt;</span>
       <span className="shrink-0 font-mono font-medium text-foreground/82">{label}</span>
       {detail ? (
         <span className="min-w-0 flex-1 truncate text-muted-foreground/60">({detail})</span>
@@ -703,6 +877,28 @@ function GenerationProcessLine({
   }
 
   return <div className={className}>{content}</div>
+}
+
+function ModelThinkingIndicator({
+  modelName,
+  label
+}: ModelThinkingIndicatorProps): React.JSX.Element {
+  const statusLabel = modelName ? `${modelName} ${label}` : label
+
+  return (
+    <div className="pending-assistant-status" role="status" aria-label={statusLabel}>
+      <span className="pending-assistant-wave" aria-hidden="true">
+        {[0, 1, 2, 3].map((index) => (
+          <span
+            key={index}
+            className="pending-assistant-bar"
+            style={{ animationDelay: `${index * 130}ms` }}
+          />
+        ))}
+      </span>
+      <span className="pending-assistant-label">{label}</span>
+    </div>
+  )
 }
 
 function MermaidImageCopyButton({ svg }: { svg: string }): React.JSX.Element {
@@ -1377,7 +1573,8 @@ export function AssistantMessage({
   orchestrationRun,
   hiddenToolUseIds,
   requestRetryState,
-  requestDebugInfo
+  requestDebugInfo,
+  meta
 }: AssistantMessageProps): React.JSX.Element {
   const { t } = useTranslation('chat')
   const devMode = useSettingsStore((s) => s.devMode)
@@ -1406,6 +1603,29 @@ export function AssistantMessage({
       return {
         providerId: session?.providerId ?? null,
         modelId: session?.modelId ?? null
+      }
+    })
+  )
+  const thinkingModel = useProviderStore(
+    useShallow((state) => {
+      const providerId = sessionModelBinding.providerId ?? state.activeProviderId
+      const provider = providerId ? state.providers.find((item) => item.id === providerId) : null
+      const fallbackModelId =
+        provider?.defaultModel ??
+        provider?.models.find((item) => item.enabled)?.id ??
+        provider?.models[0]?.id ??
+        ''
+      const modelId =
+        sessionModelBinding.modelId ??
+        (provider?.id === state.activeProviderId ? state.activeModelId : fallbackModelId)
+      const model = provider?.models.find((item) => item.id === modelId)
+
+      return {
+        modelId: modelId || null,
+        modelName: model?.name ?? modelId ?? 'AI',
+        modelIcon: model?.icon,
+        providerName: provider?.name ?? null,
+        providerBuiltinId: provider?.builtinId
       }
     })
   )
@@ -1761,10 +1981,11 @@ export function AssistantMessage({
     if (isStreaming && hasEmptyContent) {
       return (
         <div className={liveComponentClassName || undefined}>
-          <GenerationProcessLine
-            active
-            label={t('assistantMessage.generatingResponse')}
-            detail={t('thinking.thinkingEllipsis')}
+          <ModelThinkingIndicator
+            modelName={thinkingModel.modelName}
+            label={t('assistantMessage.thinkingStatus', {
+              defaultValue: 'Thinking...'
+            })}
           />
         </div>
       )
@@ -1782,10 +2003,11 @@ export function AssistantMessage({
         return (
           <div className="space-y-2">
             {isStreaming ? (
-              <GenerationProcessLine
-                active
-                label={t('assistantMessage.generatingResponse')}
-                detail={t('assistantMessage.streamingText')}
+              <ModelThinkingIndicator
+                modelName={thinkingModel.modelName}
+                label={t('assistantMessage.thinkingStatus', {
+                  defaultValue: 'Thinking...'
+                })}
               />
             ) : null}
             <div className={MARKDOWN_WRAPPER_CLASS}>
@@ -1808,10 +2030,11 @@ export function AssistantMessage({
       return (
         <div className="space-y-2">
           {isStreaming ? (
-            <GenerationProcessLine
-              active
-              label={t('assistantMessage.generatingResponse')}
-              detail={t('assistantMessage.streamingText')}
+            <ModelThinkingIndicator
+              modelName={thinkingModel.modelName}
+              label={t('assistantMessage.thinkingStatus', {
+                defaultValue: 'Thinking...'
+              })}
             />
           ) : null}
           {segments.map((seg, idx) => {
@@ -2079,7 +2302,7 @@ export function AssistantMessage({
         liveStatus === 'streaming' || liveStatus === 'running' || liveStatus === 'pending_approval'
       )
     }).length
-    const showProcessLine = showWorkspaceToggle || isStreaming
+    const showProcessLine = showWorkspaceToggle || (isStreaming && workspaceToolCount > 0)
     const processDetail =
       workspaceSummary ||
       (activeWorkspaceToolCount > 0
@@ -2419,121 +2642,210 @@ export function AssistantMessage({
   }, [msgId, onRetry, showRetry])
 
   const requestTrace = msgId ? getRequestTraceInfo(msgId) : undefined
-  const completionSummaryItems = useMemo(() => {
-    const items: CompletionMetricItem[] = []
+  const completionSummary = useMemo<CompletionSummaryData | null>(() => {
+    if (!usage) {
+      if (fallbackTokens <= 0) return null
+      return {
+        totalTokens: fallbackTokens,
+        totalValue: formatTokenMetric(fallbackTokens),
+        estimated: true,
+        modelName: thinkingModel.modelName,
+        modelId: thinkingModel.modelId,
+        modelIcon: thinkingModel.modelIcon,
+        providerName: thinkingModel.providerName,
+        providerBuiltinId: thinkingModel.providerBuiltinId,
+        segments: [],
+        tokenRows: [],
+        metricRows: []
+      }
+    }
 
-    if (usage) {
-      const provider = requestTrace?.providerId
-        ? useProviderStore.getState().providers.find((item) => item.id === requestTrace.providerId)
+    const providerStore = useProviderStore.getState()
+    const providers = providerStore.providers
+    const requestModel = meta?.requestModel
+    const tracedProviderId = requestDebugInfo?.providerId ?? requestTrace?.providerId ?? null
+    const tracedModelId = requestDebugInfo?.model ?? requestTrace?.model ?? null
+    const fastProviderConfig =
+      renderMode === 'transcript' && !requestModel?.providerId && !tracedProviderId
+        ? providerStore.getFastProviderConfig()
         : null
-      const modelCfg = provider?.models.find((item) => item.id === requestTrace?.model) ?? null
-      const total = getBillableTotalTokens(usage, modelCfg?.type)
-      const billableInput = getBillableInputTokens(usage, modelCfg?.type)
-      const cost = calculateCost(usage, modelCfg)
-      const tokenParts = [
-        `${formatTokens(total)} ${t('unit.tokens', { ns: 'common' })}`,
-        `${formatTokens(billableInput)}↓`,
-        `${formatTokens(usage.outputTokens)}↑`
-      ]
+    const fallbackProviderId =
+      requestModel?.providerId ??
+      tracedProviderId ??
+      fastProviderConfig?.providerId ??
+      sessionModelBinding.providerId ??
+      null
+    const provider = fallbackProviderId
+      ? providers.find((item) => item.id === fallbackProviderId)
+      : null
+    const modelId =
+      requestModel?.modelId ??
+      tracedModelId ??
+      fastProviderConfig?.model ??
+      sessionModelBinding.modelId ??
+      thinkingModel.modelId
+    const modelCfg = provider?.models.find((item) => item.id === modelId) ?? null
+    const billableInput = getBillableInputTokens(usage, modelCfg?.type)
+    const cacheRead = Math.max(0, usage.cacheReadTokens ?? 0)
+    const cacheCreation = getCacheCreationTokens(usage)
+    const output = Math.max(0, usage.outputTokens ?? 0)
+    const composedInput = billableInput + cacheRead + cacheCreation
+    const rawInput = Math.max(0, usage.inputTokens ?? 0, composedInput)
+    const totalTokens = rawInput + output
+    const cacheHitRate = getUsageCacheHitRate(usage, modelCfg?.type)
+    const uncachedColor = '#737373'
+    const cacheReadColor = '#f59e0b'
+    const cacheCreationColor = '#a78bfa'
+    const outputColor = '#a3e635'
+    const tokenRows: CompletionDetailRow[] = []
+    const metricRows: CompletionDetailRow[] = []
+    const segments: CompletionTokenSegment[] = []
 
-      items.push({
-        key: 'tokens',
-        label: t('assistantMessage.metricTokens'),
-        value: tokenParts.join(' · ')
+    if (billableInput > 0 || rawInput > 0) {
+      tokenRows.push({
+        key: 'uncached-input',
+        label: t('assistantMessage.uncachedInput', { defaultValue: 'Uncached input' }),
+        value: formatTokenMetric(billableInput),
+        color: uncachedColor
       })
-      if (usage.cacheReadTokens) {
-        items.push({
-          key: 'cache-read',
-          label: t('unit.cached', { ns: 'common' }),
-          value: formatTokens(usage.cacheReadTokens)
-        })
-      }
-      if (usage.reasoningTokens) {
-        items.push({
-          key: 'reasoning',
-          label: t('unit.reasoning', { ns: 'common' }),
-          value: formatTokens(usage.reasoningTokens)
-        })
-      }
-      if (usage.cacheCreationTokens) {
-        items.push({
-          key: 'cache-write',
-          label: t('analytics.cacheCreationTokens', {
-            ns: 'settings',
-            defaultValue: 'cache write'
-          }),
-          value: formatTokens(usage.cacheCreationTokens)
-        })
-      }
-      if (cost !== null) {
-        items.push({
-          key: 'cost',
-          label: t('assistantMessage.metricCost'),
-          value: formatCost(cost),
-          tone: 'success'
-        })
-      }
-    } else if (fallbackTokens > 0) {
-      items.push({
-        key: 'tokens',
-        label: t('assistantMessage.metricTokens'),
-        value: `~${formatTokens(fallbackTokens)} ${t('unit.tokens', { ns: 'common' })}`
+      segments.push({
+        key: 'uncached-input',
+        label: t('assistantMessage.uncachedInput', { defaultValue: 'Uncached input' }),
+        value: billableInput,
+        color: uncachedColor
       })
     }
 
-    const imageGenerationDuration =
-      imageGenerationTiming?.startedAt && imageGenerationTiming.completedAt
-        ? formatDurationMs(imageGenerationTiming.completedAt - imageGenerationTiming.startedAt)
-        : null
-    const totalDuration =
-      imageGenerationDuration ??
-      (usage?.totalDurationMs ? formatDurationMs(usage.totalDurationMs) : null)
-
-    if (totalDuration) {
-      items.push({
-        key: 'total-duration',
-        label: t('assistantMessage.metricTotalDuration'),
-        value: totalDuration
+    if (cacheRead > 0) {
+      tokenRows.push({
+        key: 'cache-read',
+        label: t('assistantMessage.cachedInput', { defaultValue: 'Input cache' }),
+        value: formatTokenMetric(cacheRead),
+        color: cacheReadColor
+      })
+      segments.push({
+        key: 'cache-read',
+        label: t('assistantMessage.cachedInput', { defaultValue: 'Input cache' }),
+        value: cacheRead,
+        color: cacheReadColor
       })
     }
 
-    const perRequest = usage?.requestTimings ?? []
+    if (cacheCreation > 0) {
+      tokenRows.push({
+        key: 'cache-write',
+        label: t('assistantMessage.cacheWrite', { defaultValue: 'Cache write' }),
+        value: formatTokenMetric(cacheCreation),
+        color: cacheCreationColor
+      })
+      segments.push({
+        key: 'cache-write',
+        label: t('assistantMessage.cacheWrite', { defaultValue: 'Cache write' }),
+        value: cacheCreation,
+        color: cacheCreationColor
+      })
+    }
+
+    if (output > 0) {
+      tokenRows.push({
+        key: 'output',
+        label: t('analytics.outputTokens', { ns: 'settings', defaultValue: 'Output Tokens' }),
+        value: formatTokenMetric(output),
+        color: outputColor
+      })
+      segments.push({
+        key: 'output',
+        label: t('analytics.outputTokens', { ns: 'settings', defaultValue: 'Output Tokens' }),
+        value: output,
+        color: outputColor
+      })
+    }
+
+    if (usage.reasoningTokens) {
+      tokenRows.push({
+        key: 'reasoning',
+        label: t('unit.reasoning', { ns: 'common', defaultValue: 'Reasoning' }),
+        value: formatTokenMetric(usage.reasoningTokens),
+        color: '#38bdf8'
+      })
+    }
+
+    if (billableInput + cacheRead > 0) {
+      metricRows.push({
+        key: 'cache-hit-rate',
+        label: t('analytics.cacheTokenShare', {
+          ns: 'settings',
+          defaultValue: 'Cached Token Share'
+        }),
+        value: formatCacheHitRate(cacheHitRate)
+      })
+    }
+
+    if (totalTokens > 0) {
+      metricRows.push({
+        key: 'total-usage',
+        label: t('assistantMessage.totalUsage', { defaultValue: 'Total usage' }),
+        value: formatTokenMetric(totalTokens)
+      })
+    }
+
+    const perRequest = usage.requestTimings ?? []
     const lastTiming = perRequest.length > 0 ? perRequest[perRequest.length - 1] : null
-
     if (lastTiming) {
-      const totalMs = toFiniteNumber(lastTiming.totalMs)
-      const ttftMs = toFiniteNumber(lastTiming.ttftMs)
       const tps = toFiniteNumber(lastTiming.tps)
+      const ttftMs = toFiniteNumber(lastTiming.ttftMs)
 
-      if (totalMs !== null) {
-        items.push({
-          key: 'request-duration',
-          label: t('assistantMessage.req', { count: perRequest.length }),
-          value: formatDurationMs(totalMs)
+      if (tps !== null) {
+        metricRows.push({
+          key: 'tps',
+          label: t('assistantMessage.tps'),
+          value: formatThroughput(tps),
+          hint: t('assistantMessage.tpsHint', {
+            defaultValue: 'Output tokens generated per second'
+          })
         })
       }
       if (ttftMs !== null) {
-        items.push({
+        metricRows.push({
           key: 'ttft',
           label: t('assistantMessage.ttft'),
-          value: formatDurationMs(ttftMs)
-        })
-      }
-      if (tps !== null) {
-        items.push({
-          key: 'tps',
-          label: t('assistantMessage.tps'),
-          value: tps.toFixed(1)
+          value: formatPreciseDurationMs(ttftMs),
+          hint: t('assistantMessage.ttftHint', {
+            defaultValue: 'Time to first token'
+          })
         })
       }
     }
 
-    return items.length > 0 ? items : null
+    return {
+      totalTokens,
+      totalValue: formatTokenMetric(totalTokens),
+      estimated: false,
+      modelName: requestModel?.modelName ?? modelCfg?.name ?? thinkingModel.modelName,
+      modelId,
+      modelIcon: requestModel?.modelIcon ?? modelCfg?.icon ?? thinkingModel.modelIcon,
+      providerName: requestModel?.providerName ?? provider?.name ?? thinkingModel.providerName,
+      providerBuiltinId:
+        requestModel?.providerBuiltinId ?? provider?.builtinId ?? thinkingModel.providerBuiltinId,
+      segments,
+      tokenRows,
+      metricRows
+    }
   }, [
     fallbackTokens,
-    imageGenerationTiming,
+    meta?.requestModel,
+    renderMode,
+    requestDebugInfo?.model,
+    requestDebugInfo?.providerId,
     requestTrace?.model,
     requestTrace?.providerId,
+    sessionModelBinding.modelId,
+    sessionModelBinding.providerId,
+    thinkingModel.modelIcon,
+    thinkingModel.modelId,
+    thinkingModel.modelName,
+    thinkingModel.providerBuiltinId,
+    thinkingModel.providerName,
     t,
     usage
   ])
@@ -2575,8 +2887,8 @@ export function AssistantMessage({
         ) : (
           <>
             {renderContent()}
-            {!isStreaming && completionSummaryItems && (
-              <CompletionSummaryBar items={completionSummaryItems} />
+            {!isStreaming && completionSummary && (
+              <CompletionSummaryBar summary={completionSummary} />
             )}
           </>
         )}

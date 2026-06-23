@@ -402,7 +402,7 @@ async function _runCronAgentAsync(
     'FeishuBitableUpdateRecords',
     'FeishuBitableDeleteRecords'
   ]
-  const allDefs = toolRegistry.getDefinitions()
+  const allDefs = toolRegistry.getStableDefinitions()
   const requestedTools = definition.tools ?? []
   const deniedTools = new Set(definition.disallowedTools ?? [])
   const allowedSet = new Set([...requestedTools, 'Notify', 'Skill', ...CHANNEL_TOOL_NAMES])

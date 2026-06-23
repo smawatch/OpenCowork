@@ -114,6 +114,7 @@ export function CompactToolCallHeader({
   const toolLabel = model.toolLabel ?? model.primary
   const primaryDetail = model.toolLabel && model.primary !== model.toolLabel ? model.primary : ''
   const detailText = [primaryDetail, model.secondary].filter(Boolean).join(' · ')
+  const shouldPulseToolName = status === 'running' || status === 'streaming'
 
   return (
     <div
@@ -142,7 +143,19 @@ export function CompactToolCallHeader({
             <span className="shrink-0 text-muted-foreground/40">&gt;</span>
           </>
         ) : null}
-        <span className="shrink-0 font-mono text-[12px] font-medium text-foreground/82">
+        <span
+          className={cn(
+            'shrink-0 font-mono text-[12px] font-medium',
+            shouldPulseToolName
+              ? [
+                  'tool-name-live-pulse',
+                  status === 'running'
+                    ? 'tool-name-live-pulse--running'
+                    : 'tool-name-live-pulse--streaming'
+                ]
+              : 'text-foreground/82'
+          )}
+        >
           {toolLabel}
         </span>
         {detailText ? (

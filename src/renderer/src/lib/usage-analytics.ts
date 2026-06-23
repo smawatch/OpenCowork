@@ -10,7 +10,11 @@ import type {
 } from '@renderer/lib/api/types'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useProviderStore } from '@renderer/stores/provider-store'
-import { getBillableInputTokens, resolveCacheCreationCost } from '@renderer/lib/format-tokens'
+import {
+  getBillableInputTokens,
+  getCacheCreationTokens,
+  resolveCacheCreationCost
+} from '@renderer/lib/format-tokens'
 import { truncateRequestDebugForPersistence } from '@renderer/lib/debug-store'
 
 export interface UsageAnalyticsQuery {
@@ -34,6 +38,7 @@ export interface UsageAnalyticsOverview {
   request_count: number
   input_tokens: number
   billable_input_tokens: number
+  total_input_tokens: number
   output_tokens: number
   cache_creation_tokens: number
   cache_read_tokens: number
@@ -125,13 +130,11 @@ function computeCosts(
   cacheHitCostUsd: number | null
   totalCostUsd: number | null
 } {
-  const billableInput = usage.billableInputTokens ?? usage.inputTokens
+  const billableInput = getBillableInputTokens(usage, modelConfig?.type)
   const inputPrice = toNullableNumber(modelConfig?.inputPrice)
   const outputPrice = toNullableNumber(modelConfig?.outputPrice)
   const cacheHitPrice = toNullableNumber(modelConfig?.cacheHitPrice)
-  const cacheCreationTokens =
-    usage.cacheCreationTokens ??
-    (usage.cacheCreation5mTokens ?? 0) + (usage.cacheCreation1hTokens ?? 0)
+  const cacheCreationTokens = getCacheCreationTokens(usage)
   const { price: resolvedCacheCreationPrice, cost: resolvedCacheCreationCostUsd } =
     resolveCacheCreationCost(usage, modelConfig)
   const cacheCreationPrice = toNullableNumber(resolvedCacheCreationPrice ?? undefined)

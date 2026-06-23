@@ -31,6 +31,7 @@ import {
   summarizeOpenAITextAndImages,
   type OpenAIImageReference
 } from '../../../../shared/openai-message-support'
+import { calculateCacheReadRatio } from '../agent/cache-shape'
 
 function resolveHeaderTemplate(value: string, config: ProviderConfig): string {
   return value
@@ -570,23 +571,29 @@ class OpenAIResponsesProvider implements APIProvider {
             const cachedTokens = data.response?.usage?.input_tokens_details?.cached_tokens ?? 0
             const rawInputTokens = data.response?.usage?.input_tokens ?? 0
             const billableInputTokens = Math.max(0, rawInputTokens - cachedTokens)
+            const usage = data.response.usage
+              ? {
+                  inputTokens: rawInputTokens,
+                  outputTokens: data.response.usage.output_tokens ?? 0,
+                  billableInputTokens,
+                  contextTokens: rawInputTokens,
+                  ...(cachedTokens > 0 ? { cacheReadTokens: cachedTokens } : {}),
+                  ...(data.response.usage.output_tokens_details?.reasoning_tokens
+                    ? {
+                        reasoningTokens: data.response.usage.output_tokens_details.reasoning_tokens
+                      }
+                    : {})
+                }
+              : undefined
+            const cacheReadRatio = calculateCacheReadRatio(usage)
             yield {
               type: 'message_end',
               stopReason: data.response.status,
               providerResponseId: data.response?.id,
-              usage: data.response.usage
+              usage: usage
                 ? {
-                    inputTokens: rawInputTokens,
-                    outputTokens: data.response.usage.output_tokens ?? 0,
-                    billableInputTokens,
-                    contextTokens: rawInputTokens,
-                    ...(cachedTokens > 0 ? { cacheReadTokens: cachedTokens } : {}),
-                    ...(data.response.usage.output_tokens_details?.reasoning_tokens
-                      ? {
-                          reasoningTokens:
-                            data.response.usage.output_tokens_details.reasoning_tokens
-                        }
-                      : {})
+                    ...usage,
+                    ...(cacheReadRatio !== undefined ? { cacheReadRatio } : {})
                   }
                 : undefined,
               timing: {

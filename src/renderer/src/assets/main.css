@@ -281,6 +281,36 @@
   }
 }
 
+@keyframes pending-assistant-bar-breathe {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: scaleY(0.48);
+  }
+  45% {
+    opacity: 0.92;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes pending-assistant-wave-sweep {
+  from {
+    transform: translateX(-150%);
+  }
+  to {
+    transform: translateX(170%);
+  }
+}
+
+@keyframes tool-name-live-pulse {
+  from {
+    background-position: 100% 50%;
+  }
+  to {
+    background-position: 0% 50%;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
@@ -716,6 +746,93 @@
 
   .ai-live-dot--elegant {
     animation: ai-live-dot-elegant 1.85s ease-in-out infinite;
+  }
+
+  .pending-assistant-status {
+    position: relative;
+    display: inline-flex;
+    min-height: 1.375rem;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.125rem 0;
+    color: color-mix(in srgb, var(--muted-foreground) 88%, transparent);
+  }
+
+  .pending-assistant-wave {
+    position: relative;
+    display: inline-flex;
+    height: 0.875rem;
+    width: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1875rem;
+    overflow: hidden;
+    border-radius: 999px;
+  }
+
+  .pending-assistant-wave::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 42%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--primary) 20%, transparent),
+      transparent
+    );
+    animation: pending-assistant-wave-sweep 2.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .pending-assistant-bar {
+    display: inline-block;
+    height: 0.625rem;
+    width: 0.1875rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--foreground) 34%, var(--primary) 18%);
+    animation: pending-assistant-bar-breathe 1.35s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  .pending-assistant-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1rem;
+    color: color-mix(in srgb, var(--foreground) 64%, var(--muted-foreground) 36%);
+    animation: thinking-live-label-elegant 2.8s ease-in-out infinite;
+  }
+
+  .tool-name-live-pulse {
+    --tool-name-live-base: color-mix(in srgb, var(--foreground) 60%, var(--muted-foreground) 40%);
+    --tool-name-live-peak: color-mix(in srgb, var(--foreground) 38%, var(--primary) 62%);
+    color: var(--tool-name-live-base);
+    background-image: linear-gradient(
+      90deg,
+      var(--tool-name-live-base) 0%,
+      var(--tool-name-live-base) 36%,
+      var(--tool-name-live-peak) 48%,
+      color-mix(in srgb, var(--tool-name-live-peak) 72%, white 28%) 52%,
+      var(--tool-name-live-peak) 56%,
+      var(--tool-name-live-base) 68%,
+      var(--tool-name-live-base) 100%
+    );
+    background-size: 240% 100%;
+    background-position: 100% 50%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: tool-name-live-pulse 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .tool-name-live-pulse--running {
+    --tool-name-live-base: color-mix(in srgb, var(--foreground) 48%, #38bdf8 52%);
+    --tool-name-live-peak: #7dd3fc;
+  }
+
+  .tool-name-live-pulse--streaming {
+    --tool-name-live-base: color-mix(in srgb, var(--foreground) 46%, #a78bfa 54%);
+    --tool-name-live-peak: #c4b5fd;
   }
 
   .ai-live-cursor {

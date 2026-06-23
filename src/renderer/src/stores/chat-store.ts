@@ -45,6 +45,10 @@ export interface SessionPromptSnapshot {
   workingFolder?: string
   sshConnectionId?: string | null
   contextCacheKey?: string
+  systemHash?: string
+  toolsHash?: string
+  toolCount?: number
+  createdAt?: number
 }
 
 export interface Project {
@@ -2772,7 +2776,11 @@ export const useChatStore = create<ChatStore>()(
           projectId: snapshot.projectId,
           workingFolder: snapshot.workingFolder,
           sshConnectionId: snapshot.sshConnectionId,
-          contextCacheKey: snapshot.contextCacheKey
+          contextCacheKey: snapshot.contextCacheKey,
+          systemHash: snapshot.systemHash,
+          toolsHash: snapshot.toolsHash,
+          toolCount: snapshot.toolCount,
+          createdAt: snapshot.createdAt
         }
       })
     },

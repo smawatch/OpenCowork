@@ -2,6 +2,26 @@ import type { ToolDefinition, ToolResultContent } from '../api/types'
 import type { ToolHandler, ToolContext } from '../tools/tool-types'
 import { encodeToolError } from '../tools/tool-result-format'
 
+function stableStringify(value: unknown): string {
+  if (value === null) return 'null'
+  if (typeof value !== 'object') return JSON.stringify(value) ?? String(value)
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+
+  const record = value as Record<string, unknown>
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(',')}}`
+}
+
+function compareToolDefinitions(a: ToolDefinition, b: ToolDefinition): number {
+  const byName = a.name.localeCompare(b.name)
+  if (byName !== 0) return byName
+  const byDescription = a.description.localeCompare(b.description)
+  if (byDescription !== 0) return byDescription
+  return stableStringify(a.inputSchema).localeCompare(stableStringify(b.inputSchema))
+}
+
 /**
  * Tool Registry - manages tool handlers with a pluggable registration pattern.
  * New tools are added by calling register() without modifying core code.
@@ -11,10 +31,14 @@ class ToolRegistry {
   private listeners = new Set<() => void>()
   private definitionsCache: ToolDefinition[] | null = []
   private namesCache: string[] | null = []
+  private stableDefinitionsCache: ToolDefinition[] | null = []
+  private stableNamesCache: string[] | null = []
 
   private invalidate(): void {
     this.definitionsCache = null
     this.namesCache = null
+    this.stableDefinitionsCache = null
+    this.stableNamesCache = null
   }
 
   private emit(): void {
@@ -59,11 +83,25 @@ class ToolRegistry {
     return this.definitionsCache
   }
 
+  getStableDefinitions(): ToolDefinition[] {
+    if (!this.stableDefinitionsCache) {
+      this.stableDefinitionsCache = [...this.getDefinitions()].sort(compareToolDefinitions)
+    }
+    return this.stableDefinitionsCache
+  }
+
   getNames(): string[] {
     if (!this.namesCache) {
       this.namesCache = Array.from(this.tools.keys())
     }
     return this.namesCache
+  }
+
+  getStableNames(): string[] {
+    if (!this.stableNamesCache) {
+      this.stableNamesCache = this.getStableDefinitions().map((tool) => tool.name)
+    }
+    return this.stableNamesCache
   }
 
   async execute(

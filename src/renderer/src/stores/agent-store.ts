@@ -3,7 +3,13 @@ import { immer } from 'zustand/middleware/immer'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { RequestRetryState, ToolCallState } from '../lib/agent/types'
 import type { SubAgentEvent } from '../lib/agent/sub-agents/types'
-import type { ToolResultContent, UnifiedMessage, ContentBlock, TokenUsage } from '../lib/api/types'
+import type {
+  ToolResultContent,
+  UnifiedMessage,
+  ContentBlock,
+  TokenUsage,
+  MessageRequestModelMeta
+} from '../lib/api/types'
 import { ipcStorage } from '../lib/ipc/ipc-storage'
 import { ipcClient } from '../lib/ipc/ipc-client'
 import { IPC } from '../lib/ipc/channels'
@@ -13,6 +19,7 @@ import { sendApprovalResponse } from '../lib/agent/teams/inbox-poller'
 import { sendPlanApprovalResponse } from '../lib/agent/teams/plan-approval-bridge'
 import { compactBashToolResultContent } from '../lib/tools/bash-output'
 import { summarizeToolInputForHistory } from '../lib/tools/tool-input-sanitizer'
+import { calculateCacheReadRatio } from '../lib/agent/cache-shape'
 
 // Approval resolvers live outside the store — they hold non-serializable
 // callbacks and don't need to trigger React re-renders.
@@ -243,14 +250,19 @@ function mergeMessageUsage(
 ): UnifiedMessage['usage'] {
   if (!incoming) return current
   if (!current) {
+    const cacheReadRatio = calculateCacheReadRatio(incoming)
+    const { cacheReadRatio: _cacheReadRatio, ...incomingWithoutRatio } = incoming
     return {
-      ...incoming,
-      requestTimings: incoming.requestTimings ? [...incoming.requestTimings] : undefined
+      ...incomingWithoutRatio,
+      requestTimings: incoming.requestTimings ? [...incoming.requestTimings] : undefined,
+      ...(cacheReadRatio !== undefined ? { cacheReadRatio } : {})
     }
   }
 
-  return {
-    inputTokens: current.inputTokens + incoming.inputTokens,
+  const inputTokens = current.inputTokens + incoming.inputTokens
+  const cacheReadTokens = sumOptionalUsageValue(current.cacheReadTokens, incoming.cacheReadTokens)
+  const mergedUsage: UnifiedMessage['usage'] = {
+    inputTokens,
     outputTokens: current.outputTokens + incoming.outputTokens,
     billableInputTokens: sumOptionalUsageValue(
       current.billableInputTokens,
@@ -268,11 +280,16 @@ function mergeMessageUsage(
       current.cacheCreation1hTokens,
       incoming.cacheCreation1hTokens
     ),
-    cacheReadTokens: sumOptionalUsageValue(current.cacheReadTokens, incoming.cacheReadTokens),
+    cacheReadTokens,
     reasoningTokens: sumOptionalUsageValue(current.reasoningTokens, incoming.reasoningTokens),
     contextTokens: incoming.contextTokens ?? current.contextTokens,
     totalDurationMs: sumOptionalUsageValue(current.totalDurationMs, incoming.totalDurationMs),
     requestTimings: [...(current.requestTimings ?? []), ...(incoming.requestTimings ?? [])]
+  }
+  const cacheReadRatio = calculateCacheReadRatio(mergedUsage)
+  return {
+    ...mergedUsage,
+    ...(cacheReadRatio !== undefined ? { cacheReadRatio } : {})
   }
 }
 
@@ -280,7 +297,8 @@ function finalizeAssistantMessage(
   sa: SubAgentState,
   usage?: UnifiedMessage['usage'],
   providerResponseId?: string,
-  clearCurrentMessage = true
+  clearCurrentMessage = true,
+  requestModel?: MessageRequestModelMeta
 ): void {
   if (!sa.currentAssistantMessageId) return
   const message = sa.transcript.find((item) => item.id === sa.currentAssistantMessageId)
@@ -294,7 +312,13 @@ function finalizeAssistantMessage(
   if (providerResponseId) {
     message.providerResponseId = providerResponseId
   }
-  let changed = Boolean(usage || providerResponseId)
+  if (requestModel) {
+    message.meta = {
+      ...(message.meta ?? {}),
+      requestModel
+    }
+  }
+  let changed = Boolean(usage || providerResponseId || requestModel)
   if (Array.isArray(message.content)) {
     for (const block of message.content) {
       if (block.type === 'thinking' && !block.completedAt) {
@@ -2004,7 +2028,13 @@ export const useAgentStore = create<AgentStore>()(
             case 'sub_agent_message_end': {
               const sa = findSubAgentState(state, id, sessionId)
               if (sa) {
-                finalizeAssistantMessage(sa, event.usage, event.providerResponseId, false)
+                finalizeAssistantMessage(
+                  sa,
+                  event.usage,
+                  event.providerResponseId,
+                  false,
+                  event.requestModel
+                )
                 if (event.usage) {
                   sa.usage = mergeMessageUsage(sa.usage, event.usage)
                 }

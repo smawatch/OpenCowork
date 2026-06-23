@@ -32,7 +32,7 @@ import {
 import { cn } from '@renderer/lib/utils'
 import { useSkillsStore } from '@renderer/stores/skills-store'
 import { useChannelStore } from '@renderer/stores/channel-store'
-import { useMcpStore } from '@renderer/stores/mcp-store'
+import { resolveEffectiveActiveMcpIds, useMcpStore } from '@renderer/stores/mcp-store'
 import { useUIStore } from '@renderer/stores/ui-store'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
 import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
@@ -96,12 +96,21 @@ export function SkillsMenu({
   )
 
   const mcpServers = useMcpStore((s) => s.servers)
+  const mcpStatuses = useMcpStore((s) => s.serverStatuses)
   const activeMcpIdsByProject = useMcpStore((s) => s.activeMcpIdsByProject)
-  const activeMcpIds = activeMcpIdsByProject[projectId ?? '__global__'] ?? []
+  const activeMcpIds = React.useMemo(
+    () =>
+      resolveEffectiveActiveMcpIds({
+        projectId,
+        activeMcpIdsByProject,
+        servers: mcpServers,
+        serverStatuses: mcpStatuses
+      }),
+    [activeMcpIdsByProject, mcpServers, mcpStatuses, projectId]
+  )
   const toggleActiveMcp = useMcpStore((s) => s.toggleActiveMcp)
   const loadMcpServers = useMcpStore((s) => s.loadServers)
   const refreshAllMcpServers = useMcpStore((s) => s.refreshAllServers)
-  const mcpStatuses = useMcpStore((s) => s.serverStatuses)
   const mcpTools = useMcpStore((s) => s.serverTools)
   const pluginsByProject = useAppPluginStore((s) => s.pluginsByProject)
   const availablePlugins = React.useMemo(() => {

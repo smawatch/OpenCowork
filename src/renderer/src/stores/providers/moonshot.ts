@@ -40,15 +40,16 @@ export const moonshotCodingPreset: BuiltinProviderPreset = {
   defaultModels: [
     {
       id: 'kimi-for-coding',
-      name: 'Kimi K2.6 for Coding',
+      name: 'Kimi K2.7 Code for Coding',
       icon: 'kimi',
       enabled: true,
       contextLength: 262_144,
       maxOutputTokens: 32_768,
       supportsVision: true,
       supportsFunctionCall: true,
-      inputPrice: 0.15,
-      outputPrice: 0.9,
+      inputPrice: 0.95,
+      outputPrice: 4,
+      cacheHitPrice: 0.19,
       supportsThinking: true,
       thinkingConfig: {
         bodyParams: { thinking: { type: 'enabled' } },
@@ -66,7 +67,7 @@ export const moonshotPreset: BuiltinProviderPreset = {
   defaultBaseUrl: 'https://api.moonshot.cn/v1',
   homepage: 'https://platform.moonshot.cn',
   apiKeyUrl: 'https://platform.moonshot.cn/console/api-keys',
-  defaultModel: 'kimi-k2.6',
+  defaultModel: 'kimi-k2.7-code',
   defaultModels: [
     {
       id: 'kimi-k2.7-code',
@@ -77,11 +78,36 @@ export const moonshotPreset: BuiltinProviderPreset = {
       maxOutputTokens: 32_768,
       supportsVision: true,
       supportsFunctionCall: true,
-      inputPrice: 6.5,
-      outputPrice: 27,
-      cacheHitPrice: 1.3
+      inputPrice: 0.95,
+      outputPrice: 4,
+      cacheHitPrice: 0.19,
+      supportsThinking: true,
+      thinkingConfig: {
+        bodyParams: { thinking: { type: 'enabled' } },
+        disabledBodyParams: { thinking: { type: 'disabled' } },
+        forceTemperature: 1
+      }
     },
-    // Kimi K2.6 (latest)
+    {
+      id: 'kimi-k2.7-code-highspeed',
+      name: 'Kimi K2.7 Code HighSpeed',
+      icon: 'kimi',
+      enabled: true,
+      contextLength: 262_144,
+      maxOutputTokens: 32_768,
+      supportsVision: true,
+      supportsFunctionCall: true,
+      inputPrice: 1.9,
+      outputPrice: 8,
+      cacheHitPrice: 0.38,
+      supportsThinking: true,
+      thinkingConfig: {
+        bodyParams: { thinking: { type: 'enabled' } },
+        disabledBodyParams: { thinking: { type: 'disabled' } },
+        forceTemperature: 1
+      }
+    },
+    // Kimi K2.6
     {
       id: 'kimi-k2.6',
       name: 'Kimi K2.6',

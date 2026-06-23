@@ -5,7 +5,8 @@ import type {
   ToolUseBlock,
   ImageBlock,
   ImageErrorCode,
-  ToolCallExtraContent
+  ToolCallExtraContent,
+  MessageRequestModelMeta
 } from '../../api/types'
 import type { ToolCallState } from '../types'
 import type { ToolContext } from '../../tools/tool-types'
@@ -157,6 +158,7 @@ export type SubAgentEvent =
       toolUseId: string
       usage?: TokenUsage
       providerResponseId?: string
+      requestModel?: MessageRequestModelMeta
     }
   | {
       type: 'sub_agent_tool_result_message'

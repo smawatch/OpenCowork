@@ -11,6 +11,7 @@ import { ipcStreamRequest, maskHeaders } from '../ipc/api-stream'
 import { registerProvider } from './provider'
 import { normalizeMessagesForAnthropicToolReplay } from '../../../../shared/anthropic-tool-replay'
 import { sanitizeMessagesForToolReplay } from '../tools/tool-input-sanitizer'
+import { calculateCacheReadRatio } from '../agent/cache-shape'
 
 function buildAnthropicCacheControl(): { type: 'ephemeral' } {
   return { type: 'ephemeral' }
@@ -57,6 +58,24 @@ function isAnthropicCacheableContentBlock(block: ContentBlock): boolean {
   }
 }
 
+function getAnthropicMessageCacheTargetKey(
+  message: UnifiedMessage,
+  messageIndex: number
+): string | null {
+  const content = message.content
+  if (typeof content === 'string') {
+    return content.trim() ? `message:${messageIndex}` : null
+  }
+
+  for (let blockIndex = content.length - 1; blockIndex >= 0; blockIndex -= 1) {
+    if (isAnthropicCacheableContentBlock(content[blockIndex])) {
+      return `block:${messageIndex}:${blockIndex}`
+    }
+  }
+
+  return null
+}
+
 function collectAnthropicMessageCacheTargets(
   messages: UnifiedMessage[],
   budget: AnthropicCacheControlBudget
@@ -65,26 +84,32 @@ function collectAnthropicMessageCacheTargets(
   let remaining = budget.remaining
   if (remaining <= 0) return targets
 
-  for (
-    let messageIndex = messages.length - 1;
-    messageIndex >= 0 && remaining > 0;
-    messageIndex -= 1
-  ) {
-    const content = messages[messageIndex].content
-    if (typeof content === 'string') {
-      if (content.trim()) {
-        targets.add(`message:${messageIndex}`)
-        remaining -= 1
-      }
-      continue
+  const cacheableMessageIndexes: number[] = []
+  for (let messageIndex = 0; messageIndex < messages.length; messageIndex += 1) {
+    if (getAnthropicMessageCacheTargetKey(messages[messageIndex], messageIndex)) {
+      cacheableMessageIndexes.push(messageIndex)
     }
+  }
+  if (cacheableMessageIndexes.length === 0) return targets
 
-    for (let blockIndex = content.length - 1; blockIndex >= 0; blockIndex -= 1) {
-      if (!isAnthropicCacheableContentBlock(content[blockIndex])) continue
-      targets.add(`block:${messageIndex}:${blockIndex}`)
-      remaining -= 1
-      break
-    }
+  const addTarget = (messageIndex: number): boolean => {
+    if (remaining <= 0) return false
+    const targetKey = getAnthropicMessageCacheTargetKey(messages[messageIndex], messageIndex)
+    if (!targetKey || targets.has(targetKey)) return false
+    targets.add(targetKey)
+    remaining -= 1
+    return true
+  }
+
+  const currentMessageIndex = cacheableMessageIndexes[cacheableMessageIndexes.length - 1]
+  const reusableMessageIndex = cacheableMessageIndexes[cacheableMessageIndexes.length - 2]
+  if (reusableMessageIndex !== undefined && remaining >= 2) addTarget(reusableMessageIndex)
+  addTarget(currentMessageIndex)
+  if (reusableMessageIndex !== undefined) addTarget(reusableMessageIndex)
+
+  for (const messageIndex of cacheableMessageIndexes) {
+    if (remaining <= 0) break
+    addTarget(messageIndex)
   }
 
   return targets
@@ -318,6 +343,13 @@ function mergeAnthropicUsage(target: TokenUsage, usage: Record<string, unknown> 
   )
   if (reasoningTokens !== undefined && reasoningTokens > 0) {
     target.reasoningTokens = reasoningTokens
+  }
+
+  const cacheReadRatio = calculateCacheReadRatio(target)
+  if (cacheReadRatio !== undefined) {
+    target.cacheReadRatio = cacheReadRatio
+  } else {
+    delete target.cacheReadRatio
   }
 }
 

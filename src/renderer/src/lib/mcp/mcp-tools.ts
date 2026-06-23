@@ -1,20 +1,22 @@
 import { toolRegistry } from '../agent/tool-registry'
 import type { ToolHandler, ToolContext } from '../tools/tool-types'
-import type { McpServerConfig, McpTool } from './types'
+import type { McpServerConfig, McpTool, McpResource } from './types'
 import { IPC } from '../ipc/channels'
 
 /**
- * MCP Tool Bridge — dynamically maps MCP server tools to ToolHandlers
- * registered in the global tool registry.
+ * MCP Tool & Resource Bridge — dynamically maps MCP server tools and resources
+ * to ToolHandlers registered in the global tool registry.
  *
- * Tool naming: `mcp__{serverId}__{toolName}`
+ * Tool naming:
+ *   Tools:     `mcp__{serverId}__{toolName}`
+ *   Resources: `mcp__{serverId}__resource__{resourceName}`
  * This avoids conflicts between different servers and with built-in tools.
  */
 
 const MCP_TOOL_PREFIX = 'mcp__'
 
-/** Track registered MCP tool names for cleanup */
-let _registeredMcpToolNames: string[] = []
+/** Track registered MCP tool/resource names for cleanup */
+let _registeredMcpNames: string[] = []
 
 /** Build a prefixed tool name */
 function mcpToolName(serverId: string, toolName: string): string {
@@ -48,7 +50,7 @@ export function registerMcpTools(
   activeServers: McpServerConfig[],
   toolsMap: Record<string, McpTool[]>
 ): void {
-  // Unregister any previously registered MCP tools first
+  // Unregister any previously registered MCP tools/resources first
   unregisterMcpTools()
 
   const newNames: string[] = []
@@ -81,15 +83,12 @@ export function registerMcpTools(
             if (!res.success) {
               return JSON.stringify({ error: res.error ?? 'MCP tool call failed' })
             }
-            // MCP tool results follow the MCP CallToolResult format
-            // which has a `content` array of TextContent/ImageContent/EmbeddedResource
             return JSON.stringify(res.result)
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err)
             return JSON.stringify({ error: `MCP tool "${mcpTool.name}" failed: ${msg}` })
           }
         },
-        // MCP tools require approval by default for safety
         requiresApproval: () => true
       }
 
@@ -98,23 +97,77 @@ export function registerMcpTools(
     }
   }
 
-  _registeredMcpToolNames = newNames
+  _registeredMcpNames = newNames
 }
 
-/** Unregister all previously registered MCP tools */
+/** Build a resource tool name: mcp__{serverId}__resource__{resourceName} */
+function mcpResourceToolName(serverId: string, resourceName: string): string {
+  return `${MCP_TOOL_PREFIX}${serverId}__resource__${resourceName}`
+}
+
+/**
+ * Register MCP resources as tools for all active servers.
+ * Each resource becomes a read-only ToolHandler that calls mcp:read-resource via IPC.
+ */
+export function registerMcpResources(
+  activeServers: McpServerConfig[],
+  resourcesMap: Record<string, McpResource[]>
+): void {
+  for (const server of activeServers) {
+    const resources = resourcesMap[server.id]
+    if (!resources?.length) continue
+
+    for (const resource of resources) {
+      const name = mcpResourceToolName(server.id, resource.name)
+
+      const handler: ToolHandler = {
+        definition: {
+          name,
+          description: `[MCP: ${server.name}] Resource: ${resource.name}${resource.description ? ` — ${resource.description}` : ''} (${resource.mimeType ?? 'unknown'})`,
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        },
+        execute: async (_input: Record<string, unknown>, ctx: ToolContext) => {
+          try {
+            const result = await ctx.ipc.invoke(IPC.MCP_READ_RESOURCE, {
+              serverId: server.id,
+              uri: resource.uri
+            })
+            const res = result as { success: boolean; result?: unknown; error?: string }
+            if (!res.success) {
+              return JSON.stringify({ error: res.error ?? 'MCP resource read failed' })
+            }
+            return JSON.stringify(res.result)
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            return JSON.stringify({ error: `MCP resource "${resource.name}" failed: ${msg}` })
+          }
+        },
+        requiresApproval: () => true
+      }
+
+      toolRegistry.register(handler)
+      _registeredMcpNames.push(name)
+    }
+  }
+}
+
+/** Unregister all previously registered MCP tools and resources */
 export function unregisterMcpTools(): void {
-  for (const name of _registeredMcpToolNames) {
+  for (const name of _registeredMcpNames) {
     toolRegistry.unregister(name)
   }
-  _registeredMcpToolNames = []
+  _registeredMcpNames = []
 }
 
-/** Check if any MCP tools are currently registered */
+/** Check if any MCP tools or resources are currently registered */
 export function isMcpToolsRegistered(): boolean {
-  return _registeredMcpToolNames.length > 0
+  return _registeredMcpNames.length > 0
 }
 
-/** Get count of currently registered MCP tools */
+/** Get count of currently registered MCP tools and resources */
 export function getMcpToolCount(): number {
-  return _registeredMcpToolNames.length
+  return _registeredMcpNames.length
 }

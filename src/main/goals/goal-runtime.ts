@@ -236,7 +236,16 @@ function normalizeBlockerSignature(blockers: string[]): string {
 function goalTokenDeltaForUsage(usage: AgentTokenUsage): number {
   const input =
     usage.billableInputTokens ??
-    Math.max(0, (usage.inputTokens ?? 0) - Math.max(0, usage.cacheReadTokens ?? 0))
+    Math.max(
+      0,
+      (usage.inputTokens ?? 0) -
+        Math.max(0, usage.cacheReadTokens ?? 0) -
+        Math.max(
+          Math.max(0, usage.cacheCreationTokens ?? 0),
+          Math.max(0, usage.cacheCreation5mTokens ?? 0) +
+            Math.max(0, usage.cacheCreation1hTokens ?? 0)
+        )
+    )
   return Math.max(0, Math.floor(input + Math.max(0, usage.outputTokens ?? 0)))
 }
 

@@ -198,6 +198,15 @@ export function buildGoalSessionStateLine(goal: SessionGoal): string {
 export function goalTokenDeltaForUsage(usage: TokenUsage): number {
   const input =
     usage.billableInputTokens ??
-    Math.max(0, (usage.inputTokens ?? 0) - Math.max(0, usage.cacheReadTokens ?? 0))
+    Math.max(
+      0,
+      (usage.inputTokens ?? 0) -
+        Math.max(0, usage.cacheReadTokens ?? 0) -
+        Math.max(
+          Math.max(0, usage.cacheCreationTokens ?? 0),
+          Math.max(0, usage.cacheCreation5mTokens ?? 0) +
+            Math.max(0, usage.cacheCreation1hTokens ?? 0)
+        )
+    )
   return Math.max(0, Math.floor(input + Math.max(0, usage.outputTokens ?? 0)))
 }

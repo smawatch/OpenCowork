@@ -13,8 +13,14 @@ import type { UnifiedMessage, ProviderConfig, TokenUsage } from '../../api/types
 import type { TeamRuntimeTaskStatus } from '../../../../../shared/team-runtime-types'
 import type { TeamMessage, TeamTask } from './types'
 import { buildRuntimeCompression } from '../context-compression-runtime'
+import { buildParallelToolCallsPrompt } from '../parallel-tool-calls-prompt'
 import { subAgentRegistry } from '../sub-agents/registry'
 import { resolveSubAgentTools } from '../sub-agents/resolve-tools'
+import { withSubAgentRuntimeCachePolicy } from '../sub-agents/runtime-cache-policy'
+import {
+  appendSystemPromptSection,
+  resolveSubAgentWorkspaceProtocolPrompt
+} from '../sub-agents/workspace-protocol'
 import { requestFallbackReport, runSharedAgentRuntime } from '../shared-runtime'
 import {
   appendTeamRuntimeMessage,
@@ -148,7 +154,7 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
   await refreshSubAgentRegistry()
 
   const leadOnlyTools = new Set(['TeamCreate', 'TeamDelete', 'TaskCreate'])
-  const baseToolDefs = toolRegistry.getDefinitions().filter((tool) => !leadOnlyTools.has(tool.name))
+  const baseToolDefs = toolRegistry.getStableDefinitions().filter((tool) => !leadOnlyTools.has(tool.name))
   const agentDefinition = agentName ? subAgentRegistry.get(agentName) : undefined
   const toolDefs = agentDefinition
     ? resolveSubAgentTools(agentDefinition, baseToolDefs).tools
@@ -311,7 +317,7 @@ async function runSingleTaskLoop(opts: {
   workingFolder?: string
   sshConnectionId?: string
   abortController: AbortController
-  toolDefs: ReturnType<typeof toolRegistry.getDefinitions>
+  toolDefs: ReturnType<typeof toolRegistry.getStableDefinitions>
   messageQueue?: MessageQueue
 }): Promise<SingleTaskResult> {
   const {
@@ -330,6 +336,8 @@ async function runSingleTaskLoop(opts: {
 
   const settings = useSettingsStore.getState()
   const providerState = useProviderStore.getState()
+  const team = useTeamStore.getState().activeTeam
+  const sessionId = team?.sessionId
   const activeProviderId = providerState.activeProviderId
   if (activeProviderId) {
     const ready = await ensureProviderAuthReady(activeProviderId)
@@ -342,12 +350,13 @@ async function runSingleTaskLoop(opts: {
   const effectiveMaxTokens = useProviderStore
     .getState()
     .getEffectiveMaxTokens(settings.maxTokens, effectiveModel)
-  const providerConfig: ProviderConfig = activeConfig
+  let providerConfig: ProviderConfig = activeConfig
     ? {
         ...activeConfig,
         model: effectiveModel,
         maxTokens: effectiveMaxTokens,
-        temperature: settings.temperature
+        temperature: settings.temperature,
+        ...(sessionId ? { sessionId } : {})
       }
     : {
         type: settings.provider,
@@ -355,8 +364,14 @@ async function runSingleTaskLoop(opts: {
         baseUrl: settings.baseUrl || undefined,
         model: effectiveModel,
         maxTokens: effectiveMaxTokens,
-        temperature: settings.temperature
+        temperature: settings.temperature,
+        ...(sessionId ? { sessionId } : {})
       }
+  providerConfig = withSubAgentRuntimeCachePolicy(providerConfig, {
+    agentName: agentName ?? 'teammate',
+    sessionId,
+    runScopeId: memberId
+  })
 
   if (toolDefs.length === 0) {
     throw new Error(
@@ -366,8 +381,6 @@ async function runSingleTaskLoop(opts: {
     )
   }
 
-  const team = useTeamStore.getState().activeTeam
-  const sessionId = team?.sessionId
   const taskInfo = taskId && team ? team.tasks.find((task) => task.id === taskId) : null
   const agentDefinition = agentName ? subAgentRegistry.get(agentName) : undefined
   const effectivePrompt = agentDefinition?.initialPrompt
@@ -385,9 +398,19 @@ async function runSingleTaskLoop(opts: {
     language: settings.language,
     permissionMode: team?.permissionMode
   })
-  const systemPrompt = agentDefinition
+  const baseSystemPrompt = agentDefinition
     ? `${agentDefinition.systemPrompt}\n\n${coordinationPrompt}`
     : coordinationPrompt
+  const workspaceProtocolPrompt = await resolveSubAgentWorkspaceProtocolPrompt({
+    ipc: ipcClient,
+    workingFolder,
+    sshConnectionId,
+    scope: 'main'
+  })
+  const systemPrompt = appendSystemPromptSection(
+    appendSystemPromptSection(baseSystemPrompt, buildParallelToolCallsPrompt()),
+    workspaceProtocolPrompt
+  )
   providerConfig.systemPrompt = systemPrompt
 
   const compression = buildRuntimeCompression(providerConfig, abortController.signal)

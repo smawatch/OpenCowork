@@ -73,9 +73,7 @@ type RenderableMessage = ChatRenderableMessageMeta
 
 type ToolResultsLookup = Map<string, { content: ToolResultContent; isError?: boolean }>
 
-type MessageListRow =
-  | { type: 'pending-assistant'; key: string }
-  | { type: 'message'; key: string; data: RenderableMessage }
+type MessageListRow = { type: 'message'; key: string; data: RenderableMessage }
 
 type AutoScrollMode = 'off' | 'user' | 'stream'
 
@@ -98,6 +96,12 @@ function hasCompleteTailToolExecutionResults(state: TailToolExecutionState | nul
   if (!state || state.toolUseBlocks.length === 0) return false
 
   return state.toolUseBlocks.every((toolUse) => state.toolResultMap.has(toolUse.id))
+}
+
+function hasEmptyAssistantContent(message: UnifiedMessage): boolean {
+  if (message.role !== 'assistant') return false
+  if (typeof message.content === 'string') return message.content.length === 0
+  return Array.isArray(message.content) && message.content.length === 0
 }
 
 interface UserMessageLocatorItem {
@@ -168,7 +172,6 @@ const BOTTOM_SCROLL_CORRECTION_EPSILON = 2
 const AUTO_SCROLL_MIN_DELTA = 24
 const PROGRAMMATIC_SCROLL_GUARD_MS = 160
 const STREAMING_AUTO_SCROLL_POLL_MS = 500
-const PENDING_ASSISTANT_ROW_KEY_PREFIX = '__pending_assistant__'
 const USER_LOCATOR_PREVIEW_LIMIT = 88
 const USER_LOCATOR_SCROLL_OFFSET = 28
 const USER_LOCATOR_HIGHLIGHT_MS = 1400
@@ -783,6 +786,7 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
   } = useTeamStore((s) => selectSessionScopedTeamState(s, activeSessionId))
   const isPrimarySessionRunning =
     primarySessionStatus === 'running' || primarySessionStatus === 'retrying'
+  const isAgentExecutionActive = isPrimarySessionRunning || isTeamRunning || hasStreamingMessage
   const isSessionRunning = isAgentSessionRunning || isTeamRunning || hasStreamingMessage
   const hasSessionOrchestrationData = React.useMemo(
     () => hasAgentOrchestrationData || hasTeamOrchestrationData,
@@ -889,22 +893,6 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
     if (!hasCompleteTailToolExecutionResults(tailToolExecutionState)) return null
     return tailToolExecutionState?.assistantMessageId ?? null
   }, [isSessionRunning, streamingMessageId, tailToolExecutionState])
-  const showPendingAssistantRow = (isPrimarySessionRunning || isTeamRunning) && !streamingMessageId
-  const pendingAssistantRowKey = React.useMemo(
-    () =>
-      `${PENDING_ASSISTANT_ROW_KEY_PREFIX}:${activeSessionId ?? currentActiveSessionId ?? 'active'}`,
-    [activeSessionId, currentActiveSessionId]
-  )
-  const pendingAssistantMessage = React.useMemo<UnifiedMessage>(
-    () => ({
-      id: pendingAssistantRowKey,
-      role: 'assistant',
-      content: '',
-      createdAt: 0
-    }),
-    [pendingAssistantRowKey]
-  )
-
   const renderableMessages = React.useMemo(
     () =>
       buildChatRenderableMessageMetaFromAnalysis(
@@ -1022,24 +1010,15 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
     }
   }, [activeSessionId, activeSessionMessageCount])
 
-  const rows = React.useMemo(() => {
-    const nextRows: MessageListRow[] = renderableMessages
+  const rows = React.useMemo<MessageListRow[]>(() => {
+    return renderableMessages
       .filter((message) => !inlineCompactSummaryState.summaryIds.has(message.messageId))
-      .map((message) => ({
+      .map<MessageListRow>((message) => ({
         type: 'message',
         key: message.messageId,
         data: message
       }))
-    if (showPendingAssistantRow) {
-      nextRows.push({ type: 'pending-assistant', key: pendingAssistantRowKey })
-    }
-    return nextRows
-  }, [
-    inlineCompactSummaryState.summaryIds,
-    pendingAssistantRowKey,
-    renderableMessages,
-    showPendingAssistantRow
-  ])
+  }, [inlineCompactSummaryState.summaryIds, renderableMessages])
   const pendingAskUserQuestion = React.useMemo(
     () => findPendingAskUserQuestion(rows, toolResultsLookup, messageLookup),
     [messageLookup, rows, toolResultsLookup]
@@ -1443,7 +1422,7 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
     )
   }
 
-  if (messages.length === 0 && !showPendingAssistantRow) {
+  if (messages.length === 0) {
     const hint = modeHints[mode]
     const projectScoped = Boolean(activeProjectId)
     const emptyTitle = projectScoped
@@ -1573,39 +1552,13 @@ function MessageListInner(props: MessageListProps): React.JSX.Element {
                 ? rowIndex >= Math.max(0, lastMessageRowIndex - (TAIL_STATIC_MESSAGE_COUNT - 1))
                 : false
 
-            if (row.type === 'pending-assistant') {
-              return (
-                <MessageRow
-                  key={row.key}
-                  message={pendingAssistantMessage}
-                  sessionId={targetSessionId}
-                  sessionAssistantMessageIds={sessionAssistantMessageIds}
-                  sessionToolUseIds={sessionToolUseIds}
-                  isStreaming
-                  isLastUserMessage={false}
-                  isLastAssistantMessage
-                  showContinue={false}
-                  disableAnimation={disableAnimation}
-                  toolResults={undefined}
-                  inlineCompactSummaries={undefined}
-                  orchestrationRun={null}
-                  hiddenToolUseIds={undefined}
-                  anchorMessageId={null}
-                  highlightMessageId={highlightedMessageId}
-                  requestRetryState={sessionRequestRetryState ?? null}
-                  onRetry={onRetry}
-                  onContinue={onContinue}
-                  onEditUserMessage={onEditUserMessage}
-                  onDeleteMessage={onDeleteMessage}
-                />
-              )
-            }
-
             const { messageId, isLastUserMessage, isLastAssistantMessage, showContinue } = row.data
             const message = messageLookup.get(messageId)
             if (!message) return null
 
-            const isStreaming = streamingMessageId === messageId
+            const isEmptyAssistantLoading =
+              isLastAssistantMessage && isAgentExecutionActive && hasEmptyAssistantContent(message)
+            const isStreaming = streamingMessageId === messageId || isEmptyAssistantLoading
             const rowRenderMode = !isStreaming && rowIndex < liveCutoffIndex ? 'static' : undefined
 
             return (

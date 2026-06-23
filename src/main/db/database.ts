@@ -9,10 +9,7 @@ const DATA_DIR = path.join(os.homedir(), '.open-cowork')
 const DB_PATH = path.join(DATA_DIR, 'data.db')
 const USAGE_EFFECTIVE_INPUT_TOKENS_EXPR = `COALESCE(
   billable_input_tokens,
-  CASE
-    WHEN request_type = 'openai-responses' THEN MAX(input_tokens - COALESCE(cache_read_tokens, 0), 0)
-    ELSE input_tokens
-  END
+  MAX(input_tokens - COALESCE(cache_read_tokens, 0) - COALESCE(cache_creation_tokens, 0), 0)
 )`
 
 let db: Database.Database | null = null

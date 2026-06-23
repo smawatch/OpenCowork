@@ -1,6 +1,11 @@
 import type { ContentBlock } from '../api/types'
 import type { Session } from '../../stores/chat-store'
-import { getBillableInputTokens, getBillableTotalTokens } from '../format-tokens'
+import {
+  formatCacheHitRate,
+  getBillableInputTokens,
+  getBillableTotalTokens,
+  getCacheHitRate
+} from '../format-tokens'
 import { parseSystemCommandTag } from '../commands/system-command'
 import { stripSystemReminders } from '../image-attachments'
 
@@ -96,10 +101,15 @@ export function sessionToMarkdown(session: Session): string {
     if (msg.usage) {
       lines.push('')
       const extras: string[] = []
-      if (msg.usage.cacheReadTokens) extras.push(`${msg.usage.cacheReadTokens} cached`)
+      const billableInput = getBillableInputTokens(msg.usage)
+      if (msg.usage.cacheReadTokens) {
+        const cacheTokenShare = getCacheHitRate(billableInput, msg.usage.cacheReadTokens)
+        extras.push(`${msg.usage.cacheReadTokens} cached`)
+        extras.push(`${formatCacheHitRate(cacheTokenShare)} cached token share`)
+      }
       if (msg.usage.reasoningTokens) extras.push(`${msg.usage.reasoningTokens} reasoning`)
       lines.push(
-        `<sub>Tokens: ${getBillableInputTokens(msg.usage)} in / ${msg.usage.outputTokens} out${extras.length > 0 ? ` / ${extras.join(' / ')}` : ''}</sub>`
+        `<sub>Tokens: ${billableInput} in / ${msg.usage.outputTokens} out${extras.length > 0 ? ` / ${extras.join(' / ')}` : ''}</sub>`
       )
     }
     lines.push('')
@@ -123,7 +133,11 @@ export function sessionToMarkdown(session: Session): string {
     lines.push('---')
     lines.push('')
     const totalExtras: string[] = []
-    if (totals.cacheRead > 0) totalExtras.push(`${totals.cacheRead} cache read`)
+    if (totals.cacheRead > 0) {
+      const cacheTokenShare = getCacheHitRate(totals.input, totals.cacheRead)
+      totalExtras.push(`${totals.cacheRead} cache read`)
+      totalExtras.push(`${formatCacheHitRate(cacheTokenShare)} cached token share`)
+    }
     if (totals.cacheCreation > 0) totalExtras.push(`${totals.cacheCreation} cache write`)
     if (totals.reasoning > 0) totalExtras.push(`${totals.reasoning} reasoning`)
     lines.push(

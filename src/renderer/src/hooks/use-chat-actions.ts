@@ -16,6 +16,12 @@ import { useUIStore } from '@renderer/stores/ui-store'
 import { useSshStore } from '@renderer/stores/ssh-store'
 import { toolRegistry } from '@renderer/lib/agent/tool-registry'
 import {
+  buildCacheShapeDebugInfo,
+  calculateCacheReadRatio,
+  withCacheShapeDebugInfo
+} from '@renderer/lib/agent/cache-shape'
+import { prependTurnContextToLastUserMessage } from '@renderer/lib/agent/turn-context'
+import {
   decodeStructuredToolResult,
   encodeToolError,
   isStructuredToolErrorText
@@ -121,7 +127,6 @@ import {
   flushRuntimeForegroundMutations,
   flushBackgroundSessionToForeground,
   isSessionForeground,
-  mergeRuntimeMessageUsage,
   setRuntimeThinkingEncryptedContent,
   updateRuntimeMessage,
   updateRuntimeToolUseInput
@@ -146,7 +151,8 @@ import { useMcpStore } from '@renderer/stores/mcp-store'
 import {
   registerMcpTools,
   unregisterMcpTools,
-  isMcpToolsRegistered
+  isMcpToolsRegistered,
+  registerMcpResources
 } from '@renderer/lib/mcp/mcp-tools'
 import {
   loadLayeredMemorySnapshot,
@@ -362,9 +368,17 @@ function resolveActiveMcpContext(projectId?: string | null): {
   const mcpStore = useMcpStore.getState()
   const activeMcps = mcpStore.getActiveMcps(projectId)
   const activeMcpTools = mcpStore.getActiveMcpTools(projectId)
+  const activeMcpResources = mcpStore.getActiveMcpResources(projectId)
 
-  if (activeMcps.length > 0 && Object.keys(activeMcpTools).length > 0) {
-    registerMcpTools(activeMcps, activeMcpTools)
+  if (activeMcps.length > 0) {
+    const hasTools = Object.keys(activeMcpTools).length > 0
+    const hasResources = Object.keys(activeMcpResources).length > 0
+    if (hasTools) {
+      registerMcpTools(activeMcps, activeMcpTools)
+    }
+    if (hasResources) {
+      registerMcpResources(activeMcps, activeMcpResources)
+    }
   } else if (isMcpToolsRegistered()) {
     unregisterMcpTools()
   }
@@ -1076,11 +1090,14 @@ function normalizeUsageForPersistence(usage: TokenUsage, contextLength?: number)
     typeof contextLength === 'number' && contextLength > 0
       ? contextLength
       : readPersistedContextLength(usage)
+  const cacheReadRatio = calculateCacheReadRatio(usage)
+  const { cacheReadRatio: _cacheReadRatio, ...usageWithoutRatio } = usage
 
   return {
-    ...usage,
+    ...usageWithoutRatio,
     contextTokens: usage.contextTokens ?? usage.inputTokens,
-    ...(normalizedContextLength > 0 ? { contextLength: normalizedContextLength } : {})
+    ...(normalizedContextLength > 0 ? { contextLength: normalizedContextLength } : {}),
+    ...(cacheReadRatio !== undefined ? { cacheReadRatio } : {})
   }
 }
 
@@ -1223,131 +1240,6 @@ function resolveDebugContextEstimatePayload(
 ): ContextEstimatePayloadInfo | null {
   const payload = resolveDebugContextWindowPayload(debugInfo)
   return payload ? serializeContextEstimatePayload(payload) : null
-}
-
-interface ApiRequestResult {
-  statusCode?: number
-  body?: string
-  error?: string
-}
-
-function tryParseJsonRecord(value: string): Record<string, unknown> | null {
-  try {
-    const parsed = JSON.parse(value) as unknown
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>
-    }
-  } catch {
-    return null
-  }
-  return null
-}
-
-function buildResponsesInputTokensUrl(baseUrl?: string): string | null {
-  const trimmed = baseUrl?.trim().replace(/\/+$/, '')
-  return trimmed ? `${trimmed}/responses/input_tokens` : null
-}
-
-function buildResponsesInputTokensRequestBody(debugInfo?: RequestDebugInfo | null): string | null {
-  const payload = resolveDebugContextWindowPayload(debugInfo)
-  if (!payload) return null
-
-  const parsed = tryParseJsonRecord(payload)
-  if (!parsed) return null
-
-  if (parsed.type === 'response.create') {
-    delete parsed.type
-  }
-  delete parsed.stream
-  delete parsed.background
-
-  return serializeContextEstimatePayload(parsed).serialized
-}
-
-function buildResponsesInputTokensHeaders(
-  debugInfo: RequestDebugInfo,
-  providerConfig: ProviderConfig
-): Record<string, string> | null {
-  const apiKey = providerConfig.apiKey?.trim()
-  if (!apiKey) return null
-
-  const headers: Record<string, string> = { ...debugInfo.headers }
-  const hasHeader = (name: string): boolean =>
-    Object.keys(headers).some((key) => key.toLowerCase() === name.toLowerCase())
-
-  headers.Authorization = `Bearer ${apiKey}`
-  if (!hasHeader('Content-Type')) {
-    headers['Content-Type'] = 'application/json'
-  }
-  if (providerConfig.userAgent && !hasHeader('User-Agent')) {
-    headers['User-Agent'] = providerConfig.userAgent
-  }
-  if (providerConfig.accountId && !hasHeader('Chatgpt-Account-Id')) {
-    headers['Chatgpt-Account-Id'] = providerConfig.accountId
-  }
-  if (providerConfig.organization && !hasHeader('OpenAI-Organization')) {
-    headers['OpenAI-Organization'] = providerConfig.organization
-  }
-  if (providerConfig.project && !hasHeader('OpenAI-Project')) {
-    headers['OpenAI-Project'] = providerConfig.project
-  }
-  if (providerConfig.serviceTier && !hasHeader('service_tier')) {
-    headers.service_tier = providerConfig.serviceTier
-  }
-
-  return headers
-}
-
-function shouldRequestPreciseResponsesContextTokens(args: {
-  debugInfo?: RequestDebugInfo | null
-  providerConfig: ProviderConfig
-}): boolean {
-  return (
-    args.providerConfig.type === 'openai-responses' &&
-    args.debugInfo?.transport === 'websocket' &&
-    args.debugInfo.websocketRequestKind !== 'warmup' &&
-    !!buildResponsesInputTokensUrl(args.providerConfig.baseUrl) &&
-    !!buildResponsesInputTokensRequestBody(args.debugInfo)
-  )
-}
-
-async function requestPreciseResponsesContextTokens(args: {
-  debugInfo: RequestDebugInfo
-  providerConfig: ProviderConfig
-}): Promise<number> {
-  const url = buildResponsesInputTokensUrl(args.providerConfig.baseUrl)
-  const body = buildResponsesInputTokensRequestBody(args.debugInfo)
-  const headers = buildResponsesInputTokensHeaders(args.debugInfo, args.providerConfig)
-  if (!url || !body || !headers) return 0
-
-  const result = (await ipcClient.invoke('api:request', {
-    url,
-    method: 'POST',
-    headers,
-    body,
-    useSystemProxy: args.providerConfig.useSystemProxy,
-    allowInsecureTls: args.providerConfig.allowInsecureTls,
-    providerId: args.providerConfig.providerId,
-    providerBuiltinId: args.providerConfig.providerBuiltinId
-  })) as ApiRequestResult
-
-  if (result.error) {
-    throw new Error(result.error)
-  }
-  if (!result.body) {
-    return 0
-  }
-  if ((result.statusCode ?? 0) >= 400) {
-    throw new Error(`HTTP ${result.statusCode}: ${result.body.slice(0, 500)}`)
-  }
-
-  const data = tryParseJsonRecord(result.body)
-  if (!data) {
-    return 0
-  }
-
-  const inputTokens = Number(data.input_tokens)
-  return Number.isFinite(inputTokens) && inputTokens > 0 ? inputTokens : 0
 }
 
 function shouldUseEstimatedContextTokens(debugInfo?: RequestDebugInfo | null): boolean {
@@ -3757,7 +3649,7 @@ export function useChatActions(): {
           : {
               id: assistantMsgId,
               role: 'assistant',
-              content: '',
+              content: [],
               createdAt: Date.now()
             }
 
@@ -3816,9 +3708,18 @@ export function useChatActions(): {
           !!sessionGoalSnapshot &&
           sessionGoalSnapshot.status !== 'paused' &&
           sessionGoalSnapshot.status !== 'complete'
+        let mcpStore = useMcpStore.getState()
+        if (mcpStore.servers.length === 0) {
+          await mcpStore.loadServers()
+          mcpStore = useMcpStore.getState()
+        }
+        if (mcpStore.servers.some((server) => server.enabled)) {
+          // Keep the renderer cache in sync with main-process auto-connects before resolving MCP tools.
+          await mcpStore.refreshAllServers()
+        }
         const chatMcpContext =
           mode === 'chat' ? resolveActiveMcpContext(session?.projectId ?? null) : null
-        const registeredToolDefs = toolRegistry.getDefinitions()
+        const registeredToolDefs = toolRegistry.getStableDefinitions()
         const baseChatModeToolDefs =
           mode === 'chat' &&
           !(providerResolution.modelConfig?.category === 'image' && source !== 'continue')
@@ -3862,11 +3763,9 @@ export function useChatActions(): {
           const canReusePromptSnapshot =
             !!cachedPromptSnapshot &&
             cachedPromptSnapshot.mode === 'chat' &&
-            cachedPromptSnapshot.planMode === false &&
             (cachedPromptSnapshot.projectId ?? null) === (session?.projectId ?? null) &&
             (cachedPromptSnapshot.workingFolder ?? null) === (sessionWorkingFolder ?? null) &&
-            (cachedPromptSnapshot.sshConnectionId ?? null) === (session?.sshConnectionId ?? null) &&
-            cachedPromptSnapshot.contextCacheKey === chatPromptContextCacheKey
+            (cachedPromptSnapshot.sshConnectionId ?? null) === (session?.sshConnectionId ?? null)
 
           let chatSystemPrompt = cachedPromptSnapshot?.systemPrompt ?? ''
           if (!canReusePromptSnapshot) {
@@ -3883,6 +3782,11 @@ export function useChatActions(): {
               activeMcpTools: {}
             })
 
+            const promptSnapshotCacheShape = buildCacheShapeDebugInfo({
+              systemPrompt: chatSystemPrompt,
+              tools: [],
+              messages: []
+            })
             useChatStore.getState().setSessionPromptSnapshot(sessionId, {
               mode: 'chat',
               planMode: false,
@@ -3891,7 +3795,11 @@ export function useChatActions(): {
               projectId: session?.projectId,
               workingFolder: sessionWorkingFolder,
               sshConnectionId: session?.sshConnectionId ?? null,
-              contextCacheKey: chatPromptContextCacheKey
+              contextCacheKey: chatPromptContextCacheKey,
+              createdAt: Date.now(),
+              systemHash: promptSnapshotCacheShape.systemHash,
+              toolsHash: promptSnapshotCacheShape.toolsHash,
+              toolCount: promptSnapshotCacheShape.toolCount
             })
           }
 
@@ -3948,18 +3856,13 @@ export function useChatActions(): {
             chatMcpContext ?? resolveActiveMcpContext(session?.projectId ?? null)
 
           // Filter out team tools when the feature is disabled. Capture after registration changes.
-          const allToolDefs = toolRegistry.getDefinitions()
+          const allToolDefs = toolRegistry.getStableDefinitions()
           const finalToolDefs = filterTeamToolDefinitions(allToolDefs, settings.teamToolsEnabled)
-          let finalEffectiveToolDefs = finalToolDefs
+          let promptCandidateToolDefs = finalToolDefs
 
-          // Plan mode: restrict to read-only + planning tools
           const isPlanMode = useUIStore.getState().isPlanModeEnabled(sessionId)
-          if (isPlanMode) {
-            finalEffectiveToolDefs = finalEffectiveToolDefs.filter((t) =>
-              PLAN_MODE_ALLOWED_TOOLS.has(t.name)
-            )
-          } else if (mode === 'acp') {
-            finalEffectiveToolDefs = finalEffectiveToolDefs.filter((t) =>
+          if (mode === 'acp') {
+            promptCandidateToolDefs = promptCandidateToolDefs.filter((t) =>
               ACP_MODE_ALLOWED_TOOLS.has(t.name)
             )
           }
@@ -3970,7 +3873,7 @@ export function useChatActions(): {
           // Exception: allow tools when continuing an existing agent run
           const resolvedModelConfig = providerResolution.modelConfig
           if (resolvedModelConfig?.category === 'image' && source !== 'continue') {
-            finalEffectiveToolDefs = []
+            promptCandidateToolDefs = []
           }
 
           const desktopControlMode = resolveDesktopControlMode({
@@ -3980,10 +3883,14 @@ export function useChatActions(): {
           })
 
           if (desktopControlMode === 'computer-use') {
-            finalEffectiveToolDefs = finalEffectiveToolDefs.filter(
+            promptCandidateToolDefs = promptCandidateToolDefs.filter(
               (tool) => !isDesktopControlToolName(tool.name)
             )
           }
+
+          const requestCandidateToolDefs = isPlanMode
+            ? promptCandidateToolDefs.filter((t) => PLAN_MODE_ALLOWED_TOOLS.has(t.name))
+            : promptCandidateToolDefs
 
           const autoSelectedFastWithoutTools =
             settings.mainModelSelectionMode === 'auto' &&
@@ -3993,8 +3900,9 @@ export function useChatActions(): {
             providerResolution.autoSelection?.target === 'fast' &&
             providerResolution.autoSelection.toolsAllowed === false &&
             source !== 'continue'
-          const promptToolDefs = autoSelectedFastWithoutTools ? [] : finalEffectiveToolDefs
+          const promptToolDefs = autoSelectedFastWithoutTools ? [] : promptCandidateToolDefs
           const promptAllowsToolContext = !autoSelectedFastWithoutTools
+          const requestToolDefs = autoSelectedFastWithoutTools ? [] : requestCandidateToolDefs
 
           // Build channel info for system prompt — only inject channels bound to the current project
           let userPrompt = settings.systemPrompt || ''
@@ -4122,11 +4030,9 @@ export function useChatActions(): {
           const canReusePromptSnapshot =
             !!cachedPromptSnapshot &&
             cachedPromptSnapshot.mode === mode &&
-            cachedPromptSnapshot.planMode === isPlanMode &&
             (cachedPromptSnapshot.projectId ?? null) === (session?.projectId ?? null) &&
             (cachedPromptSnapshot.workingFolder ?? null) === (sessionWorkingFolder ?? null) &&
             (cachedPromptSnapshot.sshConnectionId ?? null) === (session?.sshConnectionId ?? null) &&
-            cachedPromptSnapshot.contextCacheKey === promptContextCacheKey &&
             haveSameToolDefinitions(cachedPromptSnapshot.toolDefs, promptToolDefs) &&
             // Plugin-bound sessions require plugin tools in the cached snapshot.
             // A stale snapshot (built when plugin tools were unregistered) must be
@@ -4134,11 +4040,11 @@ export function useChatActions(): {
             (!session?.pluginId ||
               cachedPromptSnapshot.toolDefs.some((t) => t.name === 'PluginSendMessage'))
 
-          let effectiveToolDefs = promptToolDefs
+          const effectiveToolDefs = requestToolDefs
           let agentSystemPrompt = cachedPromptSnapshot?.systemPrompt ?? ''
 
           if (canReusePromptSnapshot && cachedPromptSnapshot) {
-            effectiveToolDefs = cachedPromptSnapshot.toolDefs.slice()
+            agentSystemPrompt = cachedPromptSnapshot.systemPrompt
           } else {
             agentSystemPrompt =
               mode === 'chat'
@@ -4163,7 +4069,7 @@ export function useChatActions(): {
                     userRules: userPrompt || undefined,
                     toolDefs: promptToolDefs,
                     language: settings.language,
-                    planMode: isPlanMode,
+                    planMode: false,
                     hasActiveTeam: !!activeTeam,
                     activeTeam,
                     memorySnapshot,
@@ -4171,15 +4077,24 @@ export function useChatActions(): {
                     environmentContext
                   })
 
+            const promptSnapshotCacheShape = buildCacheShapeDebugInfo({
+              systemPrompt: agentSystemPrompt,
+              tools: promptToolDefs,
+              messages: []
+            })
             useChatStore.getState().setSessionPromptSnapshot(sessionId, {
               mode,
-              planMode: isPlanMode,
+              planMode: false,
               systemPrompt: agentSystemPrompt,
               toolDefs: promptToolDefs,
               projectId: session?.projectId,
               workingFolder: sessionWorkingFolder,
               sshConnectionId: session?.sshConnectionId ?? null,
-              contextCacheKey: promptContextCacheKey
+              contextCacheKey: promptContextCacheKey,
+              createdAt: Date.now(),
+              systemHash: promptSnapshotCacheShape.systemHash,
+              toolsHash: promptSnapshotCacheShape.toolsHash,
+              toolCount: promptSnapshotCacheShape.toolCount
             })
           }
 
@@ -4216,8 +4131,6 @@ export function useChatActions(): {
           let currentUsageProviderId = agentProviderConfig.providerId ?? null
           let currentUsageModelId = agentProviderConfig.model ?? null
           let lastRequestDebugInfo: RequestDebugInfo | undefined
-          let preciseContextTokens: number | null = null
-          let preciseContextTokenRequestSeq = 0
 
           // Subscribe to SubAgent events during agent loop
           const subAgentEventBuffer = createSubAgentEventBuffer(sessionId!)
@@ -4371,6 +4284,15 @@ export function useChatActions(): {
                 ]
               }
             }
+
+            messagesToSend = prependTurnContextToLastUserMessage(messagesToSend, {
+              planMode: isPlanMode
+            })
+            const agentRequestCacheShape = buildCacheShapeDebugInfo({
+              systemPrompt: agentSystemPrompt,
+              tools: effectiveToolDefs,
+              messages: messagesToSend
+            })
 
             const maxParallelTools = getConfiguredMaxParallelTools()
             const sidecarRequest = buildSidecarAgentRunRequest({
@@ -5173,18 +5095,15 @@ export function useChatActions(): {
                   const debugContextEstimate = shouldUseEstimatedContextTokens(lastRequestDebugInfo)
                     ? estimateContextTokensFromDebugInfo(lastRequestDebugInfo)
                     : null
-                  const estimatedContextTokens =
-                    preciseContextTokens && preciseContextTokens > 0
-                      ? preciseContextTokens
-                      : debugContextEstimate
-                        ? debugContextEstimate.tokenCount ||
-                          estimateCurrentIterationContextTokens({
-                            sessionId: sessionId!,
-                            assistantMessageId: assistantMsgId,
-                            tools: effectiveToolDefs,
-                            providerConfig: agentProviderConfig
-                          })
-                        : 0
+                  const estimatedContextTokens = debugContextEstimate
+                    ? debugContextEstimate.tokenCount ||
+                      estimateCurrentIterationContextTokens({
+                        sessionId: sessionId!,
+                        assistantMessageId: assistantMsgId,
+                        tools: effectiveToolDefs,
+                        providerConfig: agentProviderConfig
+                      })
+                    : 0
                   const normalizedUsage = event.usage
                     ? normalizeUsageWithEstimatedContext({
                         usage: event.usage,
@@ -5202,6 +5121,17 @@ export function useChatActions(): {
                       normalizedUsage!.contextTokens ?? normalizedUsage!.inputTokens
                     if (normalizedUsage!.contextLength) {
                       accumulatedUsage.contextLength = normalizedUsage!.contextLength
+                    }
+                    if (lastRequestDebugInfo) {
+                      lastRequestDebugInfo = withCacheShapeDebugInfo(
+                        lastRequestDebugInfo,
+                        agentRequestCacheShape,
+                        normalizedUsage
+                      )
+                      setLastDebugInfo(assistantMsgId, lastRequestDebugInfo)
+                      updateRuntimeMessage(sessionId!, assistantMsgId, {
+                        debugInfo: lastRequestDebugInfo
+                      })
                     }
                   }
                   if (event.timing) {
@@ -5296,15 +5226,18 @@ export function useChatActions(): {
                 case 'request_debug': {
                   streamDeltaBuffer.flushNow()
                   if (event.debugInfo) {
-                    lastRequestDebugInfo = {
-                      ...event.debugInfo,
-                      providerId: event.debugInfo.providerId ?? agentProviderConfig.providerId,
-                      providerBuiltinId:
-                        event.debugInfo.providerBuiltinId ?? agentProviderConfig.providerBuiltinId,
-                      model: event.debugInfo.model ?? agentProviderConfig.model,
-                      executionPath:
-                        event.debugInfo.executionPath ?? (useSidecar ? 'sidecar' : 'node')
-                    }
+                    lastRequestDebugInfo = withCacheShapeDebugInfo(
+                      {
+                        ...event.debugInfo,
+                        providerId: event.debugInfo.providerId ?? agentProviderConfig.providerId,
+                        providerBuiltinId:
+                          event.debugInfo.providerBuiltinId ?? agentProviderConfig.providerBuiltinId,
+                        model: event.debugInfo.model ?? agentProviderConfig.model,
+                        executionPath:
+                          event.debugInfo.executionPath ?? (useSidecar ? 'sidecar' : 'node')
+                      },
+                      agentRequestCacheShape
+                    )
                     currentUsageProviderId =
                       lastRequestDebugInfo.providerId ?? currentUsageProviderId
                     currentUsageModelId = lastRequestDebugInfo.model ?? currentUsageModelId
@@ -5334,43 +5267,6 @@ export function useChatActions(): {
                       }
                     }
 
-                    if (
-                      shouldRequestPreciseResponsesContextTokens({
-                        debugInfo: lastRequestDebugInfo,
-                        providerConfig: agentProviderConfig
-                      })
-                    ) {
-                      const requestSeq = ++preciseContextTokenRequestSeq
-                      void requestPreciseResponsesContextTokens({
-                        debugInfo: lastRequestDebugInfo,
-                        providerConfig: agentProviderConfig
-                      })
-                        .then((exactContextTokens) => {
-                          if (
-                            requestSeq !== preciseContextTokenRequestSeq ||
-                            exactContextTokens <= 0
-                          ) {
-                            return
-                          }
-                          preciseContextTokens = exactContextTokens
-                          accumulatedUsage.contextTokens = exactContextTokens
-                          if (compressionContextLength > 0) {
-                            accumulatedUsage.contextLength = compressionContextLength
-                          }
-                          mergeRuntimeMessageUsage(sessionId!, assistantMsgId, {
-                            contextTokens: exactContextTokens,
-                            ...(compressionContextLength > 0
-                              ? { contextLength: compressionContextLength }
-                              : {})
-                          })
-                        })
-                        .catch((error) => {
-                          console.warn(
-                            '[ChatActions] Failed to fetch precise Responses context tokens',
-                            error
-                          )
-                        })
-                    }
                   }
                   break
                 }
@@ -6244,6 +6140,15 @@ async function runSimpleChat(
     ipc: ipcClient,
     supportsVision: modelSupportsVision(chatModelConfig, config.type)
   })
+  const isPlanMode = useUIStore.getState().isPlanModeEnabled(sessionId)
+  requestMessages = prependTurnContextToLastUserMessage(requestMessages, {
+    planMode: isPlanMode
+  })
+  const simpleRequestCacheShape = buildCacheShapeDebugInfo({
+    systemPrompt: config.systemPrompt ?? '',
+    tools: [],
+    messages: requestMessages
+  })
   const streamDeltaBuffer = createStreamDeltaBuffer(sessionId, assistantMsgId)
   const requestHasImages = requestMessages.some(messageContainsImage)
   const preferRendererProvider = useSettingsStore.getState().devMode || requestHasImages
@@ -6326,8 +6231,6 @@ async function runSimpleChat(
     let thinkingDone = false
     let hasThinkingDelta = false
     let lastRequestDebugInfo: RequestDebugInfo | undefined
-    let preciseContextTokens: number | null = null
-    let preciseContextTokenRequestSeq = 0
     for await (const event of stream) {
       if (signal.aborted) break
 
@@ -6430,17 +6333,14 @@ async function runSimpleChat(
             const debugContextEstimate = shouldUseEstimatedContextTokens(lastRequestDebugInfo)
               ? estimateContextTokensFromDebugInfo(lastRequestDebugInfo)
               : null
-            const contextTokensOverride =
-              preciseContextTokens && preciseContextTokens > 0
-                ? preciseContextTokens
-                : debugContextEstimate
-                  ? debugContextEstimate.tokenCount ||
-                    estimateContextTokensForRequest({
-                      messages: requestMessages,
-                      tools: [],
-                      providerConfig: config
-                    })
-                  : 0
+            const contextTokensOverride = debugContextEstimate
+              ? debugContextEstimate.tokenCount ||
+                estimateContextTokensForRequest({
+                  messages: requestMessages,
+                  tools: [],
+                  providerConfig: config
+                })
+              : 0
             const normalizedUsage = normalizeUsageWithEstimatedContext({
               usage: event.usage,
               contextLength: chatModelConfig?.contextLength
@@ -6450,6 +6350,17 @@ async function runSimpleChat(
               estimatedContextTokens: contextTokensOverride,
               preferEstimatedContextTokens: debugContextEstimate?.hadBase64Payload ?? false
             })
+            if (lastRequestDebugInfo) {
+              lastRequestDebugInfo = withCacheShapeDebugInfo(
+                lastRequestDebugInfo,
+                simpleRequestCacheShape,
+                normalizedUsage
+              )
+              setLastDebugInfo(assistantMsgId, lastRequestDebugInfo)
+              updateRuntimeMessage(sessionId, assistantMsgId, {
+                debugInfo: lastRequestDebugInfo
+              })
+            }
             const messageUsage = event.timing
               ? {
                   ...normalizedUsage,
@@ -6478,12 +6389,15 @@ async function runSimpleChat(
         case 'request_debug': {
           streamDeltaBuffer.flushNow()
           if (event.debugInfo) {
-            lastRequestDebugInfo = {
-              ...event.debugInfo,
-              providerId: config.providerId,
-              providerBuiltinId: config.providerBuiltinId,
-              model: config.model
-            }
+            lastRequestDebugInfo = withCacheShapeDebugInfo(
+              {
+                ...event.debugInfo,
+                providerId: config.providerId,
+                providerBuiltinId: config.providerBuiltinId,
+                model: config.model
+              },
+              simpleRequestCacheShape
+            )
             setLastDebugInfo(assistantMsgId, {
               ...lastRequestDebugInfo
             })
@@ -6506,37 +6420,6 @@ async function runSimpleChat(
               if (provisionalUsage) {
                 updateRuntimeMessage(sessionId, assistantMsgId, { usage: provisionalUsage })
               }
-            }
-
-            if (
-              shouldRequestPreciseResponsesContextTokens({
-                debugInfo: lastRequestDebugInfo,
-                providerConfig: config
-              })
-            ) {
-              const requestSeq = ++preciseContextTokenRequestSeq
-              void requestPreciseResponsesContextTokens({
-                debugInfo: lastRequestDebugInfo,
-                providerConfig: config
-              })
-                .then((exactContextTokens) => {
-                  if (requestSeq !== preciseContextTokenRequestSeq || exactContextTokens <= 0) {
-                    return
-                  }
-                  preciseContextTokens = exactContextTokens
-                  mergeRuntimeMessageUsage(sessionId, assistantMsgId, {
-                    contextTokens: exactContextTokens,
-                    ...(chatModelConfig?.contextLength
-                      ? { contextLength: resolveCompressionContextLength(chatModelConfig) }
-                      : {})
-                  })
-                })
-                .catch((error) => {
-                  console.warn(
-                    '[ChatActions] Failed to fetch precise Responses context tokens',
-                    error
-                  )
-                })
             }
           }
           break
@@ -6585,12 +6468,15 @@ async function runSimpleChat(
         appendRuntimeTextDelta(sessionId, assistantMsgId, `\n\n> **Error:** ${errMsg}`)
       }
       if (err instanceof ApiStreamError) {
-        const debugInfo = {
-          ...(err.debugInfo as RequestDebugInfo),
-          providerId: config.providerId,
-          providerBuiltinId: config.providerBuiltinId,
-          model: config.model
-        }
+        const debugInfo = withCacheShapeDebugInfo(
+          {
+            ...(err.debugInfo as RequestDebugInfo),
+            providerId: config.providerId,
+            providerBuiltinId: config.providerBuiltinId,
+            model: config.model
+          },
+          simpleRequestCacheShape
+        )
         setLastDebugInfo(assistantMsgId, debugInfo)
         updateRuntimeMessage(sessionId, assistantMsgId, { debugInfo })
       }
@@ -6638,6 +6524,12 @@ function mergeUsage(target: TokenUsage, incoming: TokenUsage): void {
   }
   if (incoming.cacheReadTokens) {
     target.cacheReadTokens = (target.cacheReadTokens ?? 0) + incoming.cacheReadTokens
+  }
+  const cacheReadRatio = calculateCacheReadRatio(target)
+  if (cacheReadRatio !== undefined) {
+    target.cacheReadRatio = cacheReadRatio
+  } else {
+    delete target.cacheReadRatio
   }
   if (incoming.reasoningTokens) {
     target.reasoningTokens = (target.reasoningTokens ?? 0) + incoming.reasoningTokens

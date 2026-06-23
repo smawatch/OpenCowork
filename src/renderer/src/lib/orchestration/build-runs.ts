@@ -38,6 +38,7 @@ interface ToolUseMessageIndex {
   messageIdBySubAgentToolUseId: Map<string, string>
   teamCreateMessageIdByName: Map<string, string>
   hiddenToolUseIdsByMessage: Map<string, Set<string>>
+  toolUseOrderById: Map<string, number>
 }
 
 const stableEntryCacheBySession = new Map<string, StableEntryCache>()
@@ -111,11 +112,14 @@ function buildToolUseMessageIndex(messages: UnifiedMessage[]): ToolUseMessageInd
   const messageIdBySubAgentToolUseId = new Map<string, string>()
   const teamCreateMessageIdByName = new Map<string, string>()
   const hiddenToolUseIdsByMessage = new Map<string, Set<string>>()
+  const toolUseOrderById = new Map<string, number>()
 
   for (const message of messages) {
     if (message.role !== 'assistant' || !Array.isArray(message.content)) continue
 
-    for (const block of getToolUseBlocks(message)) {
+    for (const [blockIndex, block] of getToolUseBlocks(message).entries()) {
+      toolUseOrderById.set(block.id, blockIndex)
+
       if (block.name === SUBAGENT_TOOL_NAME && !messageIdBySubAgentToolUseId.has(block.id)) {
         messageIdBySubAgentToolUseId.set(block.id, message.id)
       }
@@ -127,7 +131,10 @@ function buildToolUseMessageIndex(messages: UnifiedMessage[]): ToolUseMessageInd
         }
       }
 
-      if (TEAM_TOOL_NAMES.has(block.name) || block.name === SUBAGENT_TOOL_NAME) {
+      if (
+        TEAM_TOOL_NAMES.has(block.name) ||
+        (block.name === SUBAGENT_TOOL_NAME && block.input.run_in_background)
+      ) {
         let hidden = hiddenToolUseIdsByMessage.get(message.id)
         if (!hidden) {
           hidden = new Set()
@@ -141,8 +148,70 @@ function buildToolUseMessageIndex(messages: UnifiedMessage[]): ToolUseMessageInd
   return {
     messageIdBySubAgentToolUseId,
     teamCreateMessageIdByName,
-    hiddenToolUseIdsByMessage
+    hiddenToolUseIdsByMessage,
+    toolUseOrderById
   }
+}
+
+function isSynchronousSubAgentToolUse(block: ContentBlock): boolean {
+  return (
+    block.type === 'tool_use' && block.name === SUBAGENT_TOOL_NAME && !block.input.run_in_background
+  )
+}
+
+function isVisibleSeparatorBlock(block: ContentBlock): boolean {
+  switch (block.type) {
+    case 'text':
+      return Boolean(block.text.trim())
+    case 'thinking':
+      return Boolean(block.thinking.trim())
+    case 'image':
+    case 'image_error':
+    case 'agent_error':
+      return true
+    case 'tool_use':
+      return true
+    default:
+      return false
+  }
+}
+
+function canRenderInlineSubAgentRun(
+  agents: SubAgentState[],
+  sourceMessage: UnifiedMessage | undefined
+): boolean {
+  if (agents.length <= 1) return true
+  if (!sourceMessage || !Array.isArray(sourceMessage.content)) return true
+
+  const agentToolUseIds = new Set(agents.map((agent) => agent.toolUseId))
+  const content = sourceMessage.content
+  const relevantIndices: number[] = []
+
+  content.forEach((block, index) => {
+    if (
+      isSynchronousSubAgentToolUse(block) &&
+      agentToolUseIds.has((block as Extract<ContentBlock, { type: 'tool_use' }>).id)
+    ) {
+      relevantIndices.push(index)
+    }
+  })
+
+  if (relevantIndices.length <= 1) return true
+
+  const first = relevantIndices[0]
+  const last = relevantIndices[relevantIndices.length - 1]
+  for (let index = first; index <= last; index += 1) {
+    const block = content[index]
+    if (
+      isSynchronousSubAgentToolUse(block) &&
+      agentToolUseIds.has((block as Extract<ContentBlock, { type: 'tool_use' }>).id)
+    ) {
+      continue
+    }
+    if (isVisibleSeparatorBlock(block)) return false
+  }
+
+  return true
 }
 
 function getAllSubAgents(input: BuildRunsInput): SubAgentState[] {
@@ -402,6 +471,7 @@ export function buildOrchestrationRuns(input: BuildRunsInput): OrchestrationDeri
   const byId = new Map<string, OrchestrationRun>()
   const rawByMessageId = new Map<string, ByMessageEntry>()
   const toolIndex = buildToolUseMessageIndex(input.messages)
+  const messageById = new Map(input.messages.map((message) => [message.id, message]))
 
   const teamCandidates = getTeamCandidates(input, toolIndex)
   for (const candidate of teamCandidates) {
@@ -434,15 +504,29 @@ export function buildOrchestrationRuns(input: BuildRunsInput): OrchestrationDeri
   }
 
   for (const [sourceMessageId, agents] of subAgentsByMessage) {
-    agents.sort((left, right) => left.startedAt - right.startedAt)
-    const run = buildSubAgentRun(agents, sourceMessageId)
-    runs.push(run)
-    byId.set(run.id, run)
-    const existing = rawByMessageId.get(run.sourceMessageId)
-    rawByMessageId.set(run.sourceMessageId, {
-      primaryRun: run,
-      hiddenToolUseIds: new Set([...(existing?.hiddenToolUseIds ?? []), ...run.sourceToolUseIds])
+    agents.sort((left, right) => {
+      const leftOrder = toolIndex.toolUseOrderById.get(left.toolUseId) ?? Number.POSITIVE_INFINITY
+      const rightOrder = toolIndex.toolUseOrderById.get(right.toolUseId) ?? Number.POSITIVE_INFINITY
+      return leftOrder - rightOrder || left.startedAt - right.startedAt
     })
+
+    if (canRenderInlineSubAgentRun(agents, messageById.get(sourceMessageId))) {
+      const run = buildSubAgentRun(agents, sourceMessageId)
+      runs.push(run)
+      byId.set(run.id, run)
+      const existing = rawByMessageId.get(run.sourceMessageId)
+      rawByMessageId.set(run.sourceMessageId, {
+        primaryRun: run,
+        hiddenToolUseIds: new Set([...(existing?.hiddenToolUseIds ?? []), ...run.sourceToolUseIds])
+      })
+      continue
+    }
+
+    for (const agent of agents) {
+      const run = buildSubAgentRun([agent], sourceMessageId)
+      runs.push(run)
+      byId.set(run.id, run)
+    }
   }
 
   for (const [messageId, indexedHiddenToolUseIds] of toolIndex.hiddenToolUseIdsByMessage) {

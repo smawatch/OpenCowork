@@ -22,6 +22,7 @@ import {
   extractOpenAIChatToolCallFragments,
   type OpenAIChatToolCallArgumentsSource
 } from '../../../../shared/openai-chat-completions'
+import { calculateCacheReadRatio } from '../agent/cache-shape'
 
 function resolveHeaderTemplate(value: string, config: ProviderConfig): string {
   return value
@@ -99,8 +100,7 @@ function buildTokenUsage(data: any, config: ProviderConfig): TokenUsage {
   const outputTokens = data.usage?.completion_tokens ?? 0
   const cachedTokens = data.usage?.prompt_tokens_details?.cached_tokens ?? 0
   const contextLength = resolveModelContextLength(config)
-
-  return {
+  const usage: TokenUsage = {
     inputTokens,
     outputTokens,
     ...(cachedTokens > 0
@@ -114,6 +114,11 @@ function buildTokenUsage(data: any, config: ProviderConfig): TokenUsage {
     ...(data.usage?.completion_tokens_details?.reasoning_tokens
       ? { reasoningTokens: data.usage.completion_tokens_details.reasoning_tokens }
       : {})
+  }
+  const cacheReadRatio = calculateCacheReadRatio(usage)
+  return {
+    ...usage,
+    ...(cacheReadRatio !== undefined ? { cacheReadRatio } : {})
   }
 }
 

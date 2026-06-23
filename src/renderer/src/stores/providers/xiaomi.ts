@@ -104,33 +104,33 @@ export const xiaomiPreset: BuiltinProviderPreset = {
   defaultModels: [
     {
       ...xiaomiTextModels[0],
-      inputPrice: 1,
-      outputPrice: 3,
-      cacheHitPrice: 0.2
+      inputPrice: 0.435,
+      outputPrice: 0.87,
+      cacheHitPrice: 0.0036
     },
     {
       ...xiaomiTextModels[1],
-      inputPrice: 0.4,
-      outputPrice: 2,
-      cacheHitPrice: 0.08
+      inputPrice: 0.14,
+      outputPrice: 0.28,
+      cacheHitPrice: 0.0028
     },
     {
       ...xiaomiTextModels[2],
-      inputPrice: 1,
-      outputPrice: 3,
-      cacheHitPrice: 0.2
+      inputPrice: 0.435,
+      outputPrice: 0.87,
+      cacheHitPrice: 0.0036
     },
     {
       ...xiaomiTextModels[3],
-      inputPrice: 0.4,
-      outputPrice: 2,
-      cacheHitPrice: 0.08
+      inputPrice: 0.14,
+      outputPrice: 0.28,
+      cacheHitPrice: 0.0028
     },
     {
       ...xiaomiTextModels[4],
-      inputPrice: 0.1,
-      outputPrice: 0.3,
-      cacheHitPrice: 0.01
+      inputPrice: 0.14,
+      outputPrice: 0.28,
+      cacheHitPrice: 0.0028
     },
     {
       ...xiaomiTextModels[5],

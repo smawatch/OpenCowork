@@ -5,6 +5,7 @@ import { getRegisteredSkills } from '../tools/skill-tool'
 import { buildLeadCoordinatorPrompt } from './teams/prompts'
 import type { ActiveTeam } from '../../stores/team-store'
 import { resolveLanguageName } from '../i18n-language'
+import { buildParallelToolCallsPrompt } from './parallel-tool-calls-prompt'
 
 export type PromptEnvironmentContext = {
   target: 'local' | 'ssh'
@@ -246,7 +247,7 @@ export function buildSystemPrompt(options: {
     sessionScope = 'main'
   } = options
 
-  const toolDefs = options.toolDefs ?? toolRegistry.getDefinitions()
+  const toolDefs = options.toolDefs ?? toolRegistry.getStableDefinitions()
   const environmentContext = options.environmentContext ?? resolvePromptEnvironmentContext({})
 
   const parts: string[] = []
@@ -338,7 +339,8 @@ export function buildSystemPrompt(options: {
     `Use tools when needed. Follow these rules:`,
     `- If you say you will use a tool, call it immediately next.`,
     `- Follow tool schemas exactly and provide required parameters.`,
-    `- Batch independent tool calls; keep sequential only when dependent.`,
+    `- Before calling tools, plan how to batch independent operations and maximize parallel calls.`,
+    `- Batch independent tool calls in the same assistant turn; keep sequential only when dependent.`,
     `- Use Glob/Grep/Read before assuming structure.`,
     `- For open-ended exploration, prefer the Task tool with a suitable sub-agent.`,
     `\n**When NOT to use specific tools:**`,
@@ -348,6 +350,7 @@ export function buildSystemPrompt(options: {
     `- Do not use Bash with \`cat\`, \`head\`, \`tail\`, \`grep\`, or \`find\` - use Read/Grep/Glob instead.`,
     `</tool_calling>`
   )
+  parts.push(`\n${buildParallelToolCallsPrompt()}`)
 
   // Making Code Changes
   if (!planMode) {

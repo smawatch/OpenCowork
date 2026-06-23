@@ -650,7 +650,7 @@ async function _runPluginAgent(task: PluginAutoReplyTask): Promise<void> {
   // ── Build tools (same as main agent's cowork branch) ──
   const settings = useSettingsStore.getState()
   const allToolDefs = filterTeamToolDefinitions(
-    toolRegistry.getDefinitions(),
+    toolRegistry.getStableDefinitions(),
     settings.teamToolsEnabled
   )
   let userPrompt = settings.systemPrompt || ''

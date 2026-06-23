@@ -25,6 +25,7 @@ export interface TokenUsageWire {
   cacheCreation5mTokens?: number
   cacheCreation1hTokens?: number
   cacheReadTokens?: number
+  cacheReadRatio?: number
   reasoningTokens?: number
   contextTokens?: number
   contextLength?: number
@@ -115,6 +116,11 @@ export interface RequestDebugInfoWire {
   websocketIncrementalReason?: string
   previousResponseId?: string
   executionPath?: 'node' | 'sidecar'
+  systemHash?: string
+  toolsHash?: string
+  messagePrefixHash?: string
+  toolCount?: number
+  cacheReadRatio?: number
 }
 
 // Minimal message shape for loop_end / context_compressed payloads.
@@ -310,6 +316,7 @@ export type AgentStreamEvent =
       toolUseId: string
       usage?: TokenUsageWire
       providerResponseId?: string
+      requestModel?: Record<string, unknown>
     }
   | {
       type: 'sub_agent_tool_result_message'

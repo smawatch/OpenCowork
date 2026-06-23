@@ -171,10 +171,10 @@ export function shouldCompress(inputTokens: number, config: CompressionConfig): 
 }
 
 export function shouldPreCompress(inputTokens: number, config: CompressionConfig): boolean {
-  if (!config.enabled || config.contextLength <= 0) return false
-  const preThreshold = getPreCompressionTriggerTokens(config)
-  const fullThreshold = getCompressionTriggerTokens(config)
-  return inputTokens >= preThreshold && inputTokens < fullThreshold
+  void inputTokens
+  void config
+  void getPreCompressionTriggerTokens
+  return false
 }
 
 export function isCompactBoundaryMessage(message: UnifiedMessage): boolean {

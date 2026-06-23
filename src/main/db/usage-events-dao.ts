@@ -2,10 +2,7 @@ import { getDb } from './database'
 
 const EFFECTIVE_INPUT_TOKENS_EXPR = `COALESCE(
   billable_input_tokens,
-  CASE
-    WHEN request_type = 'openai-responses' THEN MAX(input_tokens - COALESCE(cache_read_tokens, 0), 0)
-    ELSE input_tokens
-  END
+  MAX(input_tokens - COALESCE(cache_read_tokens, 0) - COALESCE(cache_creation_tokens, 0), 0)
 )`
 const USAGE_EVENTS_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
 const USAGE_EVENTS_CLEANUP_BATCH_SIZE = 250
@@ -108,7 +105,11 @@ function getActivityDayRange(query: UsageActivityQuery): { fromDay: string; toDa
 function getEffectiveInputTokens(
   event: Pick<
     UsageEventRow,
-    'billable_input_tokens' | 'request_type' | 'input_tokens' | 'cache_read_tokens'
+    | 'billable_input_tokens'
+    | 'request_type'
+    | 'input_tokens'
+    | 'cache_read_tokens'
+    | 'cache_creation_tokens'
   >
 ): number {
   if (
@@ -120,9 +121,8 @@ function getEffectiveInputTokens(
 
   const inputTokens = toNumber(event.input_tokens)
   const cacheReadTokens = toNumber(event.cache_read_tokens)
-  return event.request_type === 'openai-responses'
-    ? Math.max(0, inputTokens - cacheReadTokens)
-    : Math.max(0, inputTokens)
+  const cacheCreationTokens = toNumber(event.cache_creation_tokens)
+  return Math.max(0, inputTokens - cacheReadTokens - cacheCreationTokens)
 }
 
 function addUsageActivityAggregate(db: ReturnType<typeof getDb>, event: UsageEventRow): void {
@@ -331,6 +331,7 @@ export function getUsageOverview(query: UsageEventsQuery): Record<string, unknow
           COUNT(*) AS request_count,
           COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS input_tokens,
           COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS billable_input_tokens,
+          COALESCE(SUM(input_tokens), 0) AS total_input_tokens,
           COALESCE(SUM(output_tokens), 0) AS output_tokens,
           COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
           COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
@@ -354,6 +355,8 @@ export function getUsageDaily(query: UsageEventsQuery): Record<string, unknown>[
         strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', 'localtime') AS day,
         COUNT(*) AS request_count,
         COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS input_tokens,
+        COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS billable_input_tokens,
+        COALESCE(SUM(input_tokens), 0) AS total_input_tokens,
         COALESCE(SUM(output_tokens), 0) AS output_tokens,
         COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
         COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
@@ -385,6 +388,8 @@ export function getUsageTimeline(
         ${bucketLabelExpr} AS bucket_label,
         COUNT(*) AS request_count,
         COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS input_tokens,
+        COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS billable_input_tokens,
+        COALESCE(SUM(input_tokens), 0) AS total_input_tokens,
         COALESCE(SUM(output_tokens), 0) AS output_tokens,
         COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
         COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
@@ -409,6 +414,8 @@ export function getUsageByModel(query: UsageEventsQuery): Record<string, unknown
         provider_name,
         COUNT(*) AS request_count,
         COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS input_tokens,
+        COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS billable_input_tokens,
+        COALESCE(SUM(input_tokens), 0) AS total_input_tokens,
         COALESCE(SUM(output_tokens), 0) AS output_tokens,
         COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
         COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
@@ -436,6 +443,8 @@ export function getUsageByProvider(query: UsageEventsQuery): Record<string, unkn
         provider_base_url,
         COUNT(*) AS request_count,
         COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS input_tokens,
+        COALESCE(SUM(${EFFECTIVE_INPUT_TOKENS_EXPR}), 0) AS billable_input_tokens,
+        COALESCE(SUM(input_tokens), 0) AS total_input_tokens,
         COALESCE(SUM(output_tokens), 0) AS output_tokens,
         COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
         COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
@@ -460,6 +469,7 @@ export function getUsageActivityOverview(query: UsageActivityQuery): Record<stri
           COALESCE(SUM(request_count), 0) AS request_count,
           COALESCE(SUM(input_tokens), 0) AS input_tokens,
           COALESCE(SUM(input_tokens), 0) AS billable_input_tokens,
+          COALESCE(SUM(input_tokens + cache_creation_tokens + cache_read_tokens), 0) AS total_input_tokens,
           COALESCE(SUM(output_tokens), 0) AS output_tokens,
           COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
           COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
@@ -484,6 +494,7 @@ export function getUsageActivityDaily(query: UsageActivityQuery): Record<string,
         request_count,
         input_tokens,
         input_tokens AS billable_input_tokens,
+        input_tokens + cache_creation_tokens + cache_read_tokens AS total_input_tokens,
         output_tokens,
         cache_creation_tokens,
         cache_read_tokens,
@@ -512,6 +523,8 @@ export function getUsageActivityByModel(query: UsageActivityQuery): Record<strin
         COALESCE(MAX(provider_name), NULLIF(provider_id, ''), '-') AS provider_name,
         COALESCE(SUM(request_count), 0) AS request_count,
         COALESCE(SUM(input_tokens), 0) AS input_tokens,
+        COALESCE(SUM(input_tokens), 0) AS billable_input_tokens,
+        COALESCE(SUM(input_tokens + cache_creation_tokens + cache_read_tokens), 0) AS total_input_tokens,
         COALESCE(SUM(output_tokens), 0) AS output_tokens,
         COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
         COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
@@ -544,6 +557,8 @@ export function getUsageActivityByProvider(query: UsageActivityQuery): Record<st
         MAX(provider_base_url) AS provider_base_url,
         COALESCE(SUM(request_count), 0) AS request_count,
         COALESCE(SUM(input_tokens), 0) AS input_tokens,
+        COALESCE(SUM(input_tokens), 0) AS billable_input_tokens,
+        COALESCE(SUM(input_tokens + cache_creation_tokens + cache_read_tokens), 0) AS total_input_tokens,
         COALESCE(SUM(output_tokens), 0) AS output_tokens,
         COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
         COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,

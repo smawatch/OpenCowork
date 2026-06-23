@@ -205,6 +205,7 @@ interface TokenUsage {
   cacheCreation5mTokens?: number
   cacheCreation1hTokens?: number
   cacheReadTokens?: number
+  cacheReadRatio?: number
   reasoningTokens?: number
 }
 
@@ -1630,6 +1631,21 @@ function computeTps(
   return Number((outputTokens / seconds).toFixed(2))
 }
 
+function calculateCacheReadRatio(usage?: Partial<TokenUsage> | null): number | undefined {
+  const cacheReadTokens = Math.max(0, usage?.cacheReadTokens ?? 0)
+  const cacheCreationTokens = Math.max(
+    Math.max(0, usage?.cacheCreationTokens ?? 0),
+    Math.max(0, usage?.cacheCreation5mTokens ?? 0) + Math.max(0, usage?.cacheCreation1hTokens ?? 0)
+  )
+  const billableInputTokens =
+    usage?.billableInputTokens != null
+      ? Math.max(0, usage.billableInputTokens)
+      : Math.max(0, (usage?.inputTokens ?? 0) - cacheReadTokens - cacheCreationTokens)
+  const totalCacheableInputTokens = billableInputTokens + cacheReadTokens
+  if (totalCacheableInputTokens <= 0) return undefined
+  return cacheReadTokens / totalCacheableInputTokens
+}
+
 function maskHeaders(headers: Record<string, string>): Record<string, string> {
   const masked: Record<string, string> = {}
   const sensitiveKeys = ['authorization', 'x-api-key', 'api-key', 'x-goog-api-key']
@@ -2213,6 +2229,24 @@ function isAnthropicCacheableContentBlock(block: ContentBlock): boolean {
   }
 }
 
+function getAnthropicMessageCacheTargetKey(
+  message: UnifiedMessage,
+  messageIndex: number
+): string | null {
+  const content = message.content
+  if (typeof content === 'string') {
+    return content.trim() ? `message:${messageIndex}` : null
+  }
+
+  for (let blockIndex = content.length - 1; blockIndex >= 0; blockIndex -= 1) {
+    if (isAnthropicCacheableContentBlock(content[blockIndex])) {
+      return `block:${messageIndex}:${blockIndex}`
+    }
+  }
+
+  return null
+}
+
 function collectAnthropicMessageCacheTargets(
   messages: UnifiedMessage[],
   budget: AnthropicCacheControlBudget
@@ -2221,26 +2255,32 @@ function collectAnthropicMessageCacheTargets(
   let remaining = budget.remaining
   if (remaining <= 0) return targets
 
-  for (
-    let messageIndex = messages.length - 1;
-    messageIndex >= 0 && remaining > 0;
-    messageIndex -= 1
-  ) {
-    const content = messages[messageIndex].content
-    if (typeof content === 'string') {
-      if (content.trim()) {
-        targets.add(`message:${messageIndex}`)
-        remaining -= 1
-      }
-      continue
+  const cacheableMessageIndexes: number[] = []
+  for (let messageIndex = 0; messageIndex < messages.length; messageIndex += 1) {
+    if (getAnthropicMessageCacheTargetKey(messages[messageIndex], messageIndex)) {
+      cacheableMessageIndexes.push(messageIndex)
     }
+  }
+  if (cacheableMessageIndexes.length === 0) return targets
 
-    for (let blockIndex = content.length - 1; blockIndex >= 0; blockIndex -= 1) {
-      if (!isAnthropicCacheableContentBlock(content[blockIndex])) continue
-      targets.add(`block:${messageIndex}:${blockIndex}`)
-      remaining -= 1
-      break
-    }
+  const addTarget = (messageIndex: number): boolean => {
+    if (remaining <= 0) return false
+    const targetKey = getAnthropicMessageCacheTargetKey(messages[messageIndex], messageIndex)
+    if (!targetKey || targets.has(targetKey)) return false
+    targets.add(targetKey)
+    remaining -= 1
+    return true
+  }
+
+  const currentMessageIndex = cacheableMessageIndexes[cacheableMessageIndexes.length - 1]
+  const reusableMessageIndex = cacheableMessageIndexes[cacheableMessageIndexes.length - 2]
+  if (reusableMessageIndex !== undefined && remaining >= 2) addTarget(reusableMessageIndex)
+  addTarget(currentMessageIndex)
+  if (reusableMessageIndex !== undefined) addTarget(reusableMessageIndex)
+
+  for (const messageIndex of cacheableMessageIndexes) {
+    if (remaining <= 0) break
+    addTarget(messageIndex)
   }
 
   return targets
@@ -2363,6 +2403,13 @@ function mergeAnthropicUsage(target: TokenUsage, usage: Record<string, unknown> 
   )
   if (reasoningTokens !== undefined && reasoningTokens > 0) {
     target.reasoningTokens = reasoningTokens
+  }
+
+  const cacheReadRatio = calculateCacheReadRatio(target)
+  if (cacheReadRatio !== undefined) {
+    target.cacheReadRatio = cacheReadRatio
+  } else {
+    delete target.cacheReadRatio
   }
 }
 
@@ -2900,6 +2947,13 @@ async function* sendOpenAIChat(
                   cacheReadTokens: data.usage.prompt_tokens_details.cached_tokens
                 }
               : {}),
+            ...((data.usage.prompt_tokens ?? 0) > 0
+              ? {
+                  cacheReadRatio:
+                    (data.usage.prompt_tokens_details?.cached_tokens ?? 0) /
+                    (data.usage.prompt_tokens ?? 0)
+                }
+              : {}),
             contextTokens: data.usage.prompt_tokens ?? 0,
             ...(data.usage.completion_tokens_details?.reasoning_tokens
               ? { reasoningTokens: data.usage.completion_tokens_details.reasoning_tokens }
@@ -3006,6 +3060,13 @@ async function* sendOpenAIChat(
                           data.usage.prompt_tokens_details.cached_tokens
                       ),
                       cacheReadTokens: data.usage.prompt_tokens_details.cached_tokens
+                    }
+                  : {}),
+                ...((data.usage.prompt_tokens ?? 0) > 0
+                  ? {
+                      cacheReadRatio:
+                        (data.usage.prompt_tokens_details?.cached_tokens ?? 0) /
+                        (data.usage.prompt_tokens ?? 0)
                     }
                   : {}),
                 contextTokens: data.usage.prompt_tokens ?? 0,
@@ -3711,6 +3772,9 @@ async function* sendOpenAIResponses(
                   billableInputTokens: Math.max(0, rawInputTokens - cachedTokens),
                   contextTokens: rawInputTokens,
                   ...(cachedTokens > 0 ? { cacheReadTokens: cachedTokens } : {}),
+                  ...(rawInputTokens > 0
+                    ? { cacheReadRatio: Math.max(0, cachedTokens) / rawInputTokens }
+                    : {}),
                   ...(data.response.usage.output_tokens_details?.reasoning_tokens
                     ? {
                         reasoningTokens: data.response.usage.output_tokens_details.reasoning_tokens
@@ -4014,10 +4078,10 @@ function shouldCompressContext(inputTokens: number, config: CompressionConfig): 
 }
 
 function shouldPreCompressContext(inputTokens: number, config: CompressionConfig): boolean {
-  if (!config.enabled || config.contextLength <= 0) return false
-  const preThreshold = getPreCompressionTriggerTokens(config)
-  const fullThreshold = getCompressionTriggerTokens(config)
-  return inputTokens >= preThreshold && inputTokens < fullThreshold
+  void inputTokens
+  void config
+  void getPreCompressionTriggerTokens
+  return false
 }
 
 function preCompressContextMessages(messages: UnifiedMessage[]): UnifiedMessage[] {

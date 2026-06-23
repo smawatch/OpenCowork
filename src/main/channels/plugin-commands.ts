@@ -598,7 +598,14 @@ function handleStats(ctx: CommandContext, args: string): CommandResult {
           totalDurationMs?: number
           requestTimings?: Array<unknown>
         }
-        totalInput += usage.billableInputTokens ?? usage.inputTokens ?? 0
+        totalInput +=
+          usage.billableInputTokens ??
+          Math.max(
+            0,
+            (usage.inputTokens ?? 0) -
+              Math.max(0, usage.cacheReadTokens ?? 0) -
+              Math.max(0, usage.cacheCreationTokens ?? 0)
+          )
         totalOutput += usage.outputTokens ?? 0
         totalCacheCreation += usage.cacheCreationTokens ?? 0
         totalCacheRead += usage.cacheReadTokens ?? 0
@@ -616,6 +623,11 @@ function handleStats(ctx: CommandContext, args: string): CommandResult {
       if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}k`
       return `${(n / 1_000_000).toFixed(2)}M`
     }
+    const formatPercent = (rate: number): string => {
+      const safeRate = Number.isFinite(rate) ? Math.min(1, Math.max(0, rate)) : 0
+      const percent = Math.round(safeRate * 1000) / 10
+      return `${Number.isInteger(percent) ? percent.toFixed(0) : percent.toFixed(1)}%`
+    }
 
     const lines: string[] = ['📈 Usage Stats']
 
@@ -627,7 +639,11 @@ function handleStats(ctx: CommandContext, args: string): CommandResult {
     if (totalCacheRead > 0 || totalCacheCreation > 0) {
       lines.push('')
       lines.push(`💾 Cache:`)
-      if (totalCacheRead > 0) lines.push(`  Cache Hit: ${formatNum(totalCacheRead)}`)
+      if (totalCacheRead > 0) {
+        const cacheTokenShare = totalCacheRead / (totalInput + totalCacheRead)
+        lines.push(`  Cache Read: ${formatNum(totalCacheRead)}`)
+        lines.push(`  Cached Token Share: ${formatPercent(cacheTokenShare)}`)
+      }
       if (totalCacheCreation > 0) lines.push(`  Cache Write: ${formatNum(totalCacheCreation)}`)
     }
 

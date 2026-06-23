@@ -24,6 +24,8 @@ export interface TokenUsage {
   cacheCreation1hTokens?: number
   /** Anthropic prompt caching: tokens read from cache */
   cacheReadTokens?: number
+  /** cacheReadTokens / inputTokens for the normalized request usage. */
+  cacheReadRatio?: number
   /** Reasoning model (o3/o4-mini etc.) internal thinking tokens */
   reasoningTokens?: number
   /** Last API call's input tokens — represents current context window usage (not accumulated) */
@@ -172,6 +174,11 @@ export interface RequestDebugInfo {
   websocketRequestKind?: 'warmup' | 'full' | 'incremental'
   websocketIncrementalReason?: string
   previousResponseId?: string
+  systemHash?: string
+  toolsHash?: string
+  messagePrefixHash?: string
+  toolCount?: number
+  cacheReadRatio?: number
 }
 
 export interface CompactBoundarySegment {
@@ -238,6 +245,15 @@ export interface SelectedFileReadsMeta {
   files: SelectedFileReadItemMeta[]
 }
 
+export interface MessageRequestModelMeta {
+  providerId?: string | null
+  providerName?: string | null
+  providerBuiltinId?: string | null
+  modelId?: string | null
+  modelName?: string | null
+  modelIcon?: string | null
+}
+
 export interface MessageMeta {
   compactBoundary?: CompactBoundaryMeta
   compactSummary?: CompactSummaryMeta
@@ -245,6 +261,8 @@ export interface MessageMeta {
   selectedFileReads?: SelectedFileReadsMeta
   /** Inline compression status card — present on the synthetic system placeholder, not on real messages. */
   compressionStatus?: CompressionStatusMeta
+  /** Provider/model that produced this specific message, when it differs from the parent session. */
+  requestModel?: MessageRequestModelMeta
 }
 
 export interface UnifiedMessage {

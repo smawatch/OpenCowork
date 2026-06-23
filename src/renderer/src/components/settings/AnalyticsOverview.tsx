@@ -13,7 +13,7 @@ import {
   YAxis
 } from 'recharts'
 import { Badge } from '@renderer/components/ui/badge'
-import { getCacheHitRate } from '@renderer/lib/format-tokens'
+import { getCacheReadRatio } from '@renderer/lib/format-tokens'
 import type {
   UsageAnalyticsGroupRow,
   UsageAnalyticsOverview,
@@ -35,6 +35,7 @@ type TimelineDatum = {
   bucketLabel: string
   requestCount: number
   inputTokens: number
+  totalInputTokens: number
   outputTokens: number
   cacheReadTokens: number
   cacheCreationTokens: number
@@ -59,6 +60,7 @@ type AnalyticsTooltipEntry = {
   value?: number | string
   color?: string
   name?: string | number
+  payload?: Partial<TimelineDatum>
 }
 
 type AnalyticsTooltipProps = {
@@ -216,13 +218,22 @@ function buildTimeline(
     const bucketLabel = formatBucketKey(cursor, bucket)
     const row = byKey.get(bucketLabel)
 
+    const inputTokens = toNumber(row?.input_tokens)
+    const cacheReadTokens = toNumber(row?.cache_read_tokens)
+    const cacheCreationTokens = toNumber(row?.cache_creation_tokens)
+    const totalInputTokens = Math.max(
+      toNumber(row?.total_input_tokens),
+      inputTokens + cacheReadTokens + cacheCreationTokens
+    )
+
     normalized.push({
       bucketLabel,
       requestCount: toNumber(row?.request_count),
-      inputTokens: toNumber(row?.input_tokens),
+      inputTokens,
+      totalInputTokens,
       outputTokens: toNumber(row?.output_tokens),
-      cacheReadTokens: toNumber(row?.cache_read_tokens),
-      cacheCreationTokens: toNumber(row?.cache_creation_tokens),
+      cacheReadTokens,
+      cacheCreationTokens,
       totalCostUsd: toNumber(row?.total_cost_usd)
     })
 
@@ -298,13 +309,22 @@ function AnalyticsTooltip({
   const cacheReadTokens = toNumber(
     payload.find((entry) => String(entry.dataKey ?? '') === 'cacheReadTokens')?.value
   )
-  const cacheHitRate = getCacheHitRate(inputTokens, cacheReadTokens)
-  const showCacheHitRate =
+  const cacheCreationTokens = toNumber(
+    payload.find((entry) => String(entry.dataKey ?? '') === 'cacheCreationTokens')?.value
+  )
+  const datumTotalInputTokens = toNumber(
+    payload.find((entry) => entry.payload?.totalInputTokens != null)?.payload?.totalInputTokens
+  )
+  const totalInputTokens = Math.max(
+    datumTotalInputTokens,
+    inputTokens + cacheReadTokens + cacheCreationTokens
+  )
+  const cacheReadRatio = getCacheReadRatio(totalInputTokens, cacheReadTokens)
+  const showCacheReadRatio =
     payload.some((entry) => {
       const key = String(entry.dataKey ?? '')
-      return key === 'inputTokens' || key === 'cacheReadTokens'
-    }) &&
-    inputTokens + cacheReadTokens > 0
+      return key === 'inputTokens' || key === 'cacheReadTokens' || key === 'cacheCreationTokens'
+    }) && totalInputTokens > 0
 
   return (
     <div className="min-w-44 rounded-xl border border-border/60 bg-background/95 px-3 py-2 shadow-2xl backdrop-blur-sm">
@@ -333,11 +353,13 @@ function AnalyticsTooltip({
             </div>
           )
         })}
-        {showCacheHitRate ? (
+        {showCacheReadRatio ? (
           <div className="mt-2 flex items-center justify-between gap-4 border-t border-border/40 pt-2 text-xs">
-            <span className="text-muted-foreground">{t('analytics.cacheHitRate')}</span>
+            <span className="text-muted-foreground">
+              {t('analytics.cacheReadRatio', { defaultValue: 'Cache Read Ratio' })}
+            </span>
             <span className="font-medium tabular-nums text-foreground">
-              {fmtPercent(cacheHitRate, locale)}
+              {fmtPercent(cacheReadRatio, locale)}
             </span>
           </div>
         ) : null}
@@ -386,12 +408,14 @@ export function AnalyticsOverview({
   const totalInputTokens = toNumber(overview?.input_tokens)
   const totalOutputTokens = toNumber(overview?.output_tokens)
   const totalCacheReadTokens = toNumber(overview?.cache_read_tokens)
-  const totalCacheHitRate = getCacheHitRate(totalInputTokens, totalCacheReadTokens)
+  const totalCacheCreationTokens = toNumber(overview?.cache_creation_tokens)
+  const totalPromptInputTokens = Math.max(
+    toNumber(overview?.total_input_tokens),
+    totalInputTokens + totalCacheReadTokens + totalCacheCreationTokens
+  )
+  const totalCacheReadRatio = getCacheReadRatio(totalPromptInputTokens, totalCacheReadTokens)
   const totalTokenComposition =
-    totalInputTokens +
-    totalOutputTokens +
-    totalCacheReadTokens +
-    toNumber(overview?.cache_creation_tokens)
+    totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens
 
   return (
     <div className="space-y-4">
@@ -403,8 +427,8 @@ export function AnalyticsOverview({
           value={renderTokenValue(totalOutputTokens, tokenLocale, true)}
         />
         <MetricCard
-          label={t('analytics.cacheHitRate')}
-          value={fmtPercent(totalCacheHitRate, tokenLocale)}
+          label={t('analytics.cacheReadRatio', { defaultValue: 'Cache Read Ratio' })}
+          value={fmtPercent(totalCacheReadRatio, tokenLocale)}
         />
         <MetricCard label={t('analytics.avgTotal')} value={fmtMs(overview?.avg_total_ms)} />
       </section>

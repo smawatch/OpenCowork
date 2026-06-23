@@ -831,6 +831,9 @@ function mapToStreamEvent(raw: Record<string, unknown>): AgentStreamEvent | null
         ...(raw.usage ? { usage: raw.usage as TokenUsageWire } : {}),
         ...(typeof raw.providerResponseId === 'string'
           ? { providerResponseId: raw.providerResponseId }
+          : {}),
+        ...(raw.requestModel && typeof raw.requestModel === 'object'
+          ? { requestModel: rec(raw.requestModel) }
           : {})
       }
     case 'sub_agent_tool_result_message': {
