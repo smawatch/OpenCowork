@@ -20,6 +20,8 @@ const api = {
   fetchImageBase64: (args: { url: string }) => ipcRenderer.invoke('image:fetch-base64', args),
   writeImageToClipboard: (args: { data: string }) =>
     ipcRenderer.invoke('clipboard:write-image', args),
+  readClipboardFilePaths: () =>
+    ipcRenderer.invoke('clipboard:read-file-paths'),
   teamRuntimeCreate: (args: CreateTeamRuntimeArgs) =>
     ipcRenderer.invoke('team-runtime:create', args),
   teamRuntimeDelete: (args: DeleteTeamRuntimeArgs) =>

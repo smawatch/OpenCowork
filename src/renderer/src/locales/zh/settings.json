@@ -684,7 +684,7 @@
         "promptDesc": "这些工具可以读取并操作整个桌面。建议保持审批开启，先截图再操作，仅在确实需要桌面自动化时启用。若当前模型启用了 Computer Use，将优先通过 OpenAI Computer Use 协调这些桌面能力。"
       },
       "product-design": {
-        "title": "Product Design",
+        "title": "产品设计",
         "description": "探索设计方向、构建原型、审查流程并检查视觉还原度。",
         "promptTitle": "工作流约束",
         "promptDesc": "Product Design 会先确认 brief；构建前必须有视觉目标；没有目标时先生成三个方向；原型交付前必须通过设计 QA。"

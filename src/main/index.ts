@@ -57,6 +57,7 @@ import { ChannelManager } from './channels/channel-manager'
 import { autoConnectMcpServers, registerMcpHandlers } from './ipc/mcp-handlers'
 import { registerCronHandlers } from './ipc/cron-handlers'
 import { registerInputHandlers } from './ipc/input-handlers'
+import { registerClipboardHandlers } from './ipc/clipboard-handlers'
 import { registerNotifyHandlers } from './ipc/notify-handlers'
 import { registerScreenshotHandlers } from './ipc/screenshot-handlers'
 import { registerWebSearchHandlers } from './ipc/web-search-handlers'
@@ -1149,6 +1150,7 @@ if (gotSingleInstanceLock) {
     registerCronHandlers()
     registerScreenshotHandlers()
     registerInputHandlers()
+    registerClipboardHandlers()
     loadPersistedJobs()
     registerNotifyHandlers()
     registerWebSearchHandlers()

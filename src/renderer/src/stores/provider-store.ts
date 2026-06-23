@@ -1882,18 +1882,18 @@ async function ensureBuiltinPresets(): Promise<void> {
   }
 
   // Auto-discover models for LiteLLM providers on every startup
-  const litellmPreset = builtinProviderPresets.find((p) => p.builtinId === 'enterprise-litellm')
-  if (litellmPreset) {
-    const litellmProvider = useProviderStore
-      .getState()
-      .providers.find((p) => p.builtinId === 'enterprise-litellm')
-    if (litellmProvider && litellmProvider.baseUrl && litellmProvider.apiKey) {
-      // Fire and forget — don't block the rest of initialization
-      discoverLiteLLMModels(litellmProvider.id).catch((err) => {
-        console.error('[LiteLLM] Model discovery failed:', err)
-      })
-    }
-  }
+  // const litellmPreset = builtinProviderPresets.find((p) => p.builtinId === 'enterprise-litellm')
+  // if (litellmPreset) {
+  //   const litellmProvider = useProviderStore
+  //     .getState()
+  //     .providers.find((p) => p.builtinId === 'enterprise-litellm')
+  //   if (litellmProvider && litellmProvider.baseUrl && litellmProvider.apiKey) {
+  //     // Fire and forget — don't block the rest of initialization
+  //     discoverLiteLLMModels(litellmProvider.id).catch((err) => {
+  //       console.error('[LiteLLM] Model discovery failed:', err)
+  //     })
+  //   }
+  // }
 
   if (!useProviderStore.getState().activeProviderId) {
     const providers = useProviderStore.getState().providers

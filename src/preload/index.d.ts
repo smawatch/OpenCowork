@@ -25,6 +25,7 @@ interface OpenCoworkAPI {
     url: string
   }) => Promise<{ data?: string; mimeType?: string; error?: string }>
   writeImageToClipboard: (args: { data: string }) => Promise<{ success?: boolean; error?: string }>
+  readClipboardFilePaths: () => Promise<string[]>
   teamRuntimeCreate: (args: CreateTeamRuntimeArgs) => Promise<TeamRuntimeCreateResult>
   teamRuntimeDelete: (args: DeleteTeamRuntimeArgs) => Promise<{ success: true }>
   teamRuntimeAppendMessage: (args: AppendTeamRuntimeMessageArgs) => Promise<{ success: true }>

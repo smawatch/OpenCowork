@@ -38,7 +38,7 @@ export type AppPluginToolName =
   | typeof DESKTOP_WAIT_TOOL_NAME
 
 export function isAppPluginEnabledByDefault(id: AppPluginId): boolean {
-  return id === IMAGE_PLUGIN_ID || id === BROWSER_PLUGIN_ID
+  return id === IMAGE_PLUGIN_ID || id === BROWSER_PLUGIN_ID || id === PRODUCT_DESIGN_PLUGIN_ID
 }
 
 export interface AppPluginDescriptor {

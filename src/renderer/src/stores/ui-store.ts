@@ -913,7 +913,7 @@ export const useUIStore = create<UIStore>()(
             rightPanelActiveTabId
           }
         }),
-      runtimeStatusPanelOpen: true,
+      runtimeStatusPanelOpen: false,
       toggleRuntimeStatusPanel: () =>
         set((state) => ({ runtimeStatusPanelOpen: !state.runtimeStatusPanelOpen })),
       setRuntimeStatusPanelOpen: (open) => set({ runtimeStatusPanelOpen: open }),
