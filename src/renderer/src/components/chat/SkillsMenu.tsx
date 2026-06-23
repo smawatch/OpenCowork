@@ -39,14 +39,12 @@ import { useMcpStore } from '@renderer/stores/mcp-store'
 import { useUIStore } from '@renderer/stores/ui-store'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
 import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
-import { useAppPluginStore } from '@renderer/stores/app-plugin-store'
+import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
 import {
   APP_PLUGIN_DESCRIPTORS,
   isAppPluginEnabledByDefault,
   type AppPluginId
 } from '@renderer/lib/app-plugin/types'
-import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
-import { APP_PLUGIN_DESCRIPTORS, type AppPluginId } from '@renderer/lib/app-plugin/types'
 
 interface SkillsMenuProps {
   onSelectSkill: (skillName: string) => void
