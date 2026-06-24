@@ -53,6 +53,23 @@ export function registerLiteLLMHandlers(): void {
           const contextLength = model.max_input_tokens || model.max_tokens || 128_000
           const maxOutputTokens = model.max_output_tokens || 8_192
 
+          // 根据 mode 字段或模型名称判断模型类型
+          // mode === 'image_generation' 表示图像生成模型
+          // 或者通过模型名称匹配（如 qwen-image、gpt-image 等）
+          let type: string = 'openai-chat'
+          let category: string | undefined = undefined
+
+          const isImageModel =
+            model.mode === 'image_generation' ||
+            /qwen-image|gpt-image|image.*generation/i.test(model.id)
+
+          if (isImageModel) {
+            // 图像生成模型使用 openai-images provider
+            // 这个 provider 会发送请求到 /images/generations 端点
+            type = 'openai-images'
+            category = 'image'
+          }
+
           return {
             id: model.id,
             name: model.id,
@@ -63,7 +80,8 @@ export function registerLiteLLMHandlers(): void {
             supportsVision: model.supports_vision === true,
             supportsFunctionCall: model.supports_function_calling === true,
             supportsThinking: false,
-            type: 'openai-chat'
+            type,
+            ...(category && { category })
           }
         })
 
