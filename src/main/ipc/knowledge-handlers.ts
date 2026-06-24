@@ -1,166 +1,95 @@
 import { ipcMain } from 'electron'
-import { readSettings } from './settings-handlers'
+import { readSettings, replaceSettingsForSync } from './settings-handlers'
 
 function getServerUrl(): string {
   return process.env.MAIN_VITE_SERVER_URL?.trim() || ''
 }
 
+function clearAuthToken(): void {
+  const settings = readSettings()
+  settings.authToken = ''
+  replaceSettingsForSync(settings)
+}
+
+async function knowledgeFetch(
+  url: string,
+  options: RequestInit = {}
+): Promise<{ success: boolean; data?: any; total?: number; error?: string; code?: string }> {
+  const settings = readSettings()
+  const token =
+    typeof settings.authToken === 'string' && settings.authToken.trim()
+      ? settings.authToken.trim()
+      : ''
+
+  if (!token) {
+    return { success: false, error: '未登录' }
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers ?? {}),
+        Authorization: `Bearer ${token}`
+      }
+    })
+    const body = await response.json()
+
+    if (response.status === 401) {
+      console.warn('[知识库] 401 Unauthorized — 令牌已失效，清除认证信息')
+      clearAuthToken()
+      return { success: false, error: '令牌已失效，请重新登录', code: 'UNAUTHORIZED' }
+    }
+
+    if (!response.ok) {
+      return { success: false, error: body.error || body.message || `HTTP ${response.status}` }
+    }
+
+    return { success: true, data: body.data, total: body.total }
+  } catch (err: any) {
+    console.error(`[知识库] 请求失败:`, err.message || err)
+    return { success: false, error: err.message || '网络错误' }
+  }
+}
+
 export function registerKnowledgeHandlers(): void {
   ipcMain.handle('knowledge:list-datasets', async () => {
     const serverUrl = getServerUrl()
-    const settings = readSettings()
-    const token =
-      typeof settings.authToken === 'string' && settings.authToken.trim()
-        ? settings.authToken.trim()
-        : ''
-
-    console.log(
-      `[知识库] 获取知识库列表 | serverUrl=${serverUrl} | token前20位=${token ? token.slice(0, 20) + '...' : '无'}`
-    )
-
-    if (!token) {
-      console.warn('[知识库] 未登录，无Token')
-      return { success: false, error: '未登录' }
-    }
-
     const url = `${serverUrl}/api/knowledge/public/datasets`
     console.log(`[知识库] GET ${url}`)
-
-    try {
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const body = await response.json()
-      console.log(`[知识库] 响应 ${response.status}:`, JSON.stringify(body).slice(0, 300))
-
-      if (!response.ok) {
-        return { success: false, error: body.error || body.message || `HTTP ${response.status}` }
-      }
-      return { success: true, data: body.data }
-    } catch (err: any) {
-      console.error(`[知识库] 请求失败:`, err.message || err)
-      return { success: false, error: err.message || '网络错误' }
-    }
+    return knowledgeFetch(url)
   })
 
-  ipcMain.handle(
-    'knowledge:list-collections',
-    async (_event, args: { kbId: string }) => {
-      const serverUrl = getServerUrl()
-      const settings = readSettings()
-      const token =
-        typeof settings.authToken === 'string' && settings.authToken.trim()
-          ? settings.authToken.trim()
-          : ''
+  ipcMain.handle('knowledge:list-collections', async (_event, args: { kbId: string }) => {
+    const serverUrl = getServerUrl()
+    const url = `${serverUrl}/api/knowledge/public/datasets/${args.kbId}/collections`
+    console.log(`[知识库] GET ${url}`)
+    return knowledgeFetch(url)
+  })
 
-      console.log(`[知识库] 获取数据集 | kbId=${args.kbId} | serverUrl=${serverUrl} | token前20位=${token ? token.slice(0, 20) + '...' : '无'}`)
-
-      if (!token) {
-        console.warn('[知识库] 未登录，无Token')
-        return { success: false, error: '未登录' }
-      }
-
-      const url = `${serverUrl}/api/knowledge/public/datasets/${args.kbId}/collections`
-      console.log(`[知识库] GET ${url}`)
-
-      try {
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        const body = await response.json()
-        console.log(`[知识库] 响应 ${response.status}:`, JSON.stringify(body).slice(0, 300))
-
-        if (!response.ok) {
-          return { success: false, error: body.error || body.message || `HTTP ${response.status}` }
-        }
-        return { success: true, data: body.data, total: body.total }
-      } catch (err: any) {
-        console.error(`[知识库] 请求失败:`, err.message || err)
-        return { success: false, error: err.message || '网络错误' }
-      }
-    }
-  )
-
-  ipcMain.handle(
-    'knowledge:list-chunks',
-    async (_event, args: { collectionId: string }) => {
-      const serverUrl = getServerUrl()
-      const settings = readSettings()
-      const token =
-        typeof settings.authToken === 'string' && settings.authToken.trim()
-          ? settings.authToken.trim()
-          : ''
-
-      console.log(`[知识库] 获取分块 | collectionId=${args.collectionId} | serverUrl=${serverUrl}`)
-
-      if (!token) {
-        console.warn('[知识库] 未登录，无Token')
-        return { success: false, error: '未登录' }
-      }
-
-      const url = `${serverUrl}/api/knowledge/public/collections/${args.collectionId}/data`
-      console.log(`[知识库] GET ${url}`)
-
-      try {
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        const body = await response.json()
-        console.log(`[知识库] 响应 ${response.status}:`, JSON.stringify(body).slice(0, 300))
-
-        if (!response.ok) {
-          return { success: false, error: body.error || body.message || `HTTP ${response.status}` }
-        }
-        return { success: true, data: body.data, total: body.total }
-      } catch (err: any) {
-        console.error(`[知识库] 请求失败:`, err.message || err)
-        return { success: false, error: err.message || '网络错误' }
-      }
-    }
-  )
+  ipcMain.handle('knowledge:list-chunks', async (_event, args: { collectionId: string }) => {
+    const serverUrl = getServerUrl()
+    const url = `${serverUrl}/api/knowledge/public/collections/${args.collectionId}/data`
+    console.log(`[知识库] GET ${url}`)
+    return knowledgeFetch(url)
+  })
 
   ipcMain.handle(
     'knowledge:search',
     async (_event, args: { query: string; datasetIds?: string[]; topK?: number; score?: number }) => {
       const serverUrl = getServerUrl()
-      const settings = readSettings()
-      const token =
-        typeof settings.authToken === 'string' && settings.authToken.trim()
-          ? settings.authToken.trim()
-          : ''
-
-      console.log(`[知识库] 检索 | query=${args.query} | topK=${args.topK ?? 5}`)
-
-      if (!token) {
-        return { success: false, error: '未登录' }
-      }
-
       const url = `${serverUrl}/api/knowledge/public/search`
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            query: args.query,
-            datasetIds: args.datasetIds ?? [],
-            topK: args.topK ?? 5,
-            score: args.score ?? 0.6
-          })
+      console.log(`[知识库] POST ${url} | query=${args.query}`)
+      return knowledgeFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: args.query,
+          datasetIds: args.datasetIds ?? [],
+          topK: args.topK ?? 5,
+          score: args.score ?? 0.6
         })
-        const body = await response.json()
-        console.log(`[知识库] 检索响应 ${response.status}:`, JSON.stringify(body).slice(0, 300))
-
-        if (!response.ok) {
-          return { success: false, error: body.error || body.message || `HTTP ${response.status}` }
-        }
-        return { success: true, data: body.data }
-      } catch (err: any) {
-        console.error(`[知识库] 检索失败:`, err.message || err)
-        return { success: false, error: err.message || '网络错误' }
-      }
+      })
     }
   )
 }

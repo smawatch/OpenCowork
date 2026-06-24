@@ -16,6 +16,7 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { IPC } from '@renderer/lib/ipc/channels'
+import { useAuthStore } from '@renderer/stores/auth-store'
 
 interface DatasetItem {
   id: string
@@ -118,13 +119,20 @@ export function KnowledgePage(): React.JSX.Element {
     error: string | null
   }>({ loading: false, total: 0, items: [], error: null })
 
+  const handleAuthError = useCallback((result: { code?: string }) => {
+    if (result.code === 'UNAUTHORIZED') {
+      useAuthStore.getState().logout()
+    }
+  }, [])
+
   const fetchDatasets = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const result = (await ipcClient.invoke(IPC.KNOWLEDGE_LIST_DATASETS)) as ApiResponse<
         DatasetItem[]
-      >
+      > & { code?: string }
+      handleAuthError(result)
       if (!result.success) {
         setError(result.error || '获取知识库列表失败')
         return
@@ -143,7 +151,8 @@ export function KnowledgePage(): React.JSX.Element {
     try {
       const result = (await ipcClient.invoke(IPC.KNOWLEDGE_LIST_COLLECTIONS, {
         kbId: kb.id
-      })) as ApiResponse<CollectionItem[]>
+      })) as ApiResponse<CollectionItem[]> & { code?: string }
+      handleAuthError(result)
       if (!result.success) {
         setCollections({
           loading: false,
@@ -175,7 +184,8 @@ export function KnowledgePage(): React.JSX.Element {
     try {
       const result = (await ipcClient.invoke(IPC.KNOWLEDGE_LIST_CHUNKS, {
         collectionId: collection.id
-      })) as ApiResponse<ChunkItem[]>
+      })) as ApiResponse<ChunkItem[]> & { code?: string }
+      handleAuthError(result)
       if (!result.success) {
         setChunks({
           loading: false,

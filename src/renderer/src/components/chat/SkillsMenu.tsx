@@ -39,6 +39,7 @@ import { resolveEffectiveActiveMcpIds, useMcpStore } from '@renderer/stores/mcp-
 import { useUIStore } from '@renderer/stores/ui-store'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
 import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
+import { useAuthStore } from '@renderer/stores/auth-store'
 import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
 import {
   APP_PLUGIN_DESCRIPTORS,
@@ -193,6 +194,10 @@ export function SkillsMenu({
     void ipcClient
       .invoke(IPC.KNOWLEDGE_LIST_DATASETS)
       .then((r: any) => {
+        if (r?.code === 'UNAUTHORIZED') {
+          useAuthStore.getState().logout()
+          return
+        }
         if (!cancelled && r?.success) setKbDatasets(r.data ?? [])
       })
       .catch(() => {})
