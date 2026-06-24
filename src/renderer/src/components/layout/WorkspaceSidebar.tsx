@@ -493,7 +493,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
     !knowledgePageOpen &&
     !tasksPageOpen
   const featureMenuActive =
-    resourcesPageOpen || skillsPageOpen || soulsPageOpen || syncPageOpen || drawPageOpen || knowledgePageOpen
+    resourcesPageOpen || skillsPageOpen || soulsPageOpen || syncPageOpen || drawPageOpen
   const sessionsByProject = useMemo(() => {
     const next = new Map<string, SessionListItem[]>()
     for (const session of sessions) {
@@ -1947,6 +1947,10 @@ export function WorkspaceSidebar(): React.JSX.Element {
                 <User className="mr-2 size-4" />
                 <span>用户管理</span>
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => useUIStore.getState().openSettingsPage('general')}>
+                <Settings className="mr-2 size-4" />
+                <span>系统设置</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={async () => {
@@ -1960,24 +1964,10 @@ export function WorkspaceSidebar(): React.JSX.Element {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* System Settings Button */}
-          <Button
-            variant="ghost"
-            className={cn(
-              'h-8 w-full justify-between gap-2 px-2 text-[12px]',
-              SIDEBAR_TREE_ROW_CLASS,
-              SIDEBAR_TREE_HOVER_CLASS
-            )}
-            onClick={() => useUIStore.getState().openSettingsPage('general')}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <Settings className="size-4 shrink-0" />
-              <span className="truncate">{t('sidebar.systemSettings')}</span>
-            </span>
-            <span className="shrink-0 text-[10px] text-muted-foreground/80">
-              v{packageJson.version}
-            </span>
-          </Button>
+          {/* Version Info Only */}
+          <div className="flex items-center justify-between px-2 py-1 text-[10px] text-muted-foreground/40">
+            <span>v{packageJson.version}</span>
+          </div>
         </div>
 
         <input
@@ -2153,9 +2143,9 @@ export function WorkspaceSidebar(): React.JSX.Element {
         </AlertDialogContent>
       </AlertDialog>
 
-      <UserManagementDialog 
-        open={showUserManagement} 
-        onOpenChange={setShowUserManagement} 
+      <UserManagementDialog
+        open={showUserManagement}
+        onOpenChange={setShowUserManagement}
       />
     </>
   )

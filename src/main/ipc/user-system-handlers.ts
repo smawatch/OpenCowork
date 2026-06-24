@@ -1,20 +1,11 @@
 import { ipcMain } from 'electron';
 import { readSettings } from './settings-handlers';
+import { getServerUrl } from '../lib/server-url';
 
 interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
-}
-
-function getServerUrl(): string {
-  const envUrl = process.env.MAIN_VITE_SERVER_URL?.trim()
-  if (envUrl) return envUrl
-  const settings = readSettings()
-  const settingsUrl = settings.serverUrl as string
-  if (settingsUrl) return settingsUrl
-  // 打包后的默认服务器地址
-  return 'http://192.168.77.100:3002'
 }
 
 async function apiRequest(endpoint: string, options?: RequestInit): Promise<ApiResponse> {

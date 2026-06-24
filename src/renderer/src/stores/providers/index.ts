@@ -2,6 +2,7 @@ import { liteLLMPreset } from '@renderer/stores/providers/litellm'
 
 export type { BuiltinProviderPreset } from './types'
 
+import { baiduCodingPreset, baiduPreset } from './baidu'
 import { routinAiPlanPreset, routinAiPreset } from './routin-ai'
 import { openaiPreset } from './openai'
 import { anthropicPreset } from './anthropic'
@@ -14,7 +15,6 @@ import { azureOpenaiPreset } from './azure-openai'
 import { moonshotCodingPreset, moonshotPreset } from './moonshot'
 import { qwenCodingPreset, qwenPreset } from './qwen'
 import { minimaxCodingPreset, minimaxPreset } from './minimax'
-import { baiduCodingPreset, baiduPreset } from './baidu'
 import { siliconflowPreset } from './siliconflow'
 import { giteeAiPreset } from './gitee-ai'
 import { codexOAuthPreset } from './codex-oauth'
@@ -25,6 +25,8 @@ import { volcenginePreset } from './volcengine'
 import type { BuiltinProviderPreset } from './types'
 
 export const builtinProviderPresets: BuiltinProviderPreset[] = [
+  baiduPreset,
+  baiduCodingPreset,
   liteLLMPreset,
   routinAiPreset,
   routinAiPlanPreset,
@@ -40,8 +42,6 @@ export const builtinProviderPresets: BuiltinProviderPreset[] = [
   moonshotPreset,
   qwenCodingPreset,
   qwenPreset,
-  baiduCodingPreset,
-  baiduPreset,
   minimaxCodingPreset,
   minimaxPreset,
   siliconflowPreset,
