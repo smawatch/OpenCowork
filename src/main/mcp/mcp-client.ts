@@ -202,7 +202,14 @@ export class McpClientWrapper {
     if (!this.client || this._status !== 'connected') {
       throw new Error(`MCP server "${this.config.name}" is not connected`)
     }
-    const result = await this.client.callTool({ name: toolName, arguments: args })
+
+    const timeoutMs = this.config.toolTimeoutMs ?? 120_000
+    const result = await Promise.race([
+      this.client.callTool({ name: toolName, arguments: args }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`MCP tool "${toolName}" timed out after ${timeoutMs}ms`)), timeoutMs)
+      )
+    ])
     return result
   }
 

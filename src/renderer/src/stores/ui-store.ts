@@ -31,6 +31,7 @@ export type NavItem =
   | 'draw'
   | 'translate'
   | 'tasks'
+  | 'knowledge'
 
 export type ChatView = 'home' | 'project' | 'archive' | 'channels' | 'git' | 'session'
 
@@ -380,6 +381,9 @@ interface UIStore {
   resourcesPageOpen: boolean
   openResourcesPage: () => void
   closeResourcesPage: () => void
+  knowledgePageOpen: boolean
+  openKnowledgePage: () => void
+  closeKnowledgePage: () => void
   translatePageOpen: boolean
   openTranslatePage: () => void
   closeTranslatePage: () => void
@@ -670,6 +674,7 @@ const CHAT_SURFACE_NAV_RESET = {
   resourcesPageOpen: false,
   translatePageOpen: false,
   drawPageOpen: false,
+  knowledgePageOpen: false,
   tasksPageOpen: false
 } as const
 
@@ -1263,6 +1268,7 @@ export const useUIStore = create<UIStore>()(
           syncPageOpen: false,
           resourcesPageOpen: false,
           translatePageOpen: false,
+          knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
           ...closeRightSidePanels()
@@ -1291,6 +1297,7 @@ export const useUIStore = create<UIStore>()(
           syncPageOpen: false,
           resourcesPageOpen: false,
           translatePageOpen: false,
+          knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
           ...closeRightSidePanels()
@@ -1306,6 +1313,7 @@ export const useUIStore = create<UIStore>()(
           syncPageOpen: false,
           resourcesPageOpen: false,
           translatePageOpen: false,
+          knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
           ...closeRightSidePanels()
@@ -1321,6 +1329,7 @@ export const useUIStore = create<UIStore>()(
           soulsPageOpen: false,
           resourcesPageOpen: false,
           translatePageOpen: false,
+          knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
           ...closeRightSidePanels()
@@ -1336,11 +1345,28 @@ export const useUIStore = create<UIStore>()(
           soulsPageOpen: false,
           syncPageOpen: false,
           translatePageOpen: false,
+          knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
           ...closeRightSidePanels()
         }),
       closeResourcesPage: () => set({ resourcesPageOpen: false }),
+      knowledgePageOpen: false,
+      openKnowledgePage: () =>
+        set({
+          activeNavItem: 'knowledge',
+          knowledgePageOpen: true,
+          settingsPageOpen: false,
+          skillsPageOpen: false,
+          soulsPageOpen: false,
+          syncPageOpen: false,
+          resourcesPageOpen: false,
+          drawPageOpen: false,
+          translatePageOpen: false,
+          tasksPageOpen: false,
+          ...closeRightSidePanels()
+        }),
+      closeKnowledgePage: () => set({ knowledgePageOpen: false }),
       translatePageOpen: false,
       openTranslatePage: () =>
         set({
@@ -1353,6 +1379,7 @@ export const useUIStore = create<UIStore>()(
           resourcesPageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
+          knowledgePageOpen: false,
           ...closeRightSidePanels()
         }),
       closeTranslatePage: () => set({ translatePageOpen: false }),
@@ -1367,6 +1394,7 @@ export const useUIStore = create<UIStore>()(
           syncPageOpen: false,
           resourcesPageOpen: false,
           translatePageOpen: false,
+          knowledgePageOpen: false,
           tasksPageOpen: false,
           ...closeRightSidePanels()
         }),
@@ -1382,6 +1410,7 @@ export const useUIStore = create<UIStore>()(
           syncPageOpen: false,
           resourcesPageOpen: false,
           translatePageOpen: false,
+          knowledgePageOpen: false,
           drawPageOpen: false,
           ...closeRightSidePanels()
         }),
@@ -1937,6 +1966,7 @@ export const useUIStore = create<UIStore>()(
             syncPageOpen: false,
             resourcesPageOpen: false,
             translatePageOpen: false,
+          knowledgePageOpen: false,
             drawPageOpen: false,
             tasksPageOpen: false,
             ...closeRightSidePanels()

@@ -58,6 +58,11 @@ const TranslatePage = lazy(async () => {
   return { default: mod.TranslatePage }
 })
 
+const KnowledgePage = lazy(async () => {
+  const mod = await import('@renderer/components/knowledge/KnowledgePage')
+  return { default: mod.KnowledgePage }
+})
+
 const DrawPage = lazy(async () => {
   const mod = await import('@renderer/components/draw/DrawPage')
   return { default: mod.DrawPage }
@@ -324,6 +329,7 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
   const syncPageOpen = useUIStore((s) => s.syncPageOpen)
   const resourcesPageOpen = useUIStore((s) => s.resourcesPageOpen)
   const drawPageOpen = useUIStore((s) => s.drawPageOpen)
+  const knowledgePageOpen = useUIStore((s) => s.knowledgePageOpen)
   const translatePageOpen = useUIStore((s) => s.translatePageOpen)
   const tasksPageOpen = useUIStore((s) => s.tasksPageOpen)
   const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar)
@@ -351,6 +357,9 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
     }
     if (translatePageOpen) {
       return { title: t('navRail.translate', { defaultValue: 'Translate' }), subtitle: null }
+    }
+    if (knowledgePageOpen) {
+      return { title: t('navRail.knowledge', { defaultValue: 'Knowledge' }), subtitle: null }
     }
     if (chatView === 'project') {
       return {
@@ -405,7 +414,8 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
     syncPageOpen,
     t,
     tasksPageOpen,
-    translatePageOpen
+    translatePageOpen,
+    knowledgePageOpen
   ])
 
   const getActiveSessionSnapshot = useCallback(
@@ -772,6 +782,15 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
               >
                 <Suspense fallback={<LazyPageFallback />}>
                   <DrawPage />
+                </Suspense>
+              </PageTransition>
+            ) : knowledgePageOpen ? (
+              <PageTransition
+                key="knowledge-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <KnowledgePage />
                 </Suspense>
               </PageTransition>
             ) : translatePageOpen ? (

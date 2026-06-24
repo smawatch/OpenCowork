@@ -714,8 +714,14 @@
     "sync": "同步",
     "draw": "绘图",
     "translate": "翻译",
+    "knowledge": "知识库",
     "ssh": "SSH",
     "settings": "设置"
+  },
+  "knowledgePage": {
+    "title": "知识库",
+    "subtitle": "浏览和管理你的知识库",
+    "empty": "暂无知识库"
   },
   "resourcesPage": {
     "title": "资源",
