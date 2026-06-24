@@ -2,7 +2,12 @@ import { ipcMain } from 'electron'
 import { readSettings } from './settings-handlers'
 
 function getServerUrl(): string {
-  return process.env.MAIN_VITE_SERVER_URL?.trim() || ''
+  const envUrl = process.env.MAIN_VITE_SERVER_URL?.trim()
+  if (envUrl) return envUrl
+  const settings = readSettings()
+  const settingsUrl = settings.serverUrl as string
+  if (settingsUrl) return settingsUrl
+  return 'http://192.168.77.100:3002'
 }
 
 export function registerKnowledgeHandlers(): void {
