@@ -215,8 +215,14 @@ function ContextRing({
         if (contextTokens <= 0) continue
         return [contextTokens, usage.contextLength ?? null]
       }
+      // Fallback: estimate from message count when API doesn't return usage
+      if (messages.length > 0) {
+        const roughEstimate = messages.length * 500 // ~500 tokens per message
+        const fallbackLimit = compressionConfig?.contextLength ?? null
+        return [roughEstimate, fallbackLimit]
+      }
       return [0, null]
-    }, []),
+    }, [compressionConfig]),
     (a, b) => a[0] === b[0] && a[1] === b[1]
   )
 
@@ -2775,36 +2781,6 @@ export function InputArea({
     ]
   )
 
-  const handlePaste = React.useCallback(
-    (e: React.ClipboardEvent<HTMLDivElement>): void => {
-      const imageFiles = getPastedImageFiles(e.clipboardData)
-
-      if (imageFiles.length > 0) {
-        e.preventDefault()
-        void addImages(imageFiles)
-        return
-      }
-
-      const plainText = e.clipboardData.getData('text/plain')
-      if (!plainText) return
-
-      e.preventDefault()
-      const selection = editorRef.current?.getSelectionOffsets() ?? editorSelection
-      replaceSelectionWithText(plainText, selection)
-    },
-    [addImages, editorSelection, getPastedImageFiles, replaceSelectionWithText]
-  )
-
-  const handleQueueEditPaste = React.useCallback(
-    (e: React.ClipboardEvent<HTMLTextAreaElement>): void => {
-      const imageFiles = getPastedImageFiles(e.clipboardData)
-      if (imageFiles.length === 0) return
-      e.preventDefault()
-      void addQueuedImages(imageFiles)
-    },
-    [addQueuedImages, getPastedImageFiles]
-  )
-
   const getDraggedFilePaths = React.useCallback((dataTransfer: DataTransfer | null): string[] => {
     if (!dataTransfer) return []
     const payload = dataTransfer.getData(INTERNAL_FILE_DRAG_MIME)
@@ -2819,10 +2795,120 @@ export function InputArea({
     }
   }, [])
 
+  const handlePaste = React.useCallback(
+    async (e: React.ClipboardEvent<HTMLDivElement>): Promise<void> => {
+      console.log('[Paste] Clipboard types:', e.clipboardData?.types)
+      console.log('[Paste] Files count:', e.clipboardData?.files?.length)
+      
+      const imageFiles = getPastedImageFiles(e.clipboardData)
+
+      if (imageFiles.length > 0) {
+        e.preventDefault()
+        console.log('[Paste] Handling image files:', imageFiles.length)
+        void addImages(imageFiles)
+        return
+      }
+
+      // Try to get file paths from clipboard (for file references)
+      // Method 1: Check internal drag MIME type (app-to-app drag)
+      const filePaths = getDraggedFilePaths(e.clipboardData as unknown as DataTransfer)
+      console.log('[Paste] Internal MIME paths:', filePaths)
+      if (filePaths.length > 0) {
+        e.preventDefault()
+        console.log('[Paste] Adding files from internal MIME:', filePaths)
+        addFilesToEditor(filePaths)
+        return
+      }
+
+      // Method 2: Use IPC to read file paths from system clipboard
+      if (e.clipboardData?.types.includes('Files')) {
+        try {
+          console.log('[Paste] Attempting to read file paths via IPC')
+          const systemFilePaths = await window.api.readClipboardFilePaths()
+          console.log('[Paste] System clipboard file paths:', systemFilePaths)
+          
+          if (systemFilePaths.length > 0) {
+            e.preventDefault()
+            console.log('[Paste] Adding files from system clipboard:', systemFilePaths)
+            addFilesToEditor(systemFilePaths)
+            return
+          }
+        } catch (error) {
+          console.error('[Paste] Error reading clipboard via IPC:', error)
+        }
+      }
+
+      // Method 3: Check for Files in clipboard (fallback)
+      const clipboardFiles = e.clipboardData?.files
+      if (clipboardFiles && clipboardFiles.length > 0) {
+        console.log('[Paste] Found Files in clipboard:', clipboardFiles.length)
+        const fileArray = Array.from(clipboardFiles)
+        const file = fileArray[0]
+        console.log('[Paste] First file details:', {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          lastModified: file.lastModified,
+          path: (file as any).path,
+          webkitRelativePath: (file as any).webkitRelativePath,
+          allKeys: Object.keys(file)
+        })
+        const nonImageFiles = fileArray.filter((f) => !ACCEPTED_IMAGE_TYPES.includes(f.type))
+        if (nonImageFiles.length > 0) {
+          e.preventDefault()
+          // Extract file paths from File objects
+          const paths = nonImageFiles
+            .map((f) => (f as File & { path?: string }).path)
+            .filter((filePath): filePath is string => Boolean(filePath))
+          console.log('[Paste] Extracted paths:', paths)
+          if (paths.length > 0) {
+            console.log('[Paste] Adding files from File objects:', paths)
+            addFilesToEditor(paths)
+            return
+          } else {
+            console.log('[Paste] No paths found in File objects, trying alternative approach')
+            // Alternative: Use the file name as a fallback
+            const fileNames = nonImageFiles.map(f => f.name)
+            console.log('[Paste] File names:', fileNames)
+          }
+        }
+      }
+
+      // Method 4: Fallback to plain text
+      const plainText = e.clipboardData.getData('text/plain')
+      if (!plainText) {
+        console.log('[Paste] No content found')
+        return
+      }
+
+      console.log('[Paste] Handling plain text')
+      e.preventDefault()
+      const selection = editorRef.current?.getSelectionOffsets() ?? editorSelection
+      replaceSelectionWithText(plainText, selection)
+    },
+    [addImages, addFilesToEditor, editorSelection, getPastedImageFiles, getDraggedFilePaths, replaceSelectionWithText]
+  )
+
+  const handleQueueEditPaste = React.useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>): void => {
+      const imageFiles = getPastedImageFiles(e.clipboardData)
+      if (imageFiles.length === 0) return
+      e.preventDefault()
+      void addQueuedImages(imageFiles)
+    },
+    [addQueuedImages, getPastedImageFiles]
+  )
+
   const handleDropFiles = React.useCallback(
     (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return
       const fileArr = Array.from(fileList)
+      console.log('[Drop] Native files:', fileArr.map(f => ({
+        name: f.name,
+        type: f.type,
+        path: (f as any).path,
+        webkitRelativePath: (f as any).webkitRelativePath
+      })))
       const imageFiles = supportsVision
         ? fileArr.filter((f) => ACCEPTED_IMAGE_TYPES.includes(f.type))
         : []
@@ -2838,8 +2924,11 @@ export function InputArea({
         .map((f) => (f as File & { path?: string }).path)
         .filter((filePath): filePath is string => Boolean(filePath))
 
+      console.log('[Drop] Extracted paths:', paths)
       if (paths.length > 0) {
         addFilesToEditor(paths)
+      } else if (otherFiles.length > 0) {
+        console.log('[Drop] No paths in native files, dropping without file reference')
       }
     },
     [addFilesToEditor, addImages, supportsVision]

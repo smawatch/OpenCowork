@@ -90,6 +90,8 @@
       "retrying": "重试中 {{attempt}}",
       "runningSubAgents": "{{count}} 个 SubAgent 运行中"
     },
+    "doubleClickCompressContext": "双击压缩上下文",
+    "compressingContext": "正在压缩上下文...",
     "sendTooltip": "发送 (Enter)",
     "stopTooltip": "停止 (Esc)",
     "optimizePrompt": "优化提示词",

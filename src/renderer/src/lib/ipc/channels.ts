@@ -330,6 +330,7 @@ export const IPC = {
 
   // Clipboard
   CLIPBOARD_WRITE_IMAGE: 'clipboard:write-image',
+  CLIPBOARD_READ_FILE_PATHS: 'clipboard:read-file-paths' as const,
   WINDOW_CAPTURE_REGION: 'window:capture-region',
   SSH_WINDOW_OPEN: 'ssh-window:open',
   SESSION_WINDOW_OPEN: 'session-window:open',

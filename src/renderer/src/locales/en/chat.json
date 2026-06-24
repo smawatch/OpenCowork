@@ -90,6 +90,8 @@
       "retrying": "Retrying {{attempt}}",
       "runningSubAgents": "{{count}} sub-agents running"
     },
+    "doubleClickCompressContext": "Double-click to compress context",
+    "compressingContext": "Compressing context...",
     "sendTooltip": "Send (Enter)",
     "stopTooltip": "Stop (Esc)",
     "optimizePrompt": "Optimize prompt",

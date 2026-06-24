@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ExternalLink, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@renderer/components/ui/button'
 import { useSettingsStore } from '@renderer/stores/settings-store'
@@ -298,17 +298,6 @@ export function ConversationGuideDialog({
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() =>
-                window.open('https://open-cowork.shop/', '_blank', 'noopener,noreferrer')
-              }
-            >
-              <ExternalLink className="size-3.5" />
-              {t('guide.openDocs')}
-            </Button>
             <Button variant="outline" size="sm" onClick={closeGuide}>
               {t('guide.skip')}
             </Button>

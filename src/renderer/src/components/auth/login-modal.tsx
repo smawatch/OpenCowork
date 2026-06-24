@@ -125,7 +125,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSwitchToRegis
                 setUsername(e.target.value);
                 if (error) setError('');
               }}
-              placeholder="请输入用户名"
+              placeholder="请输入用户名或邮箱"
               disabled={isLoading}
               autoFocus
               autoComplete="username"

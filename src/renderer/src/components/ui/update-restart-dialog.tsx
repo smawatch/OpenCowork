@@ -93,10 +93,10 @@ export function UpdateRestartDialogProvider(): React.JSX.Element {
     <AlertDialog open={!!dialog} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t('update.restartTitle', 'Update Ready to Install')}</AlertDialogTitle>
+          <AlertDialogTitle>{t('app.update.restartTitle', 'Update Ready to Install')}</AlertDialogTitle>
           <AlertDialogDescription>
             {t(
-              'update.restartDescription',
+              'app.update.restartDescription',
               'A new version ({{version}}) has been downloaded. Would you like to restart now to apply the update, or restart later?',
               { version: dialog.version }
             )}
@@ -104,7 +104,7 @@ export function UpdateRestartDialogProvider(): React.JSX.Element {
           {dialog.releaseNotes && (
             <div className="mt-4 max-h-[300px] overflow-y-auto rounded-md border bg-muted p-4">
               <h4 className="mb-2 text-sm font-semibold">
-                {t('update.releaseNotes', 'Release Notes')}
+                {t('app.update.releaseNotes', 'Release Notes')}
               </h4>
               <div className="whitespace-pre-wrap text-sm text-muted-foreground">
                 {dialog.releaseNotes}
@@ -114,10 +114,10 @@ export function UpdateRestartDialogProvider(): React.JSX.Element {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel size="sm" onClick={handleRestartLater}>
-            {t('update.restartLater', 'Restart Later')}
+            {t('app.update.restartLater', 'Restart Later')}
           </AlertDialogCancel>
           <AlertDialogAction size="sm" onClick={handleRestartNow}>
-            {t('update.restartNow', 'Restart Now')}
+            {t('app.update.restartNow', 'Restart Now')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

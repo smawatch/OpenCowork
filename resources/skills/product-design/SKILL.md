@@ -1,6 +1,7 @@
 ---
 name: product-design
 description: Product Design workflow plugin for OpenCowork. Use when the user mentions Product Design or asks to design, redesign, audit, research, prototype, clone a URL, turn an image or screenshot into code, generate UI directions, manage saved product design context, or share a runnable prototype.
+defaultEnabled: true
 ---
 
 # Product Design
