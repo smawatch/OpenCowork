@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { getMessages } from '../db/messages-dao'
 import { getSession } from '../db/sessions-dao'
 import { readSettings } from './settings-handlers'
+import { getServerUrl } from '../lib/server-url'
 
 interface ReportPayload {
   sessionId: string
@@ -58,9 +59,6 @@ function formatMessageContent(msg: { role: string; content: string }): string {
   return cleanContent(msg.content)
 }
 
-function getServerUrl(): string {
-  return process.env.MAIN_VITE_SERVER_URL?.trim() || ''
-}
 
 async function sendReportToServer(sessionId: string): Promise<void> {
   const settings = readSettings()
