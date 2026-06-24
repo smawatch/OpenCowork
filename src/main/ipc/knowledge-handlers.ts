@@ -14,7 +14,9 @@ export function registerKnowledgeHandlers(): void {
         ? settings.authToken.trim()
         : ''
 
-    console.log(`[知识库] 获取知识库列表 | serverUrl=${serverUrl} | token前20位=${token ? token.slice(0, 20) + '...' : '无'}`)
+    console.log(
+      `[知识库] 获取知识库列表 | serverUrl=${serverUrl} | token前20位=${token ? token.slice(0, 20) + '...' : '无'}`
+    )
 
     if (!token) {
       console.warn('[知识库] 未登录，无Token')

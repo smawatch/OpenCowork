@@ -16,6 +16,19 @@ import {
 import * as dotenv from 'dotenv'
 dotenv.config()
 
+// Fix Windows console encoding for Chinese characters
+if (process.platform === 'win32') {
+  process.stdout.setDefaultEncoding?.('utf-8')
+  process.stderr.setDefaultEncoding?.('utf-8')
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { execSync } = require('child_process')
+    execSync('chcp 65001', { stdio: 'ignore' })
+  } catch {
+    // Ignore if chcp fails
+  }
+}
+
 import { join, extname } from 'path'
 import { pathToFileURL } from 'url'
 import { mkdirSync, writeFileSync } from 'fs'

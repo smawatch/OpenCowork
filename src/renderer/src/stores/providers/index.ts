@@ -1,3 +1,5 @@
+import { liteLLMPreset } from '@renderer/stores/providers/litellm'
+
 export type { BuiltinProviderPreset } from './types'
 
 import { routinAiPlanPreset, routinAiPreset } from './routin-ai'
@@ -23,6 +25,7 @@ import { volcenginePreset } from './volcengine'
 import type { BuiltinProviderPreset } from './types'
 
 export const builtinProviderPresets: BuiltinProviderPreset[] = [
+  liteLLMPreset,
   routinAiPreset,
   routinAiPlanPreset,
   openaiPreset,

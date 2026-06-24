@@ -7,7 +7,7 @@ export const routinAiPreset: BuiltinProviderPreset = {
   defaultBaseUrl: 'https://api.routin.ai/v1',
   homepage: 'https://routin.ai',
   apiKeyUrl: 'https://routin.ai/dashboard/api-keys',
-  defaultEnabled: true,
+  defaultEnabled: false,
   defaultModel: 'glm-5',
   defaultModels: [
     {
@@ -1672,7 +1672,7 @@ export const routinAiPlanPreset: BuiltinProviderPreset = {
   defaultBaseUrl: 'https://api.routin.ai/plan/v1',
   homepage: 'https://routin.ai',
   apiKeyUrl: 'https://routin.ai/dashboard/api-keys',
-  defaultEnabled: true,
+  defaultEnabled: false,
   defaultModel: 'gpt-5.5',
   defaultModels: ROUTIN_AI_PLAN_MODEL_ORDER.map((id) => {
     const config = routinAiModelById.get(id)
