@@ -64,7 +64,6 @@ export const liteLLMPreset: BuiltinProviderPreset = {
       icon: 'qwen',
       enabled: true,
       category: 'image',
-      type: 'openai-images',
       supportsVision: true,
       supportsFunctionCall: false,
       inputPrice: 0.04,

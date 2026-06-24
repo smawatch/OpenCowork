@@ -441,9 +441,9 @@
   --composer-control-bg-hover: #f0f0f2;
   --composer-control-border: transparent;
   --composer-control-shadow: none;
-  --composer-control-active-bg: transparent;
-  --composer-control-active-border: transparent;
-  --composer-control-active-text: var(--foreground);
+  --composer-control-active-bg: color-mix(in srgb, var(--primary) 12%, transparent);
+  --composer-control-active-border: color-mix(in srgb, var(--primary) 30%, transparent);
+  --composer-control-active-text: var(--primary);
   --composer-send-start: var(--foreground);
   --composer-send-end: var(--foreground);
   --composer-send-shadow: 0 8px 20px -12px color-mix(in srgb, var(--foreground) 20%, transparent);
@@ -588,9 +588,9 @@
   --composer-control-bg-hover: color-mix(in srgb, var(--accent) 82%, black 18%);
   --composer-control-border: transparent;
   --composer-control-shadow: none;
-  --composer-control-active-bg: transparent;
-  --composer-control-active-border: transparent;
-  --composer-control-active-text: var(--foreground);
+  --composer-control-active-bg: color-mix(in srgb, var(--primary) 15%, transparent);
+  --composer-control-active-border: color-mix(in srgb, var(--primary) 35%, transparent);
+  --composer-control-active-text: var(--primary);
   --composer-send-start: color-mix(in srgb, var(--foreground) 88%, black 12%);
   --composer-send-end: color-mix(in srgb, var(--foreground) 88%, black 12%);
   --composer-send-shadow: 0 10px 22px -14px rgba(0, 0, 0, 0.45);

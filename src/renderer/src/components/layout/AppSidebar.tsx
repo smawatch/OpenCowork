@@ -200,7 +200,7 @@ export function AppSidebar(): React.JSX.Element {
   const [showUserDebug, setShowUserDebug] = useState(false)
   const appVersion = packageJson.version ?? '0.0.0'
   const user = useAuthStore((s) => s.user)
-  
+
   // Debug log
   console.log('[AppSidebar] user:', user?.username, 'isAuthenticated:', !!user);
   const getSessionSnapshot = useCallback(
@@ -865,7 +865,7 @@ export function AppSidebar(): React.JSX.Element {
                   <span>系统设置</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={async () => {
                     await useAuthStore.getState().logout();
                   }}
@@ -877,18 +877,6 @@ export function AppSidebar(): React.JSX.Element {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-full justify-start gap-2 rounded-lg px-2 text-xs text-muted-foreground transition-all duration-200 hover:bg-muted/50 hover:text-foreground group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center"
-              title={t('sidebar.systemSettings')}
-              onClick={() => useUIStore.getState().openSettingsPage()}
-            >
-              <Settings className="size-3.5" />
-              <span className="font-medium group-data-[collapsible=icon]:hidden">
-                {t('sidebar.systemSettings')}
-              </span>
-            </Button>
             <p className="text-center text-[10px] text-muted-foreground/40 group-data-[collapsible=icon]:hidden">
               v{appVersion}
             </p>
@@ -976,9 +964,9 @@ export function AppSidebar(): React.JSX.Element {
       </AlertDialog>
 
       {/* User Management Dialog */}
-      <UserManagementDialog 
-        open={showUserManagement} 
-        onOpenChange={setShowUserManagement} 
+      <UserManagementDialog
+        open={showUserManagement}
+        onOpenChange={setShowUserManagement}
       />
 
       {/* User Debug Dialog */}

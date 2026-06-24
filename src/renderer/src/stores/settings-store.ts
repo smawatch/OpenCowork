@@ -418,10 +418,10 @@ export const useSettingsStore = create<SettingsStore>()(
       leftSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH,
 
       // Web Search Settings
-      webSearchEnabled: false,
-      webSearchProvider: 'tavily',
+      webSearchEnabled: true,
+      webSearchProvider: 'baidu',
       webSearchApiKey: '',
-      webSearchEngine: 'google',
+      webSearchEngine: 'baidu',
       webSearchMaxResults: 5,
       webSearchTimeout: 30000,
 
@@ -481,7 +481,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'opencowork-settings',
-      version: 25,
+      version: 26,
       storage: createJSONStorage(() => ipcStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
@@ -514,12 +514,15 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         // Add web search settings if missing
         if (state.webSearchEnabled === undefined) {
-          state.webSearchEnabled = false
+          state.webSearchEnabled = true
           state.webSearchProvider = 'tavily'
           state.webSearchApiKey = ''
           state.webSearchEngine = 'google'
           state.webSearchMaxResults = 5
           state.webSearchTimeout = 30000
+        } else if (version < 26) {
+          // Force enable web search for existing users in v26
+          state.webSearchEnabled = true
         }
         if (state.systemProxyUrl === undefined) {
           state.systemProxyUrl = ''

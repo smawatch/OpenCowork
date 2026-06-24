@@ -42,7 +42,6 @@ import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
 import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
 import {
   APP_PLUGIN_DESCRIPTORS,
-  isAppPluginEnabledByDefault,
   type AppPluginId
 } from '@renderer/lib/app-plugin/types'
 

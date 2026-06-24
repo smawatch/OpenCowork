@@ -23,6 +23,7 @@ export function WebSearchPanel(): React.JSX.Element {
   const [testing, setTesting] = useState(false)
 
   const providerOptions = [
+    { value: 'baidu', label: 'Baidu', description: 'Background crawl in main process' },
     { value: 'tavily', label: 'Tavily', description: 'AI-powered search API' },
     { value: 'searxng', label: 'Searxng', description: 'Open-source metasearch engine' },
     { value: 'exa', label: 'Exa', description: 'AI search API' },
@@ -30,8 +31,7 @@ export function WebSearchPanel(): React.JSX.Element {
     { value: 'bocha', label: 'Bocha', description: 'Chinese search engine' },
     { value: 'zhipu', label: 'Zhipu', description: 'ZhiPu AI search' },
     { value: 'google', label: 'Google', description: 'Background crawl in main process' },
-    { value: 'bing', label: 'Bing', description: 'Background crawl in main process' },
-    { value: 'baidu', label: 'Baidu', description: 'Background crawl in main process' }
+    { value: 'bing', label: 'Bing', description: 'Background crawl in main process' }
   ]
 
   const handleTestSearch = useCallback(async () => {
