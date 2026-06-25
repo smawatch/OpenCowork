@@ -135,10 +135,6 @@ jobs:
             platform: win
             build_arch: x64
             artifact_arch: amd64
-          - os: windows-11-arm
-            platform: win
-            build_arch: arm64
-            artifact_arch: arm64
 
     runs-on: ${{ matrix.os }}
 
@@ -347,18 +343,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Download Windows artifacts (amd64)
+      - name: Download Windows artifacts
         uses: actions/download-artifact@v6
         with:
           name: open-cowork-win-amd64
           path: release-assets/open-cowork-win-amd64
-        continue-on-error: true
-
-      - name: Download Windows artifacts (arm64)
-        uses: actions/download-artifact@v6
-        with:
-          name: open-cowork-win-arm64
-          path: release-assets/open-cowork-win-arm64
         continue-on-error: true
 
       - name: Download macOS artifacts (arm64)
@@ -611,6 +600,35 @@ jobs:
               print(f"\n📄 Uploaded index page: https://{bucket_name}.{endpoint.replace('https://', '')}/{index_key}")
           except Exception as e:
               print(f"\n⚠️  Failed to upload index page: {str(e)}")
+
+          # 自动上传最新的 latest.yml 到 OSS 根目录（用于 electron-updater）
+          print(f"\n Searching for latest.yml files to upload to root...")
+          latest_yml_files = [f for f in files_to_upload if f.name == 'latest.yml']
+          
+          if latest_yml_files:
+              # 按版本号排序，获取最新的
+              def extract_version(file_path):
+                  # 从路径中提取版本号，如 cocowork/releases/0.9.122/latest.yml -> 0.9.122
+                  parts = str(file_path.parent).split('/')
+                  for part in parts:
+                      if part and part[0].isdigit():
+                          return part
+                  return '0.0.0'
+              
+              latest_yml_files.sort(key=extract_version, reverse=True)
+              latest_yml = latest_yml_files[0]
+              
+              root_latest_key = "cocowork/releases/latest.yml"
+              try:
+                  bucket.put_object_from_file(root_latest_key, str(latest_yml))
+                  print(f"✅ Uploaded latest.yml to root: {root_latest_key}")
+                  print(f"   Version: {extract_version(latest_yml)}")
+                  print(f"   Source: {latest_yml}")
+                  print(f"   URL: https://{bucket_name}.{endpoint.replace('https://', '')}/{root_latest_key}")
+              except Exception as e:
+                  print(f"⚠️  Failed to upload latest.yml to root: {str(e)}")
+          else:
+              print("⚠️  No latest.yml files found, skipping root upload")
 
           if failed_count > 0:
               sys.exit(1)

@@ -143,12 +143,7 @@ npmRebuild: false
 publish:
   # 使用 generic provider 支持自定义更新服务器（如阿里云 OSS）
   provider: generic
-  # 阿里云 OSS 更新源地址（需要替换为你的实际 OSS 域名）
+  # 阿里云 OSS 更新源地址
   url: https://dev-oss.iot-solution.net/cocowork/releases/
-  # 可选：保留 GitHub 作为备用更新源
-  # provider: github
-  # owner: smawatch
-  # repo: OpenCowork
-  # releaseType: release
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
