@@ -1,4 +1,4 @@
 # 开发模式下的更新配置（使用阿里云 OSS）
 provider: generic
-url: https://dev-oss.iot-solution.net/cocowork/releases/
+url: https://sma-hk-test.oss-cn-hongkong.aliyuncs.com/cocowork/releases/
 updaterCacheDirName: open-cowork-updater
