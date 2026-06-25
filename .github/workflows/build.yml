@@ -695,8 +695,6 @@ jobs:
               with open(temp_latest, 'r', encoding='utf-8') as f:
                   yml_content = f.read()
               
-              yml_version = extract_version(latest_yml)
-              
               def add_version_prefix_root(match):
                   """在匹配的路径前添加版本号前缀"""
                   prefix = match.group(1)
