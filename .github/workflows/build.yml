@@ -231,7 +231,15 @@ jobs:
           path: |
             release-assets/*.exe
             release-assets/*.exe.blockmap
-            dist/latest*.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Windows latest.yml
+        if: matrix.platform == 'win' && matrix.artifact_arch == 'amd64'
+        uses: actions/upload-artifact@v6
+        with:
+          name: open-cowork-win-latest-yml
+          path: dist/latest.yml
           if-no-files-found: error
           retention-days: 30
 
@@ -350,6 +358,13 @@ jobs:
           path: release-assets/open-cowork-win-amd64
         continue-on-error: true
 
+      - name: Download Windows latest.yml
+        uses: actions/download-artifact@v6
+        with:
+          name: open-cowork-win-latest-yml
+          path: release-assets/open-cowork-win-latest-yml
+        continue-on-error: true
+
       - name: Download macOS artifacts (arm64)
         uses: actions/download-artifact@v6
         with:
@@ -414,6 +429,15 @@ jobs:
           # 收集所有需要上传的文件（递归查找）
           files_to_upload = []
           artifacts_dir = Path('release-assets')
+
+          # 复制 Windows latest.yml 到版本目录（确保配套）
+          win_latest_yml = artifacts_dir / 'open-cowork-win-latest-yml' / 'latest.yml'
+          version_dir = artifacts_dir / 'open-cowork-win-amd64'
+          if win_latest_yml.exists() and version_dir.exists():
+              import shutil
+              dest_latest_yml = version_dir / 'latest.yml'
+              shutil.copy2(win_latest_yml, dest_latest_yml)
+              print(f"✅ Copied latest.yml to version directory: {dest_latest_yml}")
 
           # 使用 rglob 递归查找所有文件（不限制目录层级）
           for file_path in artifacts_dir.rglob('*'):
