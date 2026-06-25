@@ -337,7 +337,266 @@ jobs:
             done
           fi
 
-  # ── macOS 构建（分别产出 Apple Silicon / Intel 安装包） ──
+  # ── 上传到阿里云 OSS ─
+  upload-to-oss:
+    needs: [prepare, build, build-macos]
+    runs-on: ubuntu-latest
+    if: always() && (needs.build.result == 'success' || needs.build-macos.result == 'success')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: release-assets
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install aliyun OSS SDK
+        run: pip install oss2
+
+      - name: Upload to Aliyun OSS
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          OSS_BUCKET_NAME: ${{ secrets.OSS_BUCKET_NAME }}
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_REGION: ${{ secrets.OSS_REGION || 'cn-hangzhou' }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
+        run: |
+          python << 'PYTHON'
+          import os
+          import sys
+          import glob
+          from pathlib import Path
+          import oss2
+
+          # 获取环境变量
+          access_key_id = os.getenv('OSS_ACCESS_KEY_ID')
+          access_key_secret = os.getenv('OSS_ACCESS_KEY_SECRET')
+          bucket_name = os.getenv('OSS_BUCKET_NAME')
+          endpoint = os.getenv('OSS_ENDPOINT')
+          version = os.getenv('VERSION')
+          tag_name = os.getenv('TAG_NAME')
+
+          if not all([access_key_id, access_key_secret, bucket_name, endpoint]):
+              print("❌ Missing OSS credentials. Skipping OSS upload.")
+              print("Please configure the following secrets:")
+              print("  - OSS_ACCESS_KEY_ID")
+              print("  - OSS_ACCESS_KEY_SECRET")
+              print("  - OSS_BUCKET_NAME")
+              print("  - OSS_ENDPOINT")
+              sys.exit(0)
+
+          # 初始化 OSS
+          auth = oss2.Auth(access_key_id, access_key_secret)
+          bucket = oss2.Bucket(auth, endpoint, bucket_name)
+
+          # 基础路径：cocowork/releases/{version}/
+          base_path = f"cocowork/releases/{version}/"
+
+          # 收集所有需要上传的文件
+          files_to_upload = []
+          artifacts_dir = Path('release-assets')
+
+          # 遍历所有 artifact 目录
+          for artifact_dir in artifacts_dir.iterdir():
+              if artifact_dir.is_dir():
+                  for file_path in artifact_dir.glob('*'):
+                      if file_path.is_file() and not file_path.name.startswith('.'):
+                          files_to_upload.append(file_path)
+
+          if not files_to_upload:
+              print("❌ No files to upload")
+              sys.exit(1)
+
+          print(f"📦 Found {len(files_to_upload)} files to upload")
+          print(f" OSS Bucket: {bucket_name}")
+          print(f"📍 Base Path: {base_path}")
+
+          # 上传文件
+          uploaded_count = 0
+          failed_count = 0
+          yml_files = []
+          
+          for file_path in files_to_upload:
+              # OSS 对象键名
+              object_key = f"{base_path}{file_path.name}"
+          
+              # 特殊处理 .yml 更新元数据文件
+              if file_path.suffix == '.yml' and 'latest' in file_path.name.lower():
+                  yml_files.append((file_path, object_key))
+                  # 同时上传到版本目录和 cocowork 根目录（用于自动更新）
+                  root_object_key = f"cocowork/{file_path.name}"
+                  print(f"\n️  Uploading update metadata: {file_path.name}")
+                  print(f"   → OSS: {object_key}")
+                  print(f"   → OSS: {root_object_key} (for auto-update)")
+          
+                  try:
+                      # 上传到版本目录
+                      result = bucket.put_object_from_file(object_key, str(file_path))
+                      if result.status == 200:
+                          uploaded_count += 1
+          
+                      # 上传到根目录（electron-updater 会在这里查找）
+                      result2 = bucket.put_object_from_file(root_object_key, str(file_path))
+                      if result2.status == 200:
+                          uploaded_count += 1
+                          print(f"   ✅ Success: https://{bucket_name}.{endpoint.replace('https://', '')}/{root_object_key}")
+                      else:
+                          failed_count += 1
+                  except Exception as e:
+                      failed_count += 2
+                      print(f"   ❌ Error: {str(e)}")
+                  continue
+          
+              print(f"\n⬆️  Uploading: {file_path.name}")
+              print(f"   → OSS: {object_key}")
+          
+              try:
+                  # 上传文件
+                  result = bucket.put_object_from_file(object_key, str(file_path))
+          
+                  if result.status == 200:
+                      uploaded_count += 1
+                      # 生成下载链接
+                      download_url = f"https://{bucket_name}.{endpoint.replace('https://', '')}/{object_key}"
+                      print(f"   ✅ Success: {download_url}")
+                  else:
+                      failed_count += 1
+                      print(f"    Failed: status={result.status}")
+          
+              except Exception as e:
+                  failed_count += 1
+                  print(f"   ❌ Error: {str(e)}")
+
+          # 输出统计信息
+          print(f"\n{'='*60}")
+          print(f"📊 Upload Summary:")
+          print(f"   ✅ Successful: {uploaded_count}")
+          print(f"   ❌ Failed: {failed_count}")
+          print(f"   📁 Total: {len(files_to_upload)}")
+          print(f"{'='*60}")
+
+          # 生成下载页面索引（可选）
+          index_html = f"""<!DOCTYPE html>
+          <html lang="zh-CN">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>CoCoWork {version} Downloads</title>
+              <style>
+                  body {{
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                      max-width: 900px;
+                      margin: 50px auto;
+                      padding: 20px;
+                      background: #f5f5f5;
+                  }}
+                  h1 {{
+                      color: #333;
+                      border-bottom: 3px solid #4CAF50;
+                      padding-bottom: 10px;
+                  }}
+                  .download-list {{
+                      background: white;
+                      border-radius: 8px;
+                      padding: 20px;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                  }}
+                  .download-item {{
+                      padding: 12px;
+                      margin: 8px 0;
+                      background: #f9f9f9;
+                      border-radius: 4px;
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                  }}
+                  .download-item:hover {{
+                      background: #e8f5e9;
+                  }}
+                  a {{
+                      color: #2196F3;
+                      text-decoration: none;
+                      font-weight: 500;
+                  }}
+                  a:hover {{
+                      text-decoration: underline;
+                  }}
+                  .platform {{
+                      font-size: 12px;
+                      color: #666;
+                      margin-left: 8px;
+                  }}
+                  .footer {{
+                      margin-top: 30px;
+                      text-align: center;
+                      color: #999;
+                      font-size: 12px;
+                  }}
+              </style>
+          </head>
+          <body>
+              <h1> CoCoWork {version}</h1>
+              <p>Release Date: {tag_name}</p>
+              <div class="download-list">
+                  <h2>Downloads</h2>
+          """
+
+          for file_path in sorted(files_to_upload):
+              if file_path.suffix in ['.exe', '.dmg', '.AppImage', '.deb', '.zip']:
+                  object_key = f"{base_path}{file_path.name}"
+                  download_url = f"https://{bucket_name}.{endpoint.replace('https://', '')}/{object_key}"
+
+                  # 识别平台
+                  name = file_path.name.lower()
+                  if 'win' in name or 'setup.exe' in name:
+                      platform = ' Windows'
+                  elif 'mac' in name or 'darwin' in name:
+                      platform = '🍎 macOS'
+                  elif 'linux' in name:
+                      platform = '🐧 Linux'
+                  else:
+                      platform = '📦 File'
+
+                  index_html += f"""
+                  <div class="download-item">
+                      <span>
+                          {platform}
+                          <span class="platform">{file_path.name}</span>
+                      </span>
+                      <a href="{download_url}" download>Download ↓</a>
+                  </div>
+                  """
+
+          index_html += f"""
+              </div>
+              <div class="footer">
+                  Powered by Aliyun OSS | CoCoWork Team
+              </div>
+          </body>
+          </html>
+          """
+
+          # 上传索引页面
+          index_key = f"{base_path}index.html"
+          try:
+              bucket.put_object(index_key, index_html.encode('utf-8'))
+              print(f"\n📄 Uploaded index page: https://{bucket_name}.{endpoint.replace('https://', '')}/{index_key}")
+          except Exception as e:
+              print(f"\n⚠️  Failed to upload index page: {str(e)}")
+
+          if failed_count > 0:
+              sys.exit(1)
+
+          PYTHON
   build-macos:
     needs: [prepare, compile]
     strategy:
