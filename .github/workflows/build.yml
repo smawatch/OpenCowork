@@ -502,6 +502,15 @@ jobs:
                       yml_content
                   )
 
+                  # 注入发版更新说明 (electron-updater 读取 releaseNotes 字段)
+                  if release_body:
+                      indent = '  '
+                      indented_body = '\n'.join(
+                          indent + line if line else ''
+                          for line in release_body.split('\n')
+                      )
+                      yml_content += f'\nreleaseNotes: |\n{indented_body}'
+
                   with open(temp_yml, 'w', encoding='utf-8') as f:
                       f.write(yml_content)
 
@@ -749,6 +758,15 @@ jobs:
                   add_version_prefix_root,
                   yml_content
               )
+
+              # 注入发版更新说明
+              if release_body:
+                  indent = '  '
+                  indented_body = '\n'.join(
+                      indent + line if line else ''
+                      for line in release_body.split('\n')
+                  )
+                  yml_content += f'\nreleaseNotes: |\n{indented_body}'
 
               with open(temp_latest, 'w', encoding='utf-8') as f:
                   f.write(yml_content)
