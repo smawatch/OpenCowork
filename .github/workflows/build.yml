@@ -422,19 +422,17 @@ jobs:
           # 基础路径：cocowork/releases/{version}/
           base_path = f"cocowork/releases/{version}/"
 
-          # 收集所有需要上传的文件
+          # 收集所有需要上传的文件（递归查找）
           files_to_upload = []
           artifacts_dir = Path('release-assets')
 
-          # 遍历所有 artifact 目录
-          for artifact_dir in artifacts_dir.iterdir():
-              if artifact_dir.is_dir():
-                  for file_path in artifact_dir.glob('*'):
-                      if file_path.is_file() and not file_path.name.startswith('.'):
-                          files_to_upload.append(file_path)
+          # 使用 rglob 递归查找所有文件（不限制目录层级）
+          for file_path in artifacts_dir.rglob('*'):
+              if file_path.is_file() and not file_path.name.startswith('.'):
+                  files_to_upload.append(file_path)
 
           if not files_to_upload:
-              print("❌ No files to upload")
+              print(" No files to upload")
               sys.exit(1)
 
           print(f"📦 Found {len(files_to_upload)} files to upload")
