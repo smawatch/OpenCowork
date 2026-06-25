@@ -477,14 +477,16 @@ jobs:
                   # 例如: path: OpenCowork-win-amd64-setup.exe
                   # 改为: path: 0.9.122/OpenCowork-win-amd64-setup.exe
                   import re
+                  # 转义版本号中的正则特殊字符
+                  safe_version = re.escape(version)
                   yml_content = re.sub(
                       r'(path:\s*)(OpenCowork-\S+)',
-                      rf'\1{version}/\2',
+                      r'\1' + version + r'/\2',
                       yml_content
                   )
                   yml_content = re.sub(
                       r'(url:\s*)(OpenCowork-\S+)',
-                      rf'\1{version}/\2',
+                      r'\1' + version + r'/\2',
                       yml_content
                   )
                             
@@ -686,12 +688,12 @@ jobs:
               # 将相对路径替换为带版本号的子目录路径
               yml_content = re.sub(
                   r'(path:\s*)(OpenCowork-\S+)',
-                  rf'\1{yml_version}/\2',
+                  r'\1' + yml_version + r'/\2',
                   yml_content
               )
               yml_content = re.sub(
                   r'(url:\s*)(OpenCowork-\S+)',
-                  rf'\1{yml_version}/\2',
+                  r'\1' + yml_version + r'/\2',
                   yml_content
               )
               
