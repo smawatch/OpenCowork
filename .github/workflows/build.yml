@@ -394,11 +394,13 @@ jobs:
           OSS_REGION: ${{ secrets.OSS_REGION || 'cn-hangzhou' }}
           VERSION: ${{ needs.prepare.outputs.version }}
           TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
+          RELEASE_BODY_B64: ${{ needs.prepare.outputs.release_body }}
         run: |
           python << 'PYTHON'
           import os
           import sys
           import glob
+          import base64
           from pathlib import Path
           import oss2
 
@@ -409,6 +411,11 @@ jobs:
           endpoint = os.getenv('OSS_ENDPOINT')
           version = os.getenv('VERSION')
           tag_name = os.getenv('TAG_NAME')
+          release_body_b64 = os.getenv('RELEASE_BODY_B64', '')
+          try:
+              release_body = base64.b64decode(release_body_b64).decode('utf-8') if release_body_b64 else ''
+          except Exception:
+              release_body = ''
 
           if not all([access_key_id, access_key_secret, bucket_name, endpoint]):
               print("❌ Missing OSS credentials. Skipping OSS upload.")
@@ -456,34 +463,34 @@ jobs:
           uploaded_count = 0
           failed_count = 0
           yml_files = []
-          
+
           for file_path in files_to_upload:
               # OSS 对象键名
               object_key = f"{base_path}{file_path.name}"
-          
+
               # 特殊处理 .yml 更新元数据文件
               if file_path.suffix == '.yml' and 'latest' in file_path.name.lower():
                   yml_files.append((file_path, object_key))
-                            
+
                   # 读取 latest.yml 内容并修正路径(添加版本号子目录)
                   import shutil
                   temp_yml = file_path.parent / f"temp_{file_path.name}"
                   shutil.copy2(file_path, temp_yml)
-                            
+
                   with open(temp_yml, 'r', encoding='utf-8') as f:
                       yml_content = f.read()
-                            
+
                   # 将相对路径替换为带版本号的子目录路径
                   # 例如: path: OpenCowork-win-amd64-setup.exe
                   # 改为: path: 0.9.122/OpenCowork-win-amd64-setup.exe
                   import re
-                  
+
                   def add_version_prefix(match):
                       """在匹配的路径前添加版本号前缀"""
                       prefix = match.group(1)  # path: 或 url:
                       filename = match.group(2)  # OpenCowork-xxx
                       return f'{prefix}{version}/{filename}'
-                  
+
                   yml_content = re.sub(
                       r'(path:\s*)(OpenCowork-\S+)',
                       add_version_prefix,
@@ -494,23 +501,23 @@ jobs:
                       add_version_prefix,
                       yml_content
                   )
-                            
+
                   with open(temp_yml, 'w', encoding='utf-8') as f:
                       f.write(yml_content)
-                            
+
                   # 同时上传到版本目录和 cocowork/releases 根目录(用于自动更新)
                   root_object_key = f"cocowork/releases/{file_path.name}"
                   print(f"\n Uploading update metadata: {file_path.name}")
                   print(f"   → OSS: {object_key}")
                   print(f"   → OSS: {root_object_key} (for auto-update)")
                   print(f"   📝 Patched paths with version prefix: {version}/")
-                    
+
                   try:
                       # 上传到版本目录(使用修正后的文件)
                       result = bucket.put_object_from_file(object_key, str(temp_yml))
                       if result.status == 200:
                           uploaded_count += 1
-                    
+
                       # 上传到根目录(electron-updater 会在这里查找)
                       result2 = bucket.put_object_from_file(root_object_key, str(temp_yml))
                       if result2.status == 200:
@@ -518,21 +525,21 @@ jobs:
                           print(f"   ✅ Success: https://{bucket_name}.{endpoint.replace('https://', '')}/{root_object_key}")
                       else:
                           failed_count += 1
-                                
+
                       # 清理临时文件
                       temp_yml.unlink()
                   except Exception as e:
                       failed_count += 2
                       print(f"   ❌ Error: {str(e)}")
                   continue
-          
+
               print(f"\n⬆️  Uploading: {file_path.name}")
               print(f"   → OSS: {object_key}")
-          
+
               try:
                   # 上传文件
                   result = bucket.put_object_from_file(object_key, str(file_path))
-          
+
                   if result.status == 200:
                       uploaded_count += 1
                       # 生成下载链接
@@ -541,7 +548,7 @@ jobs:
                   else:
                       failed_count += 1
                       print(f"    Failed: status={result.status}")
-          
+
               except Exception as e:
                   failed_count += 1
                   print(f"   ❌ Error: {str(e)}")
@@ -611,6 +618,24 @@ jobs:
                       color: #999;
                       font-size: 12px;
                   }}
+                  .release-notes {{
+                      background: white;
+                      border-radius: 8px;
+                      padding: 20px;
+                      margin-top: 20px;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                  }}
+                  .release-notes h2 {{
+                      color: #333;
+                      margin-top: 0;
+                  }}
+                  .release-notes pre {{
+                      white-space: pre-wrap;
+                      word-wrap: break-word;
+                      font-family: inherit;
+                      line-height: 1.6;
+                      color: #555;
+                  }}
               </style>
           </head>
           <body>
@@ -648,6 +673,18 @@ jobs:
 
           index_html += f"""
               </div>
+          """
+
+          # 添加发版更新说明
+          if release_body:
+              index_html += f"""
+              <div class="release-notes">
+                  <h2>📋 更新说明</h2>
+                  <pre>{release_body}</pre>
+              </div>
+              """
+
+          index_html += f"""
               <div class="footer">
                   Powered by Aliyun OSS | CoCoWork Team
               </div>
@@ -666,11 +703,11 @@ jobs:
           # 自动上传最新的 latest.yml 到 OSS 根目录（用于 electron-updater）
           print(f"\n Searching for latest.yml files to upload to root...")
           latest_yml_files = [f for f in files_to_upload if f.name == 'latest.yml']
-          
+
           if latest_yml_files:
               # 直接使用环境变量中的版本号（不需要从路径提取）
               yml_version = version
-              
+
               # 如果有多个 latest.yml，选择最新版本（从文件名或路径判断）
               if len(latest_yml_files) > 1:
                   def extract_version_from_path(file_path):
@@ -681,26 +718,26 @@ jobs:
                           if part and len(part.split('.')) == 3 and all(p.isdigit() for p in part.split('.')):
                               return part
                       return '0.0.0'
-                  
+
                   latest_yml_files.sort(key=extract_version_from_path, reverse=True)
-              
+
               latest_yml = latest_yml_files[0]
-              
+
               # 读取并修正路径(添加版本号子目录)
               import shutil
               import re
               temp_latest = latest_yml.parent / f"temp_root_latest.yml"
               shutil.copy2(latest_yml, temp_latest)
-              
+
               with open(temp_latest, 'r', encoding='utf-8') as f:
                   yml_content = f.read()
-              
+
               def add_version_prefix_root(match):
                   """在匹配的路径前添加版本号前缀"""
                   prefix = match.group(1)
                   filename = match.group(2)
                   return f'{prefix}{yml_version}/{filename}'
-              
+
               # 将相对路径替换为带版本号的子目录路径
               yml_content = re.sub(
                   r'(path:\s*)(OpenCowork-\S+)',
@@ -712,10 +749,10 @@ jobs:
                   add_version_prefix_root,
                   yml_content
               )
-              
+
               with open(temp_latest, 'w', encoding='utf-8') as f:
                   f.write(yml_content)
-              
+
               root_latest_key = "cocowork/releases/latest.yml"
               try:
                   bucket.put_object_from_file(root_latest_key, str(temp_latest))
@@ -724,7 +761,7 @@ jobs:
                   print(f"   📝 Patched paths with version prefix: {yml_version}/")
                   print(f"   Source: {latest_yml}")
                   print(f"   URL: https://{bucket_name}.{endpoint.replace('https://', '')}/{root_latest_key}")
-                  
+
                   # 清理临时文件
                   temp_latest.unlink()
               except Exception as e:
