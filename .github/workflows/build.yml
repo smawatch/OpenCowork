@@ -341,16 +341,37 @@ jobs:
   upload-to-oss:
     needs: [prepare, build, build-macos]
     runs-on: ubuntu-latest
-    if: always() && (needs.build.result == 'success' || needs.build-macos.result == 'success')
+    if: always() && needs.build.result == 'success' && needs.build-macos.result == 'success'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Download all artifacts
+      - name: Download Windows artifacts (amd64)
         uses: actions/download-artifact@v6
         with:
-          path: release-assets
+          name: open-cowork-win-amd64
+          path: release-assets/open-cowork-win-amd64
+        continue-on-error: true
+
+      - name: Download Windows artifacts (arm64)
+        uses: actions/download-artifact@v6
+        with:
+          name: open-cowork-win-arm64
+          path: release-assets/open-cowork-win-arm64
+        continue-on-error: true
+
+      - name: Download macOS artifacts (arm64)
+        uses: actions/download-artifact@v6
+        with:
+          name: open-cowork-mac-arm64
+          path: release-assets/open-cowork-mac-arm64
+
+      - name: Download macOS artifacts (amd64)
+        uses: actions/download-artifact@v6
+        with:
+          name: open-cowork-mac-amd64
+          path: release-assets/open-cowork-mac-amd64
 
       - name: Setup Python
         uses: actions/setup-python@v5
