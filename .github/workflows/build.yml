@@ -668,16 +668,22 @@ jobs:
           latest_yml_files = [f for f in files_to_upload if f.name == 'latest.yml']
           
           if latest_yml_files:
-              # 按版本号排序，获取最新的
-              def extract_version(file_path):
-                  # 从路径中提取版本号，如 cocowork/releases/0.9.122/latest.yml -> 0.9.122
-                  parts = str(file_path.parent).split('/')
-                  for part in parts:
-                      if part and part[0].isdigit():
-                          return part
-                  return '0.0.0'
+              # 直接使用环境变量中的版本号（不需要从路径提取）
+              yml_version = version
               
-              latest_yml_files.sort(key=extract_version, reverse=True)
+              # 如果有多个 latest.yml，选择最新版本（从文件名或路径判断）
+              if len(latest_yml_files) > 1:
+                  def extract_version_from_path(file_path):
+                      # 尝试从路径中提取版本号，如 cocowork/releases/0.9.122/latest.yml
+                      parts = str(file_path.parent).split('/')
+                      for part in parts:
+                          # 检查是否是版本号格式（x.y.z）
+                          if part and len(part.split('.')) == 3 and all(p.isdigit() for p in part.split('.')):
+                              return part
+                      return '0.0.0'
+                  
+                  latest_yml_files.sort(key=extract_version_from_path, reverse=True)
+              
               latest_yml = latest_yml_files[0]
               
               # 读取并修正路径(添加版本号子目录)
