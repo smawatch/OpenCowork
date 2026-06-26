@@ -1,5 +1,4 @@
-provider: github
-owner: smawatch
-repo: OpenCowork
-releaseType: release
+# 开发模式下的更新配置（使用阿里云 OSS）
+provider: generic
+url: https://dev-oss.iot-solution.net/cocowork/releases/
 updaterCacheDirName: open-cowork-updater

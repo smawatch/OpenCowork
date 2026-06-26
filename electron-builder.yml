@@ -141,9 +141,10 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: github
-  owner: smawatch
-  repo: OpenCowork
-  releaseType: release
+  # 使用 generic provider 支持自定义更新服务器(如阿里云 OSS)
+  # electron-updater 会在此路径下查找 latest.yml
+  provider: generic
+  url: https://dev-oss.iot-solution.net/cocowork/releases/
+  # channel: latest  # 默认通道
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

@@ -135,10 +135,6 @@ jobs:
             platform: win
             build_arch: x64
             artifact_arch: amd64
-          - os: windows-11-arm
-            platform: win
-            build_arch: arm64
-            artifact_arch: arm64
 
     runs-on: ${{ matrix.os }}
 
@@ -235,7 +231,15 @@ jobs:
           path: |
             release-assets/*.exe
             release-assets/*.exe.blockmap
-            dist/latest*.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Windows latest.yml
+        if: matrix.platform == 'win' && matrix.artifact_arch == 'amd64'
+        uses: actions/upload-artifact@v6
+        with:
+          name: open-cowork-win-latest-yml
+          path: dist/latest.yml
           if-no-files-found: error
           retention-days: 30
 
@@ -337,7 +341,456 @@ jobs:
             done
           fi
 
-  # ── macOS 构建（分别产出 Apple Silicon / Intel 安装包） ──
+  # ── 上传到阿里云 OSS ─
+  upload-to-oss:
+    needs: [prepare, build, build-macos]
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success' && needs.build-macos.result == 'success'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: open-cowork-win-amd64
+          path: release-assets/open-cowork-win-amd64
+        continue-on-error: true
+
+      - name: Download Windows latest.yml
+        uses: actions/download-artifact@v6
+        with:
+          name: open-cowork-win-latest-yml
+          path: release-assets/open-cowork-win-latest-yml
+        continue-on-error: true
+
+      - name: Download macOS artifacts (arm64)
+        uses: actions/download-artifact@v6
+        with:
+          name: open-cowork-mac-arm64
+          path: release-assets/open-cowork-mac-arm64
+
+      - name: Download macOS artifacts (amd64)
+        uses: actions/download-artifact@v6
+        with:
+          name: open-cowork-mac-amd64
+          path: release-assets/open-cowork-mac-amd64
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install aliyun OSS SDK
+        run: pip install oss2
+
+      - name: Upload to Aliyun OSS
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          OSS_BUCKET_NAME: ${{ secrets.OSS_BUCKET_NAME }}
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_REGION: ${{ secrets.OSS_REGION || 'cn-hangzhou' }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
+          RELEASE_BODY_B64: ${{ needs.prepare.outputs.release_body }}
+        run: |
+          python << 'PYTHON'
+          import os
+          import sys
+          import glob
+          import base64
+          from pathlib import Path
+          import oss2
+
+          # 获取环境变量
+          access_key_id = os.getenv('OSS_ACCESS_KEY_ID')
+          access_key_secret = os.getenv('OSS_ACCESS_KEY_SECRET')
+          bucket_name = os.getenv('OSS_BUCKET_NAME')
+          endpoint = os.getenv('OSS_ENDPOINT')
+          version = os.getenv('VERSION')
+          tag_name = os.getenv('TAG_NAME')
+          release_body_b64 = os.getenv('RELEASE_BODY_B64', '')
+          try:
+              release_body = base64.b64decode(release_body_b64).decode('utf-8') if release_body_b64 else ''
+          except Exception:
+              release_body = ''
+
+          if not all([access_key_id, access_key_secret, bucket_name, endpoint]):
+              print("❌ Missing OSS credentials. Skipping OSS upload.")
+              print("Please configure the following secrets:")
+              print("  - OSS_ACCESS_KEY_ID")
+              print("  - OSS_ACCESS_KEY_SECRET")
+              print("  - OSS_BUCKET_NAME")
+              print("  - OSS_ENDPOINT")
+              sys.exit(0)
+
+          # 初始化 OSS
+          auth = oss2.Auth(access_key_id, access_key_secret)
+          bucket = oss2.Bucket(auth, endpoint, bucket_name)
+
+          # 基础路径：cocowork/releases/{version}/
+          base_path = f"cocowork/releases/{version}/"
+
+          # 收集所有需要上传的文件（递归查找）
+          files_to_upload = []
+          artifacts_dir = Path('release-assets')
+
+          # 复制 Windows latest.yml 到版本目录（确保配套）
+          win_latest_yml = artifacts_dir / 'open-cowork-win-latest-yml' / 'latest.yml'
+          version_dir = artifacts_dir / 'open-cowork-win-amd64'
+          if win_latest_yml.exists() and version_dir.exists():
+              import shutil
+              dest_latest_yml = version_dir / 'latest.yml'
+              shutil.copy2(win_latest_yml, dest_latest_yml)
+              print(f"✅ Copied latest.yml to version directory: {dest_latest_yml}")
+
+          # 使用 rglob 递归查找所有文件（不限制目录层级）
+          for file_path in artifacts_dir.rglob('*'):
+              if file_path.is_file() and not file_path.name.startswith('.'):
+                  files_to_upload.append(file_path)
+
+          if not files_to_upload:
+              print(" No files to upload")
+              sys.exit(1)
+
+          print(f"📦 Found {len(files_to_upload)} files to upload")
+          print(f" OSS Bucket: {bucket_name}")
+          print(f"📍 Base Path: {base_path}")
+
+          # 上传文件
+          uploaded_count = 0
+          failed_count = 0
+          yml_files = []
+
+          for file_path in files_to_upload:
+              # OSS 对象键名
+              object_key = f"{base_path}{file_path.name}"
+
+              # 特殊处理 .yml 更新元数据文件
+              if file_path.suffix == '.yml' and 'latest' in file_path.name.lower():
+                  yml_files.append((file_path, object_key))
+
+                  # 读取 latest.yml 内容并修正路径(添加版本号子目录)
+                  import shutil
+                  temp_yml = file_path.parent / f"temp_{file_path.name}"
+                  shutil.copy2(file_path, temp_yml)
+
+                  with open(temp_yml, 'r', encoding='utf-8') as f:
+                      yml_content = f.read()
+
+                  # 将相对路径替换为带版本号的子目录路径
+                  # 例如: path: OpenCowork-win-amd64-setup.exe
+                  # 改为: path: 0.9.122/OpenCowork-win-amd64-setup.exe
+                  import re
+
+                  def add_version_prefix(match):
+                      """在匹配的路径前添加版本号前缀"""
+                      prefix = match.group(1)  # path: 或 url:
+                      filename = match.group(2)  # OpenCowork-xxx
+                      return f'{prefix}{version}/{filename}'
+
+                  yml_content = re.sub(
+                      r'(path:\s*)(OpenCowork-\S+)',
+                      add_version_prefix,
+                      yml_content
+                  )
+                  yml_content = re.sub(
+                      r'(url:\s*)(OpenCowork-\S+)',
+                      add_version_prefix,
+                      yml_content
+                  )
+
+                  # 注入发版更新说明 (electron-updater 读取 releaseNotes 字段)
+                  if release_body:
+                      indent = '  '
+                      indented_body = '\n'.join(
+                          indent + line if line else ''
+                          for line in release_body.split('\n')
+                      )
+                      yml_content += f'\nreleaseNotes: |\n{indented_body}'
+
+                  with open(temp_yml, 'w', encoding='utf-8') as f:
+                      f.write(yml_content)
+
+                  # 同时上传到版本目录和 cocowork/releases 根目录(用于自动更新)
+                  root_object_key = f"cocowork/releases/{file_path.name}"
+                  print(f"\n Uploading update metadata: {file_path.name}")
+                  print(f"   → OSS: {object_key}")
+                  print(f"   → OSS: {root_object_key} (for auto-update)")
+                  print(f"   📝 Patched paths with version prefix: {version}/")
+
+                  try:
+                      # 上传到版本目录(使用修正后的文件)
+                      result = bucket.put_object_from_file(object_key, str(temp_yml))
+                      if result.status == 200:
+                          uploaded_count += 1
+
+                      # 上传到根目录(electron-updater 会在这里查找)
+                      result2 = bucket.put_object_from_file(root_object_key, str(temp_yml))
+                      if result2.status == 200:
+                          uploaded_count += 1
+                          print(f"   ✅ Success: https://{bucket_name}.{endpoint.replace('https://', '')}/{root_object_key}")
+                      else:
+                          failed_count += 1
+
+                      # 清理临时文件
+                      temp_yml.unlink()
+                  except Exception as e:
+                      failed_count += 2
+                      print(f"   ❌ Error: {str(e)}")
+                  continue
+
+              print(f"\n⬆️  Uploading: {file_path.name}")
+              print(f"   → OSS: {object_key}")
+
+              try:
+                  # 上传文件
+                  result = bucket.put_object_from_file(object_key, str(file_path))
+
+                  if result.status == 200:
+                      uploaded_count += 1
+                      # 生成下载链接
+                      download_url = f"https://{bucket_name}.{endpoint.replace('https://', '')}/{object_key}"
+                      print(f"   ✅ Success: {download_url}")
+                  else:
+                      failed_count += 1
+                      print(f"    Failed: status={result.status}")
+
+              except Exception as e:
+                  failed_count += 1
+                  print(f"   ❌ Error: {str(e)}")
+
+          # 输出统计信息
+          print(f"\n{'='*60}")
+          print(f"📊 Upload Summary:")
+          print(f"   ✅ Successful: {uploaded_count}")
+          print(f"   ❌ Failed: {failed_count}")
+          print(f"   📁 Total: {len(files_to_upload)}")
+          print(f"{'='*60}")
+
+          # 生成下载页面索引（可选）
+          index_html = f"""<!DOCTYPE html>
+          <html lang="zh-CN">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>CoCoWork {version} Downloads</title>
+              <style>
+                  body {{
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                      max-width: 900px;
+                      margin: 50px auto;
+                      padding: 20px;
+                      background: #f5f5f5;
+                  }}
+                  h1 {{
+                      color: #333;
+                      border-bottom: 3px solid #4CAF50;
+                      padding-bottom: 10px;
+                  }}
+                  .download-list {{
+                      background: white;
+                      border-radius: 8px;
+                      padding: 20px;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                  }}
+                  .download-item {{
+                      padding: 12px;
+                      margin: 8px 0;
+                      background: #f9f9f9;
+                      border-radius: 4px;
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                  }}
+                  .download-item:hover {{
+                      background: #e8f5e9;
+                  }}
+                  a {{
+                      color: #2196F3;
+                      text-decoration: none;
+                      font-weight: 500;
+                  }}
+                  a:hover {{
+                      text-decoration: underline;
+                  }}
+                  .platform {{
+                      font-size: 12px;
+                      color: #666;
+                      margin-left: 8px;
+                  }}
+                  .footer {{
+                      margin-top: 30px;
+                      text-align: center;
+                      color: #999;
+                      font-size: 12px;
+                  }}
+                  .release-notes {{
+                      background: white;
+                      border-radius: 8px;
+                      padding: 20px;
+                      margin-top: 20px;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                  }}
+                  .release-notes h2 {{
+                      color: #333;
+                      margin-top: 0;
+                  }}
+                  .release-notes pre {{
+                      white-space: pre-wrap;
+                      word-wrap: break-word;
+                      font-family: inherit;
+                      line-height: 1.6;
+                      color: #555;
+                  }}
+              </style>
+          </head>
+          <body>
+              <h1> CoCoWork {version}</h1>
+              <p>Release Date: {tag_name}</p>
+              <div class="download-list">
+                  <h2>Downloads</h2>
+          """
+
+          for file_path in sorted(files_to_upload):
+              if file_path.suffix in ['.exe', '.dmg', '.AppImage', '.deb', '.zip']:
+                  object_key = f"{base_path}{file_path.name}"
+                  download_url = f"https://{bucket_name}.{endpoint.replace('https://', '')}/{object_key}"
+
+                  # 识别平台
+                  name = file_path.name.lower()
+                  if 'win' in name or 'setup.exe' in name:
+                      platform = ' Windows'
+                  elif 'mac' in name or 'darwin' in name:
+                      platform = '🍎 macOS'
+                  elif 'linux' in name:
+                      platform = '🐧 Linux'
+                  else:
+                      platform = '📦 File'
+
+                  index_html += f"""
+                  <div class="download-item">
+                      <span>
+                          {platform}
+                          <span class="platform">{file_path.name}</span>
+                      </span>
+                      <a href="{download_url}" download>Download ↓</a>
+                  </div>
+                  """
+
+          index_html += f"""
+              </div>
+          """
+
+          # 添加发版更新说明
+          if release_body:
+              index_html += f"""
+              <div class="release-notes">
+                  <h2>📋 更新说明</h2>
+                  <pre>{release_body}</pre>
+              </div>
+              """
+
+          index_html += f"""
+              <div class="footer">
+                  Powered by Aliyun OSS | CoCoWork Team
+              </div>
+          </body>
+          </html>
+          """
+
+          # 上传索引页面
+          index_key = f"{base_path}index.html"
+          try:
+              bucket.put_object(index_key, index_html.encode('utf-8'))
+              print(f"\n📄 Uploaded index page: https://{bucket_name}.{endpoint.replace('https://', '')}/{index_key}")
+          except Exception as e:
+              print(f"\n⚠️  Failed to upload index page: {str(e)}")
+
+          # 自动上传最新的 latest.yml 到 OSS 根目录（用于 electron-updater）
+          print(f"\n Searching for latest.yml files to upload to root...")
+          latest_yml_files = [f for f in files_to_upload if f.name == 'latest.yml']
+
+          if latest_yml_files:
+              # 直接使用环境变量中的版本号（不需要从路径提取）
+              yml_version = version
+
+              # 如果有多个 latest.yml，选择最新版本（从文件名或路径判断）
+              if len(latest_yml_files) > 1:
+                  def extract_version_from_path(file_path):
+                      # 尝试从路径中提取版本号，如 cocowork/releases/0.9.122/latest.yml
+                      parts = str(file_path.parent).split('/')
+                      for part in parts:
+                          # 检查是否是版本号格式（x.y.z）
+                          if part and len(part.split('.')) == 3 and all(p.isdigit() for p in part.split('.')):
+                              return part
+                      return '0.0.0'
+
+                  latest_yml_files.sort(key=extract_version_from_path, reverse=True)
+
+              latest_yml = latest_yml_files[0]
+
+              # 读取并修正路径(添加版本号子目录)
+              import shutil
+              import re
+              temp_latest = latest_yml.parent / f"temp_root_latest.yml"
+              shutil.copy2(latest_yml, temp_latest)
+
+              with open(temp_latest, 'r', encoding='utf-8') as f:
+                  yml_content = f.read()
+
+              def add_version_prefix_root(match):
+                  """在匹配的路径前添加版本号前缀"""
+                  prefix = match.group(1)
+                  filename = match.group(2)
+                  return f'{prefix}{yml_version}/{filename}'
+
+              # 将相对路径替换为带版本号的子目录路径
+              yml_content = re.sub(
+                  r'(path:\s*)(OpenCowork-\S+)',
+                  add_version_prefix_root,
+                  yml_content
+              )
+              yml_content = re.sub(
+                  r'(url:\s*)(OpenCowork-\S+)',
+                  add_version_prefix_root,
+                  yml_content
+              )
+
+              # 注入发版更新说明
+              if release_body:
+                  indent = '  '
+                  indented_body = '\n'.join(
+                      indent + line if line else ''
+                      for line in release_body.split('\n')
+                  )
+                  yml_content += f'\nreleaseNotes: |\n{indented_body}'
+
+              with open(temp_latest, 'w', encoding='utf-8') as f:
+                  f.write(yml_content)
+
+              root_latest_key = "cocowork/releases/latest.yml"
+              try:
+                  bucket.put_object_from_file(root_latest_key, str(temp_latest))
+                  print(f"✅ Uploaded latest.yml to root: {root_latest_key}")
+                  print(f"   Version: {yml_version}")
+                  print(f"   📝 Patched paths with version prefix: {yml_version}/")
+                  print(f"   Source: {latest_yml}")
+                  print(f"   URL: https://{bucket_name}.{endpoint.replace('https://', '')}/{root_latest_key}")
+
+                  # 清理临时文件
+                  temp_latest.unlink()
+              except Exception as e:
+                  print(f"⚠️  Failed to upload latest.yml to root: {str(e)}")
+          else:
+              print("⚠️  No latest.yml files found, skipping root upload")
+
+          if failed_count > 0:
+              sys.exit(1)
+
+          PYTHON
   build-macos:
     needs: [prepare, compile]
     strategy:
