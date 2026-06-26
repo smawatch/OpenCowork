@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-06-26
+
+### Added
+
+- Added per-session model selection mode (inherit / auto / manual) so a session can follow the global model, route automatically, or pin a specific provider+model independently of the global active model.
+- Added `model_selection_mode` column to sessions (additive migration; existing provider+model rows backfilled to 'manual').
+- Added centralized session model resolution in `session-model-resolution.ts`.
+- Added "Follow global model" option in ModelSwitcher with split setSessionModelManual/Auto/Inherit actions on the chat store.
+- Added thinking/reasoning support for MiniMax and Kimi (Moonshot) providers.
+- Added live SSH process monitor panel (`SshProcessMonitor`) for inspecting remote host processes.
+
+### Changed
+
+- Stopped mutating the global provider store on session switch/sync; model state is now session-scoped.
+- Refactored Anthropic API integration for cleaner cache control and response handling.
+- Reworked ModelSwitcher and InputArea to support the new per-session model mode.
+- Improved SessionListPanel, PreviewPanel, and SSH terminal status panel layouts.
+- Updated multiple provider presets (Baidu, Gitee AI, MiniMax, Moonshot, OpenRouter, Qwen, SiliconFlow, Routin AI) with refreshed model lists, thinking support, and pricing.
+- Threaded model selection mode through channel auto-reply, channel handlers, and DAOs.
+
+### Fixed
+
+- Kept the first tool-call id when providers re-emit ids per streaming delta, preventing tool-call matching failures.
+- Various UI consistency and component rendering improvements.
+
+### Removed
+
+- Removed the legacy project wiki subsystem (wiki-dao, wiki-handlers, ProjectWikiPage, wiki-tool, wiki-generator) in favor of the memory/AGENTS.md workspace protocol.
+- Removed unused architecture diagram SVG assets.
+
 ## [0.9.120] - 2026-06-23
 
 ### Added
