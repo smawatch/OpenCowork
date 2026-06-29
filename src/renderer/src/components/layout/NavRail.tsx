@@ -6,6 +6,7 @@ import {
   Image,
   MessageSquare,
   Monitor,
+  PenTool,
   Settings,
   Sparkles,
   Wand2
@@ -26,6 +27,7 @@ const navItems: { value: NavItem | 'ssh'; icon: React.ReactNode; labelKey: strin
   { value: 'souls', icon: <Sparkles className="size-5" />, labelKey: 'navRail.souls' },
   { value: 'sync', icon: <CloudSync className="size-5" />, labelKey: 'navRail.sync' },
   { value: 'draw', icon: <Image className="size-5" />, labelKey: 'navRail.draw' },
+  { value: 'ai-creation', icon: <PenTool className="size-5" />, labelKey: 'navRail.aiCreation' },
   { value: 'knowledge', icon: <BookOpen className="size-5" />, labelKey: 'navRail.knowledge' },
   { value: 'ssh', icon: <Monitor className="size-5" />, labelKey: 'navRail.ssh' }
 ]
@@ -43,6 +45,7 @@ export function NavRail(): React.JSX.Element {
   const knowledgePageOpen = useUIStore((s) => s.knowledgePageOpen)
   const translatePageOpen = useUIStore((s) => s.translatePageOpen)
   const tasksPageOpen = useUIStore((s) => s.tasksPageOpen)
+  const aiCreationPageOpen = useUIStore((s) => s.aiCreationPageOpen)
 
   const handleNavClick = (item: NavItem | 'ssh'): void => {
     if (item === 'tasks') {
@@ -77,6 +80,10 @@ export function NavRail(): React.JSX.Element {
       useUIStore.getState().openKnowledgePage()
       return
     }
+    if (item === 'ai-creation') {
+      useUIStore.getState().openAiCreationPage()
+      return
+    }
     if (item === 'ssh') {
       void ipcClient.invoke(IPC.SSH_WINDOW_OPEN)
       return
@@ -92,6 +99,7 @@ export function NavRail(): React.JSX.Element {
     if (ui.translatePageOpen) ui.closeTranslatePage()
     if (ui.knowledgePageOpen) ui.closeKnowledgePage()
     if (ui.tasksPageOpen) ui.closeTasksPage()
+    if (ui.aiCreationPageOpen) ui.closeAiCreationPage()
     if (activeNavItem === item && leftSidebarOpen) {
       ui.toggleLeftSidebar()
     } else {
@@ -122,6 +130,7 @@ export function NavRail(): React.JSX.Element {
                     (item.value === 'draw' && drawPageOpen) ||
                     (item.value === 'translate' && translatePageOpen) ||
                     (item.value === 'knowledge' && knowledgePageOpen) ||
+                    (item.value === 'ai-creation' && aiCreationPageOpen) ||
                     (![
                       'tasks',
                       'resources',
@@ -131,6 +140,7 @@ export function NavRail(): React.JSX.Element {
                       'draw',
                       'translate',
                       'knowledge',
+                      'ai-creation',
                       'ssh'
                     ].includes(item.value) &&
                       activeNavItem === item.value &&

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppendTeamRuntimeMessageArgs,
@@ -22,6 +22,8 @@ const api = {
     ipcRenderer.invoke('clipboard:write-image', args),
   readClipboardFilePaths: () =>
     ipcRenderer.invoke('clipboard:read-file-paths'),
+  getPathForFile: (file: File): string =>
+    webUtils.getPathForFile(file),
   teamRuntimeCreate: (args: CreateTeamRuntimeArgs) =>
     ipcRenderer.invoke('team-runtime:create', args),
   teamRuntimeDelete: (args: DeleteTeamRuntimeArgs) =>

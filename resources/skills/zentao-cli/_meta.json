@@ -1,0 +1,13 @@
+{
+  "owner": "catouse",
+  "slug": "zentao-cli",
+  "displayName": "禅道 CLI 技能，通过 zentao-cli 工具查询和操作禅道（ZenTao）数据",
+  "latest": {
+    "version": "0.1.7",
+    "publishedAt": 1779703136296,
+    "commit": null
+  },
+  "history": [],
+  "updatedAt": "2026-05-25T09:58:56.296Z",
+  "createdAt": "2026-04-16T10:46:20.138Z"
+}

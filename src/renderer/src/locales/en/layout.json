@@ -715,6 +715,8 @@
     "draw": "Draw",
     "translate": "Translate",
     "knowledge": "Knowledge",
+    "aiCreation": "AI Creation",
+    "aiCreationDesc": "Image & video generation",
     "ssh": "SSH",
     "settings": "Settings"
   },

@@ -117,7 +117,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
   skillContent: null,
   skillFiles: [],
   searchQuery: '',
-  activeTab: 'market',
+  activeTab: 'installed',
 
   // Market state
   marketSkills: [],
@@ -143,7 +143,10 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
     set({ loading: true })
     try {
       const result = (await ipcClient.invoke('skills:list')) as SkillInfo[]
-      set({ skills: Array.isArray(result) ? result : [] })
+      const sorted = (Array.isArray(result) ? result : []).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )
+      set({ skills: sorted })
     } catch {
       set({ skills: [] })
     } finally {
@@ -253,13 +256,14 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
     set({ marketLoading: true, marketQuery: q })
     try {
       const { useSettingsStore } = await import('@renderer/stores/settings-store')
-      const { skillsMarketApiKey } = useSettingsStore.getState()
+      const { skillsMarketApiKey, skillsMarketUrl } = useSettingsStore.getState()
       const result = (await ipcClient.invoke('skills:market-list', {
         offset,
         limit: 50,
         query: q,
         provider: 'skillsmp',
-        apiKey: skillsMarketApiKey
+        apiKey: skillsMarketApiKey,
+        baseUrl: skillsMarketUrl || undefined
       })) as {
         total: number
         skills: MarketSkillInfo[]

@@ -32,6 +32,7 @@ export type NavItem =
   | 'translate'
   | 'tasks'
   | 'knowledge'
+  | 'ai-creation'
 
 export type ChatView = 'home' | 'project' | 'archive' | 'channels' | 'git' | 'session'
 
@@ -393,6 +394,9 @@ interface UIStore {
   tasksPageOpen: boolean
   openTasksPage: () => void
   closeTasksPage: () => void
+  aiCreationPageOpen: boolean
+  openAiCreationPage: () => void
+  closeAiCreationPage: () => void
   shortcutsOpen: boolean
   setShortcutsOpen: (open: boolean) => void
   changelogDialogOpen: boolean
@@ -675,7 +679,8 @@ const CHAT_SURFACE_NAV_RESET = {
   translatePageOpen: false,
   drawPageOpen: false,
   knowledgePageOpen: false,
-  tasksPageOpen: false
+  tasksPageOpen: false,
+  aiCreationPageOpen: false
 } as const
 
 function replaceChatRouteFromCurrentState(chatView: ChatView): void {
@@ -1271,6 +1276,7 @@ export const useUIStore = create<UIStore>()(
           knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
+          aiCreationPageOpen: false,
           ...closeRightSidePanels()
         })
         replaceSettingsRoute(nextTab)
@@ -1300,6 +1306,7 @@ export const useUIStore = create<UIStore>()(
           knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
+          aiCreationPageOpen: false,
           ...closeRightSidePanels()
         }),
       closeSkillsPage: () => set({ skillsPageOpen: false }),
@@ -1316,6 +1323,7 @@ export const useUIStore = create<UIStore>()(
           knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
+          aiCreationPageOpen: false,
           ...closeRightSidePanels()
         }),
       closeSoulsPage: () => set({ soulsPageOpen: false }),
@@ -1332,6 +1340,7 @@ export const useUIStore = create<UIStore>()(
           knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
+          aiCreationPageOpen: false,
           ...closeRightSidePanels()
         }),
       closeSyncPage: () => set({ syncPageOpen: false }),
@@ -1348,6 +1357,7 @@ export const useUIStore = create<UIStore>()(
           knowledgePageOpen: false,
           drawPageOpen: false,
           tasksPageOpen: false,
+          aiCreationPageOpen: false,
           ...closeRightSidePanels()
         }),
       closeResourcesPage: () => set({ resourcesPageOpen: false }),
@@ -1364,6 +1374,7 @@ export const useUIStore = create<UIStore>()(
           drawPageOpen: false,
           translatePageOpen: false,
           tasksPageOpen: false,
+          aiCreationPageOpen: false,
           ...closeRightSidePanels()
         }),
       closeKnowledgePage: () => set({ knowledgePageOpen: false }),
@@ -1396,6 +1407,7 @@ export const useUIStore = create<UIStore>()(
           translatePageOpen: false,
           knowledgePageOpen: false,
           tasksPageOpen: false,
+          aiCreationPageOpen: false,
           ...closeRightSidePanels()
         }),
       closeDrawPage: () => set({ drawPageOpen: false }),
@@ -1415,6 +1427,23 @@ export const useUIStore = create<UIStore>()(
           ...closeRightSidePanels()
         }),
       closeTasksPage: () => set({ tasksPageOpen: false }),
+      aiCreationPageOpen: false,
+      openAiCreationPage: () =>
+        set({
+          activeNavItem: 'ai-creation',
+          aiCreationPageOpen: true,
+          settingsPageOpen: false,
+          skillsPageOpen: false,
+          soulsPageOpen: false,
+          syncPageOpen: false,
+          resourcesPageOpen: false,
+          translatePageOpen: false,
+          knowledgePageOpen: false,
+          drawPageOpen: false,
+          tasksPageOpen: false,
+          ...closeRightSidePanels()
+        }),
+      closeAiCreationPage: () => set({ aiCreationPageOpen: false }),
       shortcutsOpen: false,
       setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
       changelogDialogOpen: false,
@@ -1969,6 +1998,7 @@ export const useUIStore = create<UIStore>()(
           knowledgePageOpen: false,
             drawPageOpen: false,
             tasksPageOpen: false,
+            aiCreationPageOpen: false,
             ...closeRightSidePanels()
           })
           if (window.location.hash !== settingsRoute.canonicalHash) {

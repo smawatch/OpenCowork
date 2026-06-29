@@ -73,6 +73,11 @@ const TasksPage = lazy(async () => {
   return { default: mod.TasksPage }
 })
 
+const AiCreationPage = lazy(async () => {
+  const mod = await import('@renderer/components/ai-creation/AiCreationPage')
+  return { default: mod.AiCreationPage }
+})
+
 const MIN_MAIN_WORKSPACE_WIDTH_WITH_SIDEBAR = 720
 const MULTI_RIGHT_PANEL_COLLAPSE_VIEWPORT = 1600
 
@@ -332,6 +337,7 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
   const knowledgePageOpen = useUIStore((s) => s.knowledgePageOpen)
   const translatePageOpen = useUIStore((s) => s.translatePageOpen)
   const tasksPageOpen = useUIStore((s) => s.tasksPageOpen)
+  const aiCreationPageOpen = useUIStore((s) => s.aiCreationPageOpen)
   const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar)
   const contentHeader = useMemo(() => {
     if (tasksPageOpen) {
@@ -782,6 +788,15 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
               >
                 <Suspense fallback={<LazyPageFallback />}>
                   <DrawPage />
+                </Suspense>
+              </PageTransition>
+            ) : aiCreationPageOpen ? (
+              <PageTransition
+                key="ai-creation-page"
+                className="flex-1 min-w-0 bg-background overflow-hidden"
+              >
+                <Suspense fallback={<LazyPageFallback />}>
+                  <AiCreationPage />
                 </Suspense>
               </PageTransition>
             ) : knowledgePageOpen ? (

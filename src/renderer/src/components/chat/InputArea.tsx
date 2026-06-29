@@ -2903,12 +2903,6 @@ export function InputArea({
     (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return
       const fileArr = Array.from(fileList)
-      console.log('[Drop] Native files:', fileArr.map(f => ({
-        name: f.name,
-        type: f.type,
-        path: (f as any).path,
-        webkitRelativePath: (f as any).webkitRelativePath
-      })))
       const imageFiles = supportsVision
         ? fileArr.filter((f) => ACCEPTED_IMAGE_TYPES.includes(f.type))
         : []
@@ -2920,15 +2914,19 @@ export function InputArea({
         void addImages(imageFiles)
       }
 
-      const paths = otherFiles
-        .map((f) => (f as File & { path?: string }).path)
-        .filter((filePath): filePath is string => Boolean(filePath))
-
-      console.log('[Drop] Extracted paths:', paths)
-      if (paths.length > 0) {
-        addFilesToEditor(paths)
-      } else if (otherFiles.length > 0) {
-        console.log('[Drop] No paths in native files, dropping without file reference')
+      if (otherFiles.length > 0) {
+        const paths = otherFiles
+          .map((f) => {
+            try {
+              return window.api.getPathForFile(f)
+            } catch {
+              return ''
+            }
+          })
+          .filter((p): p is string => Boolean(p))
+        if (paths.length > 0) {
+          addFilesToEditor(paths)
+        }
       }
     },
     [addFilesToEditor, addImages, supportsVision]

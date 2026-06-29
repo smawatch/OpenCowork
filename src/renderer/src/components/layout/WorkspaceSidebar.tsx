@@ -24,9 +24,11 @@ import {
   MoreHorizontal,
   PanelLeftClose,
   Pencil,
+  PenTool,
   Pin,
   PinOff,
   Plus,
+  Puzzle,
   Search,
   Settings,
   Server,
@@ -36,6 +38,7 @@ import {
   User,
   Wand2
 } from 'lucide-react'
+import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -349,6 +352,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
   const drawPageOpen = useUIStore((state) => state.drawPageOpen)
   const translatePageOpen = useUIStore((state) => state.translatePageOpen)
   const knowledgePageOpen = useUIStore((state) => state.knowledgePageOpen)
+  const aiCreationPageOpen = useUIStore((state) => state.aiCreationPageOpen)
   const tasksPageOpen = useUIStore((state) => state.tasksPageOpen)
   const leftSidebarWidth = useUIStore((state) => state.leftSidebarWidth)
   const setLeftSidebarWidth = useUIStore((state) => state.setLeftSidebarWidth)
@@ -491,7 +495,8 @@ export function WorkspaceSidebar(): React.JSX.Element {
     !drawPageOpen &&
     !translatePageOpen &&
     !knowledgePageOpen &&
-    !tasksPageOpen
+    !tasksPageOpen &&
+    !aiCreationPageOpen
   const featureMenuActive =
     resourcesPageOpen || skillsPageOpen || soulsPageOpen || syncPageOpen || drawPageOpen
   const sessionsByProject = useMemo(() => {
@@ -920,11 +925,16 @@ export function WorkspaceSidebar(): React.JSX.Element {
       onClick: openCommandPalette
     },
     {
-      key: 'plugins',
-      label: t('sidebar.pluginsLabel'),
-      icon: <Wand2 className="size-4 shrink-0" />,
-      active: settingsPageOpen && useUIStore.getState().settingsTab === 'plugin',
-      onClick: () => useUIStore.getState().openSettingsPage('plugin')
+      key: 'ai-creation',
+      label: t('navRail.aiCreation'),
+      icon: <PenTool className="size-4 shrink-0" />,
+      active: aiCreationPageOpen,
+      onClick: () => useUIStore.getState().openAiCreationPage(),
+      badge: (
+        <Badge variant="secondary" className="px-1.5 py-0 text-[9px] leading-none">
+          Beta
+        </Badge>
+      )
     },
     {
       key: 'automation',
@@ -955,6 +965,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
     >
       {item.icon}
       <span className="truncate">{item.label}</span>
+      {'badge' in item ? item.badge : null}
     </button>
   )
 
@@ -1231,6 +1242,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="space-y-1 px-2 py-1.5">
             {navItems.slice(0, 3).map(renderNavItem)}
+            {navItems.slice(3).map(renderNavItem)}
 
             <DropdownMenu
               open={featureMenuOpen}
@@ -1276,6 +1288,12 @@ export function WorkspaceSidebar(): React.JSX.Element {
                   <span>{t('navRail.resources')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  onSelect={() => useUIStore.getState().openSettingsPage('plugin')}
+                >
+                  <Puzzle className="size-4" />
+                  <span>{t('sidebar.pluginsLabel')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   onSelect={() => useUIStore.getState().openDrawPage()}
                   className={cn(drawPageOpen && 'bg-accent text-accent-foreground')}
                 >
@@ -1303,13 +1321,6 @@ export function WorkspaceSidebar(): React.JSX.Element {
                   <CloudSync className="size-4" />
                   <span>{t('navRail.sync')}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => useUIStore.getState().openKnowledgePage()}
-                  className={cn(knowledgePageOpen && 'bg-accent text-accent-foreground')}
-                >
-                  <BookOpen className="size-4" />
-                  <span>{t('navRail.knowledge')}</span>
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={() => {
@@ -1321,8 +1332,6 @@ export function WorkspaceSidebar(): React.JSX.Element {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {navItems.slice(3).map(renderNavItem)}
           </div>
 
           <div ref={treeScrollRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">

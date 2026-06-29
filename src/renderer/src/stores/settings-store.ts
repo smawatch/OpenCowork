@@ -325,6 +325,7 @@ interface SettingsStore {
   // Skills Market Settings
   skillsMarketProvider: 'skillsmp'
   skillsMarketApiKey: string
+  skillsMarketUrl: string
 
   // Prompt Recommendation Settings
   promptRecommendationModels: PromptRecommendationModelBindings
@@ -431,6 +432,7 @@ export const useSettingsStore = create<SettingsStore>()(
       // Skills Market Settings
       skillsMarketProvider: 'skillsmp',
       skillsMarketApiKey: '',
+      skillsMarketUrl: '',
 
       // Prompt Recommendation Settings
       promptRecommendationModels: {
@@ -531,6 +533,7 @@ export const useSettingsStore = create<SettingsStore>()(
         if (state.skillsMarketProvider === undefined || state.skillsMarketProvider !== 'skillsmp') {
           state.skillsMarketProvider = 'skillsmp'
           state.skillsMarketApiKey = state.skillsMarketApiKey ?? ''
+          state.skillsMarketUrl = state.skillsMarketUrl ?? ''
         }
         if (state.promptRecommendationModels === undefined) {
           state.promptRecommendationModels = {
@@ -825,6 +828,7 @@ export const useSettingsStore = create<SettingsStore>()(
         // Skills Market Settings
         skillsMarketProvider: state.skillsMarketProvider,
         skillsMarketApiKey: state.skillsMarketApiKey,
+        skillsMarketUrl: state.skillsMarketUrl,
         // Prompt Recommendation Settings
         promptRecommendationModels: state.promptRecommendationModels,
         newSessionDefaultModel: state.newSessionDefaultModel,

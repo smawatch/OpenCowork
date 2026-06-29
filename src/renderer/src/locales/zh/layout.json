@@ -715,6 +715,8 @@
     "draw": "绘图",
     "translate": "翻译",
     "knowledge": "知识库",
+    "aiCreation": "AI创作",
+    "aiCreationDesc": "生图生视频能力",
     "ssh": "SSH",
     "settings": "设置"
   },

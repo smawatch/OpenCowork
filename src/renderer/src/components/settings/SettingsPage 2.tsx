@@ -23,7 +23,8 @@ import {
   RefreshCw,
   Puzzle,
   Terminal,
-  UserRound
+  UserRound,
+  MessageSquare
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { AnimatePresence } from 'motion/react'
@@ -449,6 +450,12 @@ const menuGroupDefs: Array<{
   {
     labelKey: 'page.groups.extensions',
     items: [
+      {
+        id: 'channel',
+        icon: <MessageSquare className="size-4" />,
+        labelKey: 'channel.title',
+        descKey: 'channel.subtitle'
+      },
       {
         id: 'plugin',
         icon: <Puzzle className="size-4" />,
@@ -3475,8 +3482,7 @@ export function SettingsPage(): React.JSX.Element {
   const closeSettingsPage = useUIStore((s) => s.closeSettingsPage)
   const isMac = useMemo(() => /Mac/.test(navigator.userAgent), [])
 
-  const effectiveSettingsTab = settingsTab === 'channel' ? 'general' : settingsTab
-  const ActivePanel = panelMap[effectiveSettingsTab]
+  const ActivePanel = panelMap[settingsTab]
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-muted/10">
@@ -3515,7 +3521,7 @@ export function SettingsPage(): React.JSX.Element {
                   {t(group.labelKey)}
                 </p>
                 {group.items.map((item) => {
-                  const active = effectiveSettingsTab === item.id
+                  const active = settingsTab === item.id
                   return (
                     <button
                       key={item.id}
@@ -3551,14 +3557,15 @@ export function SettingsPage(): React.JSX.Element {
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-5 py-5">
           {/* Content */}
           <AnimatePresence mode="wait">
-            {effectiveSettingsTab === 'provider' ||
-            effectiveSettingsTab === 'modelManagement' ||
-            effectiveSettingsTab === 'plugin' ||
-            effectiveSettingsTab === 'extension' ||
-            effectiveSettingsTab === 'mcp' ? (
+            {settingsTab === 'provider' ||
+            settingsTab === 'modelManagement' ||
+            settingsTab === 'channel' ||
+            settingsTab === 'plugin' ||
+            settingsTab === 'extension' ||
+            settingsTab === 'mcp' ? (
               <div className="flex-1 min-h-0 min-w-0 overflow-hidden" key="full-panel">
                 <SlideIn
-                  key={effectiveSettingsTab}
+                  key={settingsTab}
                   direction="right"
                   duration={0.25}
                   className="h-full min-h-0"
@@ -3570,14 +3577,14 @@ export function SettingsPage(): React.JSX.Element {
               <div className="flex-1 overflow-y-auto" key="scroll-panel">
                 <div
                   className={
-                    effectiveSettingsTab === 'analytics'
+                    settingsTab === 'analytics'
                       ? 'w-full max-w-none px-6 pb-16 pt-10'
-                      : effectiveSettingsTab === 'profile'
+                      : settingsTab === 'profile'
                         ? 'mx-auto w-full max-w-5xl px-6 pb-16 pt-10'
                         : 'mx-auto max-w-2xl px-8 pb-16 pt-10'
                   }
                 >
-                  <FadeIn key={effectiveSettingsTab} duration={0.25} className="w-full">
+                  <FadeIn key={settingsTab} duration={0.25} className="w-full">
                     <ActivePanel />
                   </FadeIn>
                 </div>
