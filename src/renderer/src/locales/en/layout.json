@@ -717,6 +717,7 @@
     "knowledge": "Knowledge",
     "aiCreation": "AI Creation",
     "aiCreationDesc": "Image & video generation",
+    "channels": "Channels",
     "ssh": "SSH",
     "settings": "Settings"
   },

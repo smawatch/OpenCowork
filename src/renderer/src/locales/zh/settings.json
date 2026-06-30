@@ -952,6 +952,9 @@
     "fetchModelsFailed": "获取模型列表失败",
     "deleteConfirm": "确定删除服务商 \"{{name}}\"？",
     "modelList": "模型列表",
+    "readonlyModelList": "模型由系统统一管理",
+    "readonlyModelListHint": "内置企业模型的配置不可修改，如有需要请联系管理员",
+    "readonlyCannotFetch": "内置企业模型不支持手动获取模型列表",
     "modelCount": "共 {{total}} 个模型，已启用 {{enabled}}",
     "modelManagement": "模型管理",
     "modelManagementDesc": "集中管理全局模型默认配置，供各服务商副本继承",
@@ -1190,6 +1193,16 @@
     "channelRequired": "请先完成渠道商验证"
   },
   "channel": {
+    "name": {
+      "feishu": "飞书",
+      "dingtalk": "钉钉",
+      "wecom": "企业微信",
+      "qq": "QQ",
+      "wechat": "微信",
+      "telegram": "Telegram",
+      "discord": "Discord",
+      "whatsapp": "WhatsApp"
+    },
     "title": "频道",
     "subtitle": "配置和管理聊天频道",
     "search": "搜索频道...",
@@ -1273,6 +1286,7 @@
       "accessToken": "Access Token"
     },
     "weixin": {
+      "scanBind": "扫码绑定",
       "baseUrl": "微信网关地址",
       "routeTag": "SKRouteTag",
       "token": "微信 Token",

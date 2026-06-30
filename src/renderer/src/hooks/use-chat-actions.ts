@@ -405,6 +405,11 @@ function summarizeActiveTeamForPromptCache(activeTeam: ActiveTeam | null | undef
 type MessageSource = 'team' | 'queued' | 'continue'
 type PendingSessionDispatchMode = 'after_loop' | 'interrupt_next'
 const SELECTED_FILE_READ_MAX_LINES = 1_000
+const BLOCKED_TEXT_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico', '.tiff', '.heic', '.heif',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.zip', '.gz', '.tgz', '.rar', '.7z', '.tar'
+])
 
 export interface SendMessageOptions {
   longRunningMode?: boolean
@@ -564,6 +569,11 @@ async function buildSelectedFileReadContext(args: {
   for (const file of files) {
     const displayPath = file.sendPath || file.previewPath || file.originalPath
     const readPath = file.previewPath || file.originalPath || file.sendPath
+
+    // Skip binary files silently — they can't be read as text
+    const ext = readPath.split('.').pop()?.toLowerCase()
+    if (ext && BLOCKED_TEXT_EXTENSIONS.has(`.${ext}`)) continue
+
     const baseMeta: SelectedFileReadItemMeta = {
       id: file.id,
       name: file.name || getBaseNameFromPath(displayPath),

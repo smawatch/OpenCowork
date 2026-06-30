@@ -242,7 +242,7 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
   // Update window title (show pending approvals + streaming state + SubAgent)
   useEffect(() => {
     if (shouldUseStaticWindowTitle) {
-      document.title = 'OpenCoWork'
+      document.title = 'CoCoWork'
       return
     }
 

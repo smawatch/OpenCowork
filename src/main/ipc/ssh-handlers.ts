@@ -959,7 +959,18 @@ function buildCopyName(baseName: string, index: number, isDirectory: boolean): s
     return `${baseName} copy${index > 1 ? ` ${index}` : ''}`
   }
 
-  const ext = path.extname(baseName)
+  // Preserve compound extensions (e.g. .tar.gz, .d.ts, .min.js)
+  const knownCompound = ['.tar.gz', '.tar.bz2', '.tar.xz', '.d.ts', '.min.js', '.min.css']
+  let ext = ''
+  for (const compound of knownCompound) {
+    if (baseName.toLowerCase().endsWith(compound)) {
+      ext = compound
+      break
+    }
+  }
+  if (!ext) {
+    ext = path.extname(baseName)
+  }
   const stem = ext ? baseName.slice(0, -ext.length) : baseName
   return `${stem} copy${index > 1 ? ` ${index}` : ''}${ext}`
 }

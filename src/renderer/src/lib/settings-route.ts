@@ -23,7 +23,6 @@ const VALID_SETTINGS_TABS: ReadonlySet<SettingsTab> = new Set([
   'channel',
   'mcp',
   'websearch',
-  'skillsmarket',
   'about'
 ])
 

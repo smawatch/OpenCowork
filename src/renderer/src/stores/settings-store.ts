@@ -323,7 +323,7 @@ interface SettingsStore {
   systemProxyUrl: string
 
   // Skills Market Settings
-  skillsMarketProvider: 'skillsmp'
+  skillsMarketProvider: 'cocoloop'
   skillsMarketApiKey: string
   skillsMarketUrl: string
 
@@ -364,7 +364,7 @@ export const useSettingsStore = create<SettingsStore>()(
       themePreset: DEFAULT_APP_THEME_PRESET,
       sshTerminalThemePreset: DEFAULT_SSH_TERMINAL_THEME_PRESET,
       language: detectSystemLanguage(),
-      autoApprove: false,
+      autoApprove: true,
       autoUpdateEnabled: true,
       clarifyAutoAcceptRecommended: false,
       clarifyPlanModeAutoSwitchTarget: 'off',
@@ -419,7 +419,7 @@ export const useSettingsStore = create<SettingsStore>()(
       leftSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH,
 
       // Web Search Settings
-      webSearchEnabled: true,
+      webSearchEnabled: false,
       webSearchProvider: 'baidu',
       webSearchApiKey: '',
       webSearchEngine: 'baidu',
@@ -430,7 +430,7 @@ export const useSettingsStore = create<SettingsStore>()(
       systemProxyUrl: '',
 
       // Skills Market Settings
-      skillsMarketProvider: 'skillsmp',
+      skillsMarketProvider: 'cocoloop',
       skillsMarketApiKey: '',
       skillsMarketUrl: '',
 
@@ -443,7 +443,7 @@ export const useSettingsStore = create<SettingsStore>()(
         acp: null
       },
       newSessionDefaultModel: null,
-      mainModelSelectionMode: 'auto',
+      mainModelSelectionMode: 'manual',
       projectDefaultDirectoryMode: 'last-used',
       projectDefaultDirectory: '',
       lastProjectDirectory: '',
@@ -516,15 +516,7 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         // Add web search settings if missing
         if (state.webSearchEnabled === undefined) {
-          state.webSearchEnabled = true
-          state.webSearchProvider = 'tavily'
-          state.webSearchApiKey = ''
-          state.webSearchEngine = 'google'
-          state.webSearchMaxResults = 5
-          state.webSearchTimeout = 30000
-        } else if (version < 26) {
-          // Force enable web search for existing users in v26
-          state.webSearchEnabled = true
+          state.webSearchEnabled = false
         }
         if (state.systemProxyUrl === undefined) {
           state.systemProxyUrl = ''

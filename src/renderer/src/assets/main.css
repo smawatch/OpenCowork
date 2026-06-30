@@ -1287,6 +1287,14 @@
     color: var(--foreground);
   }
 
+  .composer-file-ref-actions {
+    display: none;
+  }
+
+  .composer-file-ref:hover .composer-file-ref-actions {
+    display: inline-flex;
+  }
+
   textarea.composer-aux-textarea {
     border-color: var(--composer-chip-border);
     background: transparent;

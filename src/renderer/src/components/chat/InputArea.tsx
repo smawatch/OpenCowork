@@ -12,7 +12,6 @@ import {
   Trash2,
   ImagePlus,
   ClipboardList,
-  Globe,
   Wand2,
   CornerDownRight,
   Ellipsis,
@@ -49,7 +48,6 @@ import type {
   UnifiedMessage
 } from '@renderer/lib/api/types'
 import { useSettingsStore } from '@renderer/stores/settings-store'
-import { updateWebSearchToolRegistration } from '@renderer/lib/tools'
 import { useUIStore, type AppMode } from '@renderer/stores/ui-store'
 import {
   estimateTokens,
@@ -1345,24 +1343,6 @@ export function InputArea({
     const model = activeProvider.models.find((m) => m.id === activeProvider.modelId)
     return modelSupportsVision(model, activeProvider.type)
   }, [activeProvider])
-  const webSearchEnabled = useSettingsStore((s) => s.webSearchEnabled)
-  const webSearchProvider = useSettingsStore((s) => s.webSearchProvider)
-  const webSearchApiKey = useSettingsStore((s) => s.webSearchApiKey)
-  const webSearchRequiresApiKey = [
-    'tavily',
-    'searxng',
-    'exa',
-    'exa-mcp',
-    'bocha',
-    'zhipu'
-  ].includes(webSearchProvider)
-  const canToggleWebSearch = !webSearchRequiresApiKey || Boolean(webSearchApiKey)
-  const toggleWebSearch = React.useCallback(() => {
-    const store = useSettingsStore.getState()
-    const newEnabled = !store.webSearchEnabled
-    useSettingsStore.getState().updateSettings({ webSearchEnabled: newEnabled })
-    updateWebSearchToolRegistration(newEnabled)
-  }, [])
   const openSettingsPage = useUIStore((s) => s.openSettingsPage)
   const openFilePreview = useUIStore((s) => s.openFilePreview)
   const mode = useUIStore((s) => s.mode)
@@ -2856,21 +2836,23 @@ export function InputArea({
         const nonImageFiles = fileArray.filter((f) => !ACCEPTED_IMAGE_TYPES.includes(f.type))
         if (nonImageFiles.length > 0) {
           e.preventDefault()
-          // Extract file paths from File objects
+          // Extract file paths from File objects using Electron's getPathForFile
           const paths = nonImageFiles
-            .map((f) => (f as File & { path?: string }).path)
+            .map((f) => {
+              try {
+                return window.api.getPathForFile(f)
+              } catch {
+                return (f as File & { path?: string }).path ?? ''
+              }
+            })
             .filter((filePath): filePath is string => Boolean(filePath))
           console.log('[Paste] Extracted paths:', paths)
           if (paths.length > 0) {
             console.log('[Paste] Adding files from File objects:', paths)
             addFilesToEditor(paths)
             return
-          } else {
-            console.log('[Paste] No paths found in File objects, trying alternative approach')
-            // Alternative: Use the file name as a fallback
-            const fileNames = nonImageFiles.map(f => f.name)
-            console.log('[Paste] File names:', fileNames)
           }
+          console.log('[Paste] No paths found in File objects')
         }
       }
 
@@ -3130,28 +3112,6 @@ export function InputArea({
 
   const composerVariant = 'session'
   const composerIconControlClass = 'composer-control rounded-xl'
-
-  const webSearchToggleControl = canToggleWebSearch && (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className={composerIconControlClass}
-          data-active={webSearchEnabled ? 'true' : 'false'}
-          onClick={toggleWebSearch}
-          disabled={disabled || isStreaming}
-        >
-          <Globe className="size-4" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        {webSearchEnabled
-          ? t('input.disableWebSearch', { defaultValue: 'Disable web search' })
-          : t('input.enableWebSearch', { defaultValue: 'Enable web search' })}
-      </TooltipContent>
-    </Tooltip>
-  )
 
   const skillsMenuControl = (
     <SkillsMenu
@@ -4044,7 +4004,6 @@ export function InputArea({
                 <div className="shrink-0">
                   <ModelSwitcher modelRoute={modelRoute} />
                 </div>
-                {webSearchToggleControl}
                 {skillsMenuControl}
                 {activeMcpBadge}
                 {folderControl}

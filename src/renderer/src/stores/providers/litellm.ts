@@ -7,7 +7,7 @@ import type { BuiltinProviderPreset } from './types'
  */
 export const liteLLMPreset: BuiltinProviderPreset = {
   builtinId: 'enterprise-litellm',
-  name: '企业 AI 服务',
+  name: '企业AI模型',
   type: 'openai-chat',
   // 企业 LiteLLM 服务地址
   defaultBaseUrl: 'http://192.168.77.100:4000/v1',
@@ -20,12 +20,11 @@ export const liteLLMPreset: BuiltinProviderPreset = {
   defaultEnabled: true,
   // 不需要用户输入 API Key (已内置)
   requiresApiKey: false,
-  // 模型列表完全通过 LiteLLM /v1/models 接口动态加载
-  // 这里提供空数组,启动时会自动调用 API 获取
+  // 默认模型列表
   defaultModels: [
     {
-      id: 'qwen3.6-flash',
-      name: 'Qwen3.6 Flash',
+      id: 'qwen3.7-plus',
+      name: 'Qwen3.7-Plus',
       icon: 'qwen',
       enabled: true,
       contextLength: 262_144,
@@ -39,47 +38,37 @@ export const liteLLMPreset: BuiltinProviderPreset = {
         bodyParams: { thinking: { type: 'enabled' } },
         disabledBodyParams: { thinking: { type: 'disabled' } }
       }
-    }
-    // ,{
-    //   id: 'deepseek-v4-flash',
-    //   name: 'deepseek-v4-flash',
-    //   icon: 'qwen',
-    //   enabled: true,
-    //   contextLength: 262_144,
-    //   maxOutputTokens: 8_192,
-    //   supportsVision: true,
-    //   supportsFunctionCall: true,
-    //   inputPrice: 0.3,
-    //   outputPrice: 1.2,
-    //   supportsThinking: true,
-    //   thinkingConfig: {
-    //     bodyParams: { thinking: { type: 'enabled' } },
-    //     disabledBodyParams: { thinking: { type: 'disabled' } }
-    //   }
-    // }
-    ,
+    },
     {
-      id: 'qwen-image-2.0',
-      name: 'qwen-image-2.0',
-      icon: 'qwen',
+      id: 'deepseek-v4-flash',
+      name: 'DeepSeek V4 Flash',
+      icon: 'deepseek',
+      enabled: true,
+      contextLength: 1_000_000,
+      maxOutputTokens: 384_000,
+      supportsVision: false,
+      supportsFunctionCall: true,
+      inputPrice: 0.14,
+      outputPrice: 0.28,
+      cacheCreationPrice: 0.14,
+      cacheHitPrice: 0.0028,
+      supportsThinking: true,
+      thinkingConfig: {
+        bodyParams: { enable_thinking: true },
+        disabledBodyParams: { enable_thinking: false }
+      }
+    },
+    {
+      id: 'gpt-image-2-all',
+      name: 'gpt-image-2-all',
+      icon: 'openai',
       enabled: true,
       category: 'image',
+      type: 'openai-images',
       supportsVision: true,
       supportsFunctionCall: false,
       inputPrice: 0.04,
       outputPrice: 0.08
-    },
-    // {
-    //   id: 'gpt-image-2',
-    //   name: 'GPT-Image 2',
-    //   icon: 'openai',
-    //   enabled: true,
-    //   category: 'image',
-    //   type: 'openai-images',
-    //   supportsVision: true,
-    //   supportsFunctionCall: false,
-    //   inputPrice: 0.04,
-    //   outputPrice: 0.08
-    // }
+    }
   ]
 }

@@ -1,7 +1,7 @@
 import { ipcMain, nativeImage } from 'electron'
 import { randomUUID } from 'crypto'
 import { join } from 'path'
-import { mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { encodeGif } from '../image/gif-encoder'
 const IMAGE_CREATE_GIF_FROM_GRID = 'image:create-gif-from-grid'
@@ -72,6 +72,10 @@ function toPersistedImageResult(
 
 function loadSourceBuffer(args: { filePath?: string; data?: string }): Buffer {
   if (typeof args.filePath === 'string' && args.filePath.trim()) {
+    const stat = statSync(args.filePath)
+    if (stat.isDirectory()) {
+      throw new Error(`Expected a file but path is a directory: ${args.filePath}`)
+    }
     return readFileSync(args.filePath)
   }
 

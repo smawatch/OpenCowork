@@ -37,14 +37,28 @@ export interface MarketSkillInfo {
   slug: string
   name: string
   description: string
+  subtitle?: string
   category?: string
   tags: string[]
   downloads: number
+  favorites?: number
+  githubStars?: number
+  securityLevel?: string
+  sourceCredibility?: string
   updatedAt?: string
   filePath?: string
   url: string
   downloadUrl: string
   installCommand: string
+  icon?: string
+  author?: string
+  version?: string
+  views?: number
+  fileSize?: number
+  ratingCount?: number
+  inLeaderboard?: boolean
+  leaderboardRank?: number
+  summary?: string
 }
 
 interface SkillsStore {
@@ -61,7 +75,9 @@ interface SkillsStore {
   marketTotal: number
   marketLoading: boolean
   marketQuery: string
-  marketOffset: number
+  marketPage: number
+  marketPageSize: number
+  marketTab: string
 
   // Editing state
   editing: boolean
@@ -93,9 +109,10 @@ interface SkillsStore {
   ) => Promise<{ success: boolean; name?: string; error?: string }>
 
   // Market actions
-  loadMarketSkills: (query?: string, reset?: boolean) => Promise<void>
-  loadMoreMarketSkills: () => Promise<void>
+  loadMarketSkills: (query?: string, page?: number) => Promise<void>
+  goToPage: (page: number) => Promise<void>
   setMarketQuery: (query: string) => void
+  setMarketTab: (tab: string) => void
   downloadAndReviewMarketSkill: (skill: MarketSkillInfo) => Promise<void>
 
   // Edit actions
@@ -117,14 +134,16 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
   skillContent: null,
   skillFiles: [],
   searchQuery: '',
-  activeTab: 'installed',
+  activeTab: 'market',
 
   // Market state
   marketSkills: [],
   marketTotal: 0,
   marketLoading: false,
   marketQuery: '',
-  marketOffset: 0,
+  marketPage: 1,
+  marketPageSize: 30,
+  marketTab: 'overall',
 
   editing: false,
   editContent: null,
@@ -250,46 +269,54 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
   },
 
   // Market actions
-  loadMarketSkills: async (query, reset) => {
+  loadMarketSkills: async (query, page) => {
     const q = query ?? get().marketQuery
-    const offset = reset ? 0 : get().marketOffset
-    set({ marketLoading: true, marketQuery: q })
+    const p = page ?? get().marketPage
+    set({ marketLoading: true, marketQuery: q, marketPage: p })
     try {
       const { useSettingsStore } = await import('@renderer/stores/settings-store')
-      const { skillsMarketApiKey, skillsMarketUrl } = useSettingsStore.getState()
+      const { skillsMarketApiKey, skillsMarketUrl, skillsMarketProvider } = useSettingsStore.getState()
+      const pageSize = get().marketPageSize
+      const offset = (p - 1) * pageSize
       const result = (await ipcClient.invoke('skills:market-list', {
         offset,
-        limit: 50,
+        limit: pageSize,
         query: q,
-        provider: 'skillsmp',
+        provider: skillsMarketProvider || 'cocoloop',
         apiKey: skillsMarketApiKey,
-        baseUrl: skillsMarketUrl || undefined
+        baseUrl: skillsMarketUrl || undefined,
+        tab: get().marketTab || 'overall'
       })) as {
         total: number
         skills: MarketSkillInfo[]
       }
       set({
-        marketSkills:
-          reset || offset === 0 ? result.skills : [...get().marketSkills, ...result.skills],
-        marketTotal: result.total,
-        marketOffset: (reset ? 0 : offset) + result.skills.length
+        marketSkills: result.skills,
+        marketTotal: result.total
       })
     } catch {
-      if (reset || offset === 0) set({ marketSkills: [], marketTotal: 0 })
+      set({ marketSkills: [], marketTotal: 0 })
     } finally {
       set({ marketLoading: false })
     }
   },
 
-  loadMoreMarketSkills: async () => {
+  goToPage: async (page) => {
     const state = get()
-    if (state.marketLoading || state.marketSkills.length >= state.marketTotal) return
-    await state.loadMarketSkills(state.marketQuery, false)
+    if (state.marketLoading || page < 1) return
+    const maxPage = Math.max(1, Math.ceil(state.marketTotal / state.marketPageSize))
+    if (page > maxPage) return
+    await state.loadMarketSkills(state.marketQuery, page)
   },
 
   setMarketQuery: (query) => {
-    set({ marketQuery: query, marketOffset: 0 })
-    get().loadMarketSkills(query, true)
+    set({ marketQuery: query, marketPage: 1 })
+    get().loadMarketSkills(query, 1)
+  },
+
+  setMarketTab: (tab) => {
+    set({ marketTab: tab, marketPage: 1 })
+    get().loadMarketSkills(get().marketQuery, 1)
   },
 
   downloadAndReviewMarketSkill: async (skill) => {
@@ -306,12 +333,12 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
 
     try {
       const { useSettingsStore } = await import('@renderer/stores/settings-store')
-      const { skillsMarketApiKey } = useSettingsStore.getState()
+      const { skillsMarketApiKey, skillsMarketProvider } = useSettingsStore.getState()
       // Download from remote marketplace
       const downloadResult = (await ipcClient.invoke('skills:download-remote', {
         slug: skill.slug,
         name: skill.name,
-        provider: 'skillsmp',
+        provider: skillsMarketProvider || 'cocoloop',
         apiKey: skillsMarketApiKey,
         skillId: skill.id,
         url: skill.url,
@@ -488,7 +515,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
           installSourcePath: null,
           installScanResult: null,
           installing: false,
-          activeTab: 'installed',
+          activeTab: 'market',
           selectedSkill: result.name || null,
           agentReviewText: '',
           agentReviewDone: false,

@@ -765,9 +765,6 @@ export function ModelSwitcher({
       ? t('topbar.autoModelRoutingShort')
       : t('topbar.autoModel')
     : (displayModel?.name ?? displayModelId ?? t('topbar.noModel'))
-  const triggerProviderName = isAutoModeActive
-    ? (autoResolvedProvider?.name ?? t('topbar.autoModel'))
-    : (displayProvider?.name ?? null)
   const triggerModel = isAutoModeActive ? (autoResolvedModel ?? null) : (displayModel ?? null)
   const triggerProviderType = isAutoModeActive ? autoResolvedProvider?.type : displayProvider?.type
   const triggerDetail = isAutoModeActive
@@ -871,7 +868,7 @@ export function ModelSwitcher({
       .map((provider) => {
         const models = provider.models.filter((m) => {
           if (!m.enabled) return false
-          if (isFastRoute && (m.category ?? 'chat') !== 'chat') return false
+          if ((m.category ?? 'chat') !== 'chat') return false
           if (!q) return true
           const name = (m.name || m.id).toLowerCase()
           return name.includes(q) || provider.name.toLowerCase().includes(q)
@@ -946,23 +943,24 @@ export function ModelSwitcher({
           <HoverCardTrigger asChild>
             <PopoverTrigger asChild>
               <button
-                className="inline-flex size-8 shrink-0 items-center justify-center rounded-l-lg text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-l-lg px-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
                 aria-label={triggerAriaLabel}
               >
                 {isAutoModeActive ? (
                   autoRoutingState === 'routing' ? (
                     <Loader2 size={16} className="animate-spin text-amber-500" />
                   ) : (
-                    <AutoModelIcon size={18} />
+                    <AutoModelIcon size={16} />
                   )
                 ) : (
                   <ModelIcon
                     icon={displayModel?.icon}
                     modelId={displayModelId}
                     providerBuiltinId={displayProvider?.builtinId}
-                    size={20}
+                    size={18}
                   />
                 )}
+                <span className="text-xs font-medium truncate">{triggerLabel}</span>
               </button>
             </PopoverTrigger>
           </HoverCardTrigger>
@@ -986,11 +984,6 @@ export function ModelSwitcher({
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-foreground">{triggerLabel}</div>
-                {triggerProviderName && (
-                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {triggerProviderName}
-                  </div>
-                )}
               </div>
             </div>
             {triggerDetail && (
@@ -1035,7 +1028,7 @@ export function ModelSwitcher({
                 )}
                 onClick={() => selectAutoModel(setOpen)}
               >
-                <span className="mt-0.5 flex size-5 items-center justify-center shrink-0">
+                <span className="flex size-5 items-center justify-center shrink-0">
                   {isAutoModeActive ? (
                     <span className="flex size-5 items-center justify-center rounded-full bg-primary/10">
                       <Check className="size-3 text-primary" />

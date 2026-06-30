@@ -72,7 +72,6 @@ import { AppPluginPanel } from './AppPluginPanel'
 import { ExtensionPanel } from './ExtensionPanel'
 import { McpPanel } from './McpPanel'
 import { WebSearchPanel } from './WebSearchPanel'
-import { SkillsMarketPanel } from './SkillsMarketPanel'
 import { MigrationPanel } from './MigrationPanel'
 import { GlobalThemePanel } from './GlobalThemePanel'
 import { AnalyticsOverview } from './AnalyticsOverview'
@@ -480,12 +479,6 @@ const menuGroupDefs: Array<{
         labelKey: 'websearch.title',
         descKey: 'websearch.subtitle'
       },
-      {
-        id: 'skillsmarket',
-        icon: <Wand2 className="size-4" />,
-        labelKey: 'skillsmarket.title',
-        descKey: 'skillsmarket.subtitle'
-      }
     ]
   },
   {
@@ -3471,7 +3464,6 @@ const panelMap: Record<SettingsTab, () => React.JSX.Element> = {
   mcp: McpPanel,
   model: ModelPanel,
   websearch: WebSearchPanel,
-  skillsmarket: SkillsMarketPanel,
   about: AboutPanel
 }
 

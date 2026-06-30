@@ -13,18 +13,43 @@ export interface MarketSkillInfo {
   slug: string
   name: string
   description: string
+  subtitle?: string
   category?: string
   tags: string[]
   downloads: number
+  favorites?: number
+  githubStars?: number
+  securityLevel?: string
+  sourceCredibility?: string
   updatedAt?: string
   filePath?: string
   url: string
   downloadUrl: string
   installCommand: string
+  icon?: string
+  author?: string
+  version?: string
+  views?: number
+  fileSize?: number
+  ratingCount?: number
+  inLeaderboard?: boolean
+  leaderboardRank?: number
+  summary?: string
 }
 
-const SKILLS_MARKET_BASE_URL = 'https://skills.open-cowork.shop'
-const SKILLS_MARKET_API_BASE_URL = `${SKILLS_MARKET_BASE_URL}/api/v1`
+export interface MarketSkillDetail extends MarketSkillInfo {
+  summary: string
+  version: string
+  views: number
+  fileSize: number
+  tags: string[]
+  ratingCount: number
+  inLeaderboard: boolean
+  leaderboardRank: number
+}
+
+const SKILLS_MARKET_BASE_URL = 'https://hub.cocoloop.cn'
+const SKILLS_MARKET_API_BASE_URL = 'https://api.cocoloop.cn/api/v1/store'
 const SKILLS_DIR = path.join(os.homedir(), '.agents', 'skills')
 const SKILLS_FILENAME = 'SKILL.md'
 const TEXT_FILE_EXTENSIONS = new Set([
@@ -728,45 +753,77 @@ export function registerSkillsHandlers(): void {
   )
 
   /**
-   * Normalise a raw skill object from the OpenCoWork Skills Marketplace API into MarketSkillInfo.
+   * Normalise a raw skill object from the Cocoloop Skills Marketplace API into MarketSkillInfo.
    */
   function normaliseMarketSkillItem(s: Record<string, unknown>, index: number): MarketSkillInfo {
-    const slug = String(s['slug'] ?? s['name'] ?? `skill-${index}`)
-    const name = String(s['name'] ?? slug)
-    const description = s['description'] != null ? String(s['description']) : ''
+    const id = String(s['id'] ?? `skill-${index}`)
+    const name = String(s['name'] ?? '')
+    // Sanitize name for filesystem: replace path separators and other invalid chars
+    const slug = (name || id).replace(/[/\\:*?"<>|]/g, '-').trim()
+    const description = String(s['brief'] ?? s['subtitle'] ?? '')
     const category = s['category'] != null ? String(s['category']) : undefined
-    const tags = Array.isArray(s['tags']) ? s['tags'].map((tag) => String(tag)).filter(Boolean) : []
-    const downloads = Number(s['downloads'] ?? 0)
-    const updatedAt = s['updatedAt'] != null ? String(s['updatedAt']) : undefined
-    const url = `${SKILLS_MARKET_BASE_URL}/skills/${encodeURIComponent(slug)}`
+    const tags: string[] = []
+    if (s['security_level'] != null) tags.push(String(s['security_level']))
+    if (s['source_credibility'] != null) tags.push(String(s['source_credibility']))
+    const rawDownloads = String(s['downloads'] ?? '0')
+    const downloads = parseShortNumber(rawDownloads)
+    const downloadUrl = s['download_url'] != null ? String(s['download_url']) : ''
+    const icon = s['icon'] != null ? String(s['icon']) : undefined
+    const author = s['author'] != null ? String(s['author']) : undefined
+    const subtitle = s['subtitle'] != null ? String(s['subtitle']) : undefined
+    const favorites = parseShortNumber(String(s['favorites'] ?? '0'))
+    const githubStars = parseShortNumber(String(s['github_stars'] ?? '0'))
+    const securityLevel = s['security_level'] != null ? String(s['security_level']) : undefined
+    const sourceCredibility = s['source_credibility'] != null ? String(s['source_credibility']) : undefined
 
     return {
-      id: String(s['id'] ?? slug),
+      id,
       slug,
       name,
       description,
+      subtitle,
       category,
       tags,
       downloads,
-      updatedAt,
-      filePath: s['filePath'] != null ? String(s['filePath']) : undefined,
-      url,
-      downloadUrl: `${url}/download`,
-      installCommand: `npx skills add ${slug}`
+      favorites: favorites > 0 ? favorites : undefined,
+      githubStars: githubStars > 0 ? githubStars : undefined,
+      securityLevel,
+      sourceCredibility,
+      updatedAt: undefined,
+      filePath: undefined,
+      url: `${SKILLS_MARKET_BASE_URL}/skills/${id}`,
+      downloadUrl,
+      installCommand: `npx skills add ${slug}`,
+      icon,
+      author
     }
+  }
+
+  /**
+   * Parse short-form numbers like "418.2k", "9.4k", "1.2M" into integers.
+   */
+  function parseShortNumber(value: string): number {
+    const trimmed = value.trim().toLowerCase()
+    if (!trimmed) return 0
+    const num = parseFloat(trimmed)
+    if (Number.isNaN(num)) return 0
+    if (trimmed.endsWith('k')) return Math.round(num * 1000)
+    if (trimmed.endsWith('m')) return Math.round(num * 1000000)
+    return Math.round(num)
   }
 
   function parseSkillsMarketResponse(json: Record<string, unknown>): {
     total: number
     skills: MarketSkillInfo[]
   } {
-    if (json['success'] === false) {
-      const err = json['error'] as Record<string, unknown> | undefined
-      throw new Error(String(err?.['message'] ?? 'Skills marketplace API returned failure'))
+    if (json['code'] !== 0) {
+      const message = String(json['message'] ?? 'Skills marketplace API returned failure')
+      throw new Error(message)
     }
 
-    const rawSkills = Array.isArray(json['data']) ? (json['data'] as Record<string, unknown>[]) : []
-    const total = Number(json['total'] ?? rawSkills.length)
+    const data = json['data'] as Record<string, unknown> | undefined
+    const rawSkills = Array.isArray(data?.['items']) ? (data!['items'] as Record<string, unknown>[]) : []
+    const total = Number(data?.['total'] ?? rawSkills.length)
 
     return {
       total: Number.isFinite(total) ? total : rawSkills.length,
@@ -775,48 +832,43 @@ export function registerSkillsHandlers(): void {
   }
 
   /**
-   * Fetch skills from the OpenCoWork Skills Marketplace public API.
-   * Docs: https://skills.open-cowork.shop/docs
+   * Fetch skills from the Cocoloop Skills Marketplace API.
    */
   async function fetchSkillsMarketList(args: {
     query?: string
     offset?: number
     limit?: number
     apiKey?: string
+    tab?: string
   }): Promise<{ total: number; skills: MarketSkillInfo[] }> {
     const query = (args.query ?? '').trim()
-    const page = Math.floor((args.offset ?? 0) / (args.limit ?? 20)) + 1
-    const limit = Math.min(args.limit ?? 20, 100)
+    const pageSize = Math.min(args.limit ?? 20, 100)
+    const page = Math.floor((args.offset ?? 0) / pageSize) + 1
+    const tab = args.tab || 'overall'
     const params = new URLSearchParams({
       page: String(page),
-      limit: String(limit),
-      sortBy: 'popular'
+      page_size: String(pageSize),
+      sort: 'downloads',
+      tab
     })
 
     if (query) {
-      params.set('q', query)
+      params.set('keyword', query)
     }
 
-    const res = await fetch(`${SKILLS_MARKET_API_BASE_URL}/skills/search?${params.toString()}`, {
+    const res = await fetch(`${SKILLS_MARKET_API_BASE_URL}/skills?${params.toString()}`, {
       headers: {
         ...(args.apiKey ? { Authorization: `Bearer ${args.apiKey}` } : {}),
         Accept: 'application/json',
-        'User-Agent': getDefaultApiUserAgent()
+        'User-Agent': getDefaultApiUserAgent(),
+        Origin: SKILLS_MARKET_BASE_URL,
+        Referer: `${SKILLS_MARKET_BASE_URL}/`
       }
     })
 
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      let detail = body
-      try {
-        const parsed = JSON.parse(body) as Record<string, unknown>
-        const err = parsed['error'] as Record<string, unknown> | undefined
-        if (err?.['message']) detail = String(err['message'])
-        if (parsed['success'] === false && err?.['code']) detail = `${err['code']}: ${detail}`
-      } catch {
-        // Use raw response body
-      }
-      throw new Error(`Skills marketplace API ${res.status}: ${detail}`)
+      throw new Error(`Skills marketplace API ${res.status}: ${body || 'Unknown error'}`)
     }
 
     const json = (await res.json()) as Record<string, unknown>
@@ -835,25 +887,95 @@ export function registerSkillsHandlers(): void {
         offset?: number
         limit?: number
         query?: string
-        provider?: 'skillsmp'
+        provider?: 'skillsmp' | 'cocoloop'
         apiKey?: string
+        tab?: string
       }
     ): Promise<{
       total: number
       skills: MarketSkillInfo[]
     }> => {
-      if (args.provider && args.provider !== 'skillsmp') return { total: 0, skills: [] }
+      if (args.provider && args.provider !== 'skillsmp' && args.provider !== 'cocoloop')
+        return { total: 0, skills: [] }
 
       try {
         return await fetchSkillsMarketList({
           query: args.query,
           offset: args.offset,
           limit: args.limit,
-          apiKey: args.apiKey
+          apiKey: args.apiKey,
+          tab: args.tab
         })
       } catch (err) {
         console.error('[Skills] Skills marketplace API error:', err)
         return { total: 0, skills: [] }
+      }
+    }
+  )
+
+  /**
+   * skills:market-detail — fetch a single skill's full detail from the marketplace.
+   */
+  ipcMain.handle(
+    'skills:market-detail',
+    async (
+      _event,
+      args: { skillId: string }
+    ): Promise<{ detail: MarketSkillDetail } | { error: string }> => {
+      try {
+        const res = await fetch(`${SKILLS_MARKET_API_BASE_URL}/skills/${encodeURIComponent(args.skillId)}`, {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': getDefaultApiUserAgent(),
+            Origin: SKILLS_MARKET_BASE_URL,
+            Referer: `${SKILLS_MARKET_BASE_URL}/`
+          }
+        })
+
+        if (!res.ok) {
+          return { error: `API ${res.status}: ${await res.text().catch(() => 'Unknown error')}` }
+        }
+
+        const json = (await res.json()) as Record<string, unknown>
+        if (json['code'] !== 0) {
+          return { error: String(json['message'] ?? 'API returned failure') }
+        }
+
+        const data = json['data'] as Record<string, unknown> | undefined
+        if (!data) {
+          return { error: 'No data returned from API' }
+        }
+
+        const detail: MarketSkillDetail = {
+          id: String(data['id'] ?? ''),
+          slug: String(data['id'] ?? ''),
+          name: String(data['name'] ?? ''),
+          description: String(data['brief'] ?? data['subtitle'] ?? ''),
+          subtitle: data['subtitle'] != null ? String(data['subtitle']) : undefined,
+          category: data['category'] != null ? String(data['category']) : undefined,
+          tags: Array.isArray(data['tags']) ? data['tags'].map(String) : [],
+          downloads: parseShortNumber(String(data['downloads'] ?? '0')),
+          favorites: parseShortNumber(String(data['favorites'] ?? '0')),
+          githubStars: parseShortNumber(String(data['github_stars'] ?? '0')),
+          securityLevel: data['security_level'] != null ? String(data['security_level']) : undefined,
+          sourceCredibility: data['source_credibility'] != null ? String(data['source_credibility']) : undefined,
+          downloadUrl: data['download_url'] != null ? String(data['download_url']) : '',
+          icon: data['icon'] != null ? String(data['icon']) : undefined,
+          author: data['author'] != null ? String(data['author']) : undefined,
+          version: String(data['version'] ?? ''),
+          views: parseShortNumber(String(data['views'] ?? '0')),
+          fileSize: Number(data['file_size'] ?? 0),
+          ratingCount: Number(data['rating_user_count'] ?? 0),
+          inLeaderboard: Boolean(data['in_leaderboard']),
+          leaderboardRank: Number(data['leaderboard_rank'] ?? 0),
+          summary: String(data['summary'] ?? ''),
+          url: `${SKILLS_MARKET_BASE_URL}/skills/${data['id']}`,
+          installCommand: `npx skills add ${data['id']}`
+        }
+
+        return { detail }
+      } catch (err) {
+        return { error: String(err) }
       }
     }
   )
@@ -864,13 +986,14 @@ export function registerSkillsHandlers(): void {
   }): Promise<{ tempPath: string; files: { path: string; content: string }[] }> {
     const tempBase = path.join(os.tmpdir(), 'opencowork-skills', `download-${Date.now()}`)
     const tempDir = path.join(tempBase, args.slug)
-    const downloadUrl =
-      args.downloadUrl ??
-      `${SKILLS_MARKET_BASE_URL}/skills/${encodeURIComponent(args.slug)}/download`
+
+    if (!args.downloadUrl) {
+      throw new Error('No download URL provided for skill')
+    }
 
     fs.mkdirSync(tempBase, { recursive: true })
 
-    const response = await fetch(downloadUrl, {
+    const response = await fetch(args.downloadUrl, {
       headers: {
         Accept: 'application/zip, text/markdown;q=0.9, */*;q=0.8',
         'User-Agent': getDefaultApiUserAgent()
@@ -940,7 +1063,7 @@ export function registerSkillsHandlers(): void {
       args: {
         slug?: string
         name: string
-        provider?: 'skillsmp'
+        provider?: 'skillsmp' | 'cocoloop'
         apiKey?: string
         skillId?: string
         url?: string
@@ -952,9 +1075,13 @@ export function registerSkillsHandlers(): void {
       error?: string
     }> => {
       try {
-        const slug = (args.slug ?? args.name).trim()
+        const slug = (args.slug ?? args.skillId ?? args.name).trim()
         if (!slug) {
           return { error: 'Missing skill slug for marketplace download' }
+        }
+
+        if (!args.downloadUrl) {
+          return { error: 'Missing download URL for skill' }
         }
 
         const result = await downloadFromSkillsMarket({

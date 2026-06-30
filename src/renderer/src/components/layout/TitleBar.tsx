@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
+  Search,
   Send,
   SquareTerminal,
   ShieldCheck
@@ -378,6 +379,29 @@ export function TitleBar({
             <TooltipContent>{tCommon('app.update.buttonTooltip')}</TooltipContent>
           </Tooltip>
         )}
+
+        {/* Search */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="workspace-titlebar-action titlebar-no-drag size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                window.dispatchEvent(
+                  new KeyboardEvent('keydown', {
+                    key: 'k',
+                    ctrlKey: true,
+                    bubbles: true
+                  })
+                )
+              }}
+            >
+              <Search className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t('sidebar.searchLabel')}</TooltipContent>
+        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>

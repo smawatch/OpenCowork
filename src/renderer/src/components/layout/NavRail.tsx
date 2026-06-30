@@ -22,13 +22,13 @@ import packageJson from '../../../../../package.json'
 const navItems: { value: NavItem | 'ssh'; icon: React.ReactNode; labelKey: string }[] = [
   { value: 'chat', icon: <MessageSquare className="size-5" />, labelKey: 'navRail.conversations' },
   { value: 'tasks', icon: <CalendarDays className="size-5" />, labelKey: 'navRail.tasks' },
-  { value: 'resources', icon: <FolderOpen className="size-5" />, labelKey: 'navRail.resources' },
+  { value: 'ai-creation', icon: <PenTool className="size-5" />, labelKey: 'navRail.aiCreation' },
   { value: 'skills', icon: <Wand2 className="size-5" />, labelKey: 'navRail.skills' },
+  { value: 'resources', icon: <FolderOpen className="size-5" />, labelKey: 'navRail.resources' },
+  { value: 'draw', icon: <Image className="size-5" />, labelKey: 'navRail.draw' },
+  { value: 'knowledge', icon: <BookOpen className="size-5" />, labelKey: 'navRail.knowledge' },
   { value: 'souls', icon: <Sparkles className="size-5" />, labelKey: 'navRail.souls' },
   { value: 'sync', icon: <CloudSync className="size-5" />, labelKey: 'navRail.sync' },
-  { value: 'draw', icon: <Image className="size-5" />, labelKey: 'navRail.draw' },
-  { value: 'ai-creation', icon: <PenTool className="size-5" />, labelKey: 'navRail.aiCreation' },
-  { value: 'knowledge', icon: <BookOpen className="size-5" />, labelKey: 'navRail.knowledge' },
   { value: 'ssh', icon: <Monitor className="size-5" />, labelKey: 'navRail.ssh' }
 ]
 

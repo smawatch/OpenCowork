@@ -129,6 +129,10 @@ async function readBinarySource(
     throw new Error(`File not found: ${value}`)
   }
 
+  if (fs.statSync(value).isDirectory()) {
+    throw new Error(`Expected a file but path is a directory: ${value}`)
+  }
+
   return {
     buffer: fs.readFileSync(value),
     fileName: resolveSourceFileName(value, fallbackName)
@@ -808,6 +812,11 @@ export function registerChannelHandlers(channelManager: ChannelManager): void {
             console.error(`[Feishu] send-image failed: ${msg}`)
             return { error: msg }
           }
+          if (fs.statSync(src).isDirectory()) {
+            const msg = `Expected a file but path is a directory: ${src}`
+            console.error(`[Feishu] send-image failed: ${msg}`)
+            return { error: msg }
+          }
           buf = fs.readFileSync(src)
         }
         console.log(`[Feishu] Uploading image (${buf.byteLength} bytes)...`)
@@ -853,6 +862,11 @@ export function registerChannelHandlers(channelManager: ChannelManager): void {
         } else {
           if (!fs.existsSync(src)) {
             const msg = `File not found: ${src}`
+            console.error(`[Feishu] send-file failed: ${msg}`)
+            return { error: msg }
+          }
+          if (fs.statSync(src).isDirectory()) {
+            const msg = `Expected a file but path is a directory: ${src}`
             console.error(`[Feishu] send-file failed: ${msg}`)
             return { error: msg }
           }

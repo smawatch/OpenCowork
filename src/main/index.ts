@@ -1066,9 +1066,9 @@ configureRendererHeapLimit()
 
 // 闃叉�dev鐜��鍜岀敓浜х幆澧冨啿绐侊紝瀵艰嚧鏃犳硶鍚�姩
 if (!app.isPackaged) {
-  app.setName('OpenCoWork-dev')
+  app.setName('CoCoWork-dev')
 } else {
-  app.setName('OpenCoWork')
+  app.setName('CoCoWork')
 }
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock()

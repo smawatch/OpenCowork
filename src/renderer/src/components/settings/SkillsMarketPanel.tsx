@@ -24,7 +24,7 @@ export function SkillsMarketPanel(): React.JSX.Element {
         offset: 0,
         limit: 5,
         query: '',
-        provider: 'skillsmp',
+        provider: settings.skillsMarketProvider || 'cocoloop',
         apiKey: settings.skillsMarketApiKey
       })) as { total: number; skills: unknown[] }
 

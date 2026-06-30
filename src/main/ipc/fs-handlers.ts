@@ -24,20 +24,6 @@ const IMAGE_EXTENSIONS = new Set([
   '.heif'
 ])
 
-const IMAGE_MIME_TYPES: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.bmp': 'image/bmp',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.tiff': 'image/tiff',
-  '.heic': 'image/heic',
-  '.heif': 'image/heif'
-}
-
 const TEXT_READ_BLOCKED_EXTENSIONS = new Set([
   ...IMAGE_EXTENSIONS,
   '.pdf',
@@ -56,7 +42,6 @@ const TEXT_READ_BLOCKED_EXTENSIONS = new Set([
 ])
 
 const MAX_FILE_READ_BYTES = 50 * 1024 * 1024 // 50 MB
-const MAX_IMAGE_READ_BYTES = 20 * 1024 * 1024 // 20 MB
 const MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024 // 2 MB
 const DEFAULT_TEXT_LINE_READ_LIMIT = 1_000
 const MAX_LIST_DIR_ITEMS = 1_000
@@ -67,12 +52,34 @@ const PROFILE_AVATAR_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.g
 
 async function assertFileSize(filePath: string, limit: number): Promise<number> {
   const stat = await fs.promises.stat(filePath)
+  if (stat.isDirectory()) {
+    throw new Error(`Path is a directory, not a file: ${filePath}`)
+  }
   if (stat.size > limit) {
     throw new Error(
       `File too large (${(stat.size / 1024 / 1024).toFixed(1)} MB, limit ${(limit / 1024 / 1024).toFixed(0)} MB): ${filePath}`
     )
   }
   return stat.size
+}
+
+/**
+ * Read a directory and return a formatted listing.
+ * Used as fallback when fs:read-file is called on a directory.
+ */
+async function readDirectoryListing(dirPath: string): Promise<string> {
+  const entries = await fs.promises.readdir(dirPath, { withFileTypes: true })
+  const items = entries.map((entry) => {
+    const suffix = entry.isDirectory() ? '/' : ''
+    return `${entry.name}${suffix}`
+  })
+  items.sort((a, b) => {
+    const aIsDir = a.endsWith('/')
+    const bIsDir = b.endsWith('/')
+    if (aIsDir !== bIsDir) return aIsDir ? -1 : 1
+    return a.localeCompare(b)
+  })
+  return items.join('\n')
 }
 
 const FILE_SEARCH_CACHE_TTL_MS = 5_000
@@ -2726,15 +2733,16 @@ export function registerFsHandlers(): void {
     'fs:read-file',
     async (_event, args: { path: string; offset?: number; limit?: number; raw?: boolean }) => {
       try {
+        // If path is a directory, return a directory listing instead of failing
+        const stat = await fs.promises.stat(args.path)
+        if (stat.isDirectory()) {
+          const listing = await readDirectoryListing(args.path)
+          return `Directory listing for ${args.path}:\n${listing}`
+        }
+
         const ext = path.extname(args.path).toLowerCase()
-        if (IMAGE_EXTENSIONS.has(ext)) {
-          await assertFileSize(args.path, MAX_IMAGE_READ_BYTES)
-          const buffer = await fs.promises.readFile(args.path)
-          return {
-            type: 'image',
-            mediaType: IMAGE_MIME_TYPES[ext] || 'application/octet-stream',
-            data: buffer.toString('base64')
-          }
+        if (IMAGE_EXTENSIONS.has(ext) || TEXT_READ_BLOCKED_EXTENSIONS.has(ext)) {
+          return `[${path.basename(args.path)}]`
         }
         await assertFileSize(args.path, MAX_FILE_READ_BYTES)
         const content = await fs.promises.readFile(args.path, 'utf-8')
@@ -2756,7 +2764,10 @@ export function registerFsHandlers(): void {
           .map((line, i) => `${String(start + i + 1).padStart(lineNoWidth)}\t${line}`)
           .join('\n')
       } catch (err) {
-        return { error: String(err) }
+        // Return as plain text rather than {error:"..."} so the UI
+        // renders it as normal output instead of a red error panel.
+        const message = err instanceof Error ? err.message : String(err)
+        return `Unable to read file: ${message}`
       }
     }
   )
@@ -2768,7 +2779,7 @@ export function registerFsHandlers(): void {
         const maxLines = clampTextLineReadLimit(args.maxLines)
         const ext = path.extname(args.path).toLowerCase()
         if (TEXT_READ_BLOCKED_EXTENSIONS.has(ext)) {
-          return { error: 'This file type cannot be read as plain text' }
+          return { error: `Cannot read ${ext} files as plain text` }
         }
         await assertFileSize(args.path, MAX_FILE_READ_BYTES)
         const stream = fs.createReadStream(args.path, { encoding: 'utf-8' })
@@ -2781,7 +2792,8 @@ export function registerFsHandlers(): void {
           maxLines
         } satisfies ReadTextFileLinesResult
       } catch (err) {
-        return { error: String(err) }
+        const message = err instanceof Error ? err.message : String(err)
+        return { error: `Unable to read file: ${message}` }
       }
     }
   )
@@ -3492,7 +3504,15 @@ export function registerFsHandlers(): void {
   // Binary file read (returns base64)
   ipcMain.handle('fs:read-file-binary', async (_event, args: { path: string }) => {
     try {
-      await assertFileSize(args.path, MAX_FILE_READ_BYTES)
+      const stat = await fs.promises.stat(args.path)
+      if (stat.isDirectory()) {
+        return { error: `Path is a directory, not a file: ${args.path}` }
+      }
+      if (stat.size > MAX_FILE_READ_BYTES) {
+        return {
+          error: `File too large (${(stat.size / 1024 / 1024).toFixed(1)} MB, limit ${(MAX_FILE_READ_BYTES / 1024 / 1024).toFixed(0)} MB): ${args.path}`
+        }
+      }
       const buffer = await fs.promises.readFile(args.path)
       return { data: buffer.toString('base64') }
     } catch (err) {
@@ -3716,6 +3736,10 @@ export function registerFsHandlers(): void {
 
   ipcMain.handle('fs:read-document', async (_event, args: { path: string }) => {
     try {
+      const stat = await fs.promises.stat(args.path)
+      if (stat.isDirectory()) {
+        return { error: `Path is a directory, not a file: ${args.path}` }
+      }
       const ext = path.extname(args.path).toLowerCase()
       if (ext === '.docx') {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -3723,7 +3747,11 @@ export function registerFsHandlers(): void {
         const result = await mammoth.extractRawText({ path: args.path })
         return { content: result.value, name: path.basename(args.path) }
       }
-      await assertFileSize(args.path, MAX_FILE_READ_BYTES)
+      if (stat.size > MAX_FILE_READ_BYTES) {
+        return {
+          error: `File too large (${(stat.size / 1024 / 1024).toFixed(1)} MB, limit ${(MAX_FILE_READ_BYTES / 1024 / 1024).toFixed(0)} MB): ${args.path}`
+        }
+      }
       const content = await fs.promises.readFile(args.path, 'utf-8')
       return { content, name: path.basename(args.path) }
     } catch (err) {

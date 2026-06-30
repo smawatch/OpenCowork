@@ -2224,6 +2224,10 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
   }
 
   const handleFetchModels = async (): Promise<void> => {
+    if (isReadonly) {
+      toast.info(t('provider.readonlyCannotFetch'))
+      return
+    }
     setFetchingModels(true)
     try {
       const activeProvider = await ensureAuthForRequest()
@@ -3107,6 +3111,14 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
         <Separator className="my-5" />
 
         {/* Models */}
+        {isReadonly ? (
+          <section className="flex flex-col space-y-3 mt-5">
+            <div className="rounded-xl border bg-muted/30 p-6 text-center">
+              <p className="text-sm font-medium text-muted-foreground">{t('provider.readonlyModelList')}</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">{t('provider.readonlyModelListHint')}</p>
+            </div>
+          </section>
+        ) : (
         <section className="flex flex-col space-y-3">
           <div className="rounded-xl border bg-muted/20 p-3">
             <div className="flex flex-col gap-3">
@@ -3401,6 +3413,7 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
             )}
           </div>
         </section>
+        )}
       </div>
 
       {/* Add model dialog */}

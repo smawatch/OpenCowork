@@ -80,7 +80,7 @@ function buildFileChip(
   wrapper.setAttribute('data-fallback-text', node.fallbackText)
   wrapper.setAttribute('contenteditable', 'false')
   wrapper.className = cn(
-    'composer-file-ref group/file-ref mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md px-2 py-0.5 align-baseline text-[12px] font-medium',
+    'composer-file-ref mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md px-2 py-0.5 align-baseline text-[12px] font-medium',
     highlightedFileId && highlightedFileId === node.fileId ? 'composer-file-ref--highlighted' : ''
   )
 
@@ -150,7 +150,7 @@ function buildFileChip(
 
   if (actions.length > 0) {
     const actionsContainer = document.createElement('span')
-    actionsContainer.className = 'hidden items-center gap-0.5 group-hover/file-ref:inline-flex'
+    actionsContainer.className = 'composer-file-ref-actions items-center gap-0.5'
     actionsContainer.append(...actions)
     wrapper.append(actionsContainer)
   }
@@ -171,7 +171,7 @@ function buildPluginChip(
   wrapper.setAttribute('data-fallback-text', node.label || node.pluginId)
   wrapper.setAttribute('contenteditable', 'false')
   wrapper.className =
-    'composer-file-ref group/file-ref mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md px-2 py-0.5 align-baseline text-[12px] font-medium'
+    'composer-file-ref mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md px-2 py-0.5 align-baseline text-[12px] font-medium'
   wrapper.title = node.prompt
 
   const icon = document.createElement('span')
@@ -189,7 +189,7 @@ function buildPluginChip(
     const deleteBtn = document.createElement('button')
     deleteBtn.type = 'button'
     deleteBtn.className =
-      'composer-file-ref-action hidden size-4 items-center justify-center rounded-sm group-hover/file-ref:inline-flex'
+      'composer-file-ref-action composer-file-ref-actions size-4 items-center justify-center rounded-sm'
     deleteBtn.title = 'Delete plugin reference'
     deleteBtn.addEventListener('mousedown', (event) => {
       event.preventDefault()

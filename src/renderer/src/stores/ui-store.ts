@@ -223,7 +223,6 @@ export type SettingsTab =
   | 'channel'
   | 'mcp'
   | 'websearch'
-  | 'skillsmarket'
   | 'about'
 
 export type DetailPanelContent =

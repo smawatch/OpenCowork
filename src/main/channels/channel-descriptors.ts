@@ -41,7 +41,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderDescriptor[] = [
   // ── China ──
   {
     type: 'feishu-bot',
-    displayName: 'Feishu Bot',
+    displayName: 'channel.name.feishu',
     description: 'Lark/Feishu messaging bot (built-in WS)',
     icon: 'feishu',
     builtin: true,
@@ -64,7 +64,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderDescriptor[] = [
   },
   {
     type: 'dingtalk-bot',
-    displayName: 'DingTalk Bot',
+    displayName: 'channel.name.dingtalk',
     description: 'DingTalk messaging bot (built-in WS via Stream API)',
     icon: 'dingtalk',
     builtin: true,
@@ -93,7 +93,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderDescriptor[] = [
   },
   {
     type: 'wecom-bot',
-    displayName: 'WeCom Bot',
+    displayName: 'channel.name.wecom',
     description: 'WeCom messaging bot',
     icon: 'wecom',
     builtin: true,
@@ -122,7 +122,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderDescriptor[] = [
   },
   {
     type: 'qq-bot',
-    displayName: 'QQ Bot',
+    displayName: 'channel.name.qq',
     description: 'Tencent QQ Bot (official Gateway WS)',
     icon: 'qq',
     builtin: true,
@@ -156,7 +156,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderDescriptor[] = [
   },
   {
     type: 'weixin-official',
-    displayName: 'WeChat Official',
+    displayName: 'channel.name.wechat',
     description: 'WeChat Official channel (QR login + long polling)',
     icon: 'wechat',
     builtin: true,
@@ -199,7 +199,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderDescriptor[] = [
   // ── International ──
   {
     type: 'telegram-bot',
-    displayName: 'Telegram Bot',
+    displayName: 'channel.name.telegram',
     description: 'Telegram messaging bot (needs WS relay)',
     icon: 'telegram',
     builtin: true,
@@ -216,7 +216,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderDescriptor[] = [
   },
   {
     type: 'discord-bot',
-    displayName: 'Discord Bot',
+    displayName: 'channel.name.discord',
     description: 'Discord messaging bot (built-in Gateway WS)',
     icon: 'discord',
     builtin: true,
@@ -232,7 +232,7 @@ export const CHANNEL_PROVIDERS: ChannelProviderDescriptor[] = [
   },
   {
     type: 'whatsapp-bot',
-    displayName: 'WhatsApp Bot',
+    displayName: 'channel.name.whatsapp',
     description: 'WhatsApp Cloud API bot (needs WS relay)',
     icon: 'whatsapp',
     builtin: true,

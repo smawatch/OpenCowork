@@ -19,8 +19,8 @@ import { useSettingsStore } from './settings-store'
 export { builtinProviderPresets }
 export type { BuiltinProviderPreset }
 
-const DEFAULT_FAST_PROVIDER_BUILTIN_ID = 'routin-ai'
-const DEFAULT_FAST_MODEL_ID = 'doubao-seed-2-0-mini-260215'
+const DEFAULT_FAST_PROVIDER_BUILTIN_ID = 'enterprise-litellm'
+const DEFAULT_FAST_MODEL_ID = 'qwen3.7-plus'
 
 export interface ManagedModelConfig extends AIModelConfig {
   normalizedKey: string
@@ -1856,12 +1856,25 @@ async function ensureBuiltinPresets(): Promise<void> {
           }
         }
       }
-      const updatedModels = mergeBuiltinModels(
-        existing.models,
-        preset.defaultModels,
-        useProviderStore.getState().managedModels,
-        preset.deprecatedModelIds
-      )
+      // For readonly providers, fully replace models with preset (no user additions)
+      const updatedModels = preset.readonly
+        ? preset.defaultModels.map((model) =>
+            buildProviderModelSnapshot(model, {
+              managedModel:
+                getManagedModelFromCollection(useProviderStore.getState().managedModels, model.id) ??
+                null,
+              existingModel:
+                existing.models.find(
+                  (em) => normalizeModelKey(em.id) === normalizeModelKey(model.id)
+                ) ?? null
+            })
+          )
+        : mergeBuiltinModels(
+            existing.models,
+            preset.defaultModels,
+            useProviderStore.getState().managedModels,
+            preset.deprecatedModelIds
+          )
       const resolvedDefaultModel = preset.defaultModel
         ? (resolveModelIdByKey(updatedModels, preset.defaultModel) ?? preset.defaultModel)
         : undefined
@@ -1871,6 +1884,20 @@ async function ensureBuiltinPresets(): Promise<void> {
       if (existing.type !== preset.type) {
         patch.type = preset.type
       }
+
+      // Sync readonly providers: always apply code changes to apiKey, baseUrl, readonly
+      if (preset.readonly) {
+        if (preset.defaultApiKey && existing.apiKey !== preset.defaultApiKey) {
+          patch.apiKey = preset.defaultApiKey
+        }
+        if (preset.defaultBaseUrl && existing.baseUrl !== preset.defaultBaseUrl) {
+          patch.baseUrl = preset.defaultBaseUrl
+        }
+        if (existing.readonly !== true) {
+          patch.readonly = true
+        }
+      }
+
       if (Object.keys(patch).length > 0) {
         useProviderStore.getState().updateProvider(existing.id, patch)
       }

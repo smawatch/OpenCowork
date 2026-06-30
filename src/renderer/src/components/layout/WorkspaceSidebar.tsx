@@ -29,7 +29,6 @@ import {
   PinOff,
   Plus,
   Puzzle,
-  Search,
   Settings,
   Server,
   Sparkles,
@@ -498,7 +497,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
     !tasksPageOpen &&
     !aiCreationPageOpen
   const featureMenuActive =
-    resourcesPageOpen || skillsPageOpen || soulsPageOpen || syncPageOpen || drawPageOpen
+    resourcesPageOpen || soulsPageOpen || syncPageOpen || drawPageOpen
   const sessionsByProject = useMemo(() => {
     const next = new Map<string, SessionListItem[]>()
     for (const session of sessions) {
@@ -567,16 +566,6 @@ export function WorkspaceSidebar(): React.JSX.Element {
   const currentSidebarWidth = clampLeftSidebarWidth(
     leftSidebarWidth || persistedLeftSidebarWidth || LEFT_SIDEBAR_DEFAULT_WIDTH
   )
-
-  const openCommandPalette = useCallback(() => {
-    window.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'k',
-        ctrlKey: true,
-        bubbles: true
-      })
-    )
-  }, [])
 
   const openChatHome = useCallback(() => {
     const chatStore = useChatStore.getState()
@@ -918,11 +907,11 @@ export function WorkspaceSidebar(): React.JSX.Element {
       onClick: handleCreateChatSession
     },
     {
-      key: 'search',
-      label: t('sidebar.searchLabel'),
-      icon: <Search className="size-4 shrink-0" />,
-      active: false,
-      onClick: openCommandPalette
+      key: 'skills',
+      label: t('navRail.skills'),
+      icon: <Wand2 className="size-4 shrink-0" />,
+      active: skillsPageOpen,
+      onClick: () => useUIStore.getState().openSkillsPage()
     },
     {
       key: 'ai-creation',
@@ -1281,6 +1270,13 @@ export function WorkspaceSidebar(): React.JSX.Element {
                 onMouseLeave={scheduleFeatureMenuClose}
               >
                 <DropdownMenuItem
+                  onSelect={() => useUIStore.getState().openSettingsPage('channel')}
+                >
+                  <Puzzle className="size-4" />
+                  <span>{t('navRail.channels')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
                   onSelect={() => useUIStore.getState().openResourcesPage()}
                   className={cn(resourcesPageOpen && 'bg-accent text-accent-foreground')}
                 >
@@ -1299,13 +1295,6 @@ export function WorkspaceSidebar(): React.JSX.Element {
                 >
                   <Image className="size-4" />
                   <span>{t('navRail.draw')}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => useUIStore.getState().openSkillsPage()}
-                  className={cn(skillsPageOpen && 'bg-accent text-accent-foreground')}
-                >
-                  <Wand2 className="size-4" />
-                  <span>{t('navRail.skills')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => useUIStore.getState().openSoulsPage()}

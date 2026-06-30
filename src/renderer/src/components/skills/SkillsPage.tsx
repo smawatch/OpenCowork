@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import {
   Search,
   FolderOpen,
@@ -14,9 +14,20 @@ import {
   FileCode,
   CheckCircle2,
   Loader2,
-  Settings2,
-  ExternalLink,
-  KeyRound
+  Star,
+  Flame,
+  Clock,
+  Bot,
+  Code2,
+  Briefcase,
+  Zap,
+  Palette,
+  FileEdit,
+  GraduationCap,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  Heart,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
@@ -26,19 +37,33 @@ import {
   type MarketSkillInfo
 } from '@renderer/stores/skills-store'
 import { useUIStore } from '@renderer/stores/ui-store'
-import { useSettingsStore } from '@renderer/stores/settings-store'
 import { confirm } from '@renderer/components/ui/confirm-dialog'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
-import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { toast } from 'sonner'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { SkillInstallDialog } from './SkillInstallDialog'
 
-const SKILLS_MARKET_DOCS_URL = 'https://skills.open-cowork.shop/docs'
-const SKILLS_MARKET_DASHBOARD_URL = 'https://skills.open-cowork.shop/dashboard'
+const MARKET_TABS: { key: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'overall', label: '综合', icon: Flame },
+  { key: 'trending', label: '近期热门', icon: Star },
+  { key: 'latest', label: '最新', icon: Clock },
+  { key: 'ai_enhancement', label: 'AI增强', icon: Bot },
+  { key: 'development', label: '开发工具', icon: Code2 },
+  { key: 'office', label: '办公效率', icon: Briefcase },
+  { key: 'efficiency', label: '效率提升', icon: Zap },
+  { key: 'design', label: '设计创意', icon: Palette },
+  { key: 'content_creation', label: '内容创作', icon: FileEdit },
+  { key: 'professional', label: '专业技能', icon: GraduationCap }
+]
+
+function formatDownloads(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`
+  return String(count)
+}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -103,164 +128,462 @@ function FileListSection({
 function MarketSkillCard({
   skill,
   installed,
-  onInstall
+  onDetail
 }: {
   skill: MarketSkillInfo
   installed: boolean
-  onInstall: () => void
+  onDetail: () => void
 }): React.JSX.Element {
   const { t } = useTranslation('layout')
-  const updatedAtLabel = skill.updatedAt
-    ? new Intl.DateTimeFormat(undefined, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }).format(new Date(skill.updatedAt))
-    : null
-
   return (
-    <div className="rounded-lg border bg-card p-4 hover:shadow-md transition-shadow flex flex-col h-full">
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold truncate">{skill.name}</h3>
-          <p className="text-xs font-mono text-muted-foreground truncate">{skill.slug}</p>
+    <div
+      className="rounded-lg border bg-card p-4 hover:shadow-md transition-shadow flex flex-col h-full group cursor-pointer"
+      onClick={onDetail}
+    >
+      {/* Header: icon + name */}
+      <div className="flex items-start gap-2.5 mb-2.5">
+        <div className="shrink-0 size-9 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-border/50 flex items-center justify-center text-base">
+          {skill.icon || <Wand2 className="size-4 text-primary/60" />}
         </div>
-        <div className="size-8 shrink-0 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-border/60 flex items-center justify-center">
-          <Wand2 className="size-4 text-primary/70" />
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold truncate leading-tight">{skill.name}</h3>
+          {skill.author && (
+            <p className="text-[10px] text-muted-foreground/70">by {skill.author}</p>
+          )}
         </div>
       </div>
 
-      {skill.description ? (
-        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{skill.description}</p>
-      ) : (
-        <div className="mb-3 flex-1" />
+      {/* Subtitle */}
+      {skill.subtitle && (
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
+          {skill.subtitle}
+        </p>
       )}
 
-      {(skill.category || skill.tags.length > 0) && (
-        <div className="mb-3 flex flex-wrap gap-1.5">
+      {/* Tags */}
+      {(skill.tags.length > 0 || skill.category) && (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {skill.tags.slice(0, 3).map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-[10px] font-normal px-1.5">
+              {tag}
+            </Badge>
+          ))}
           {skill.category ? (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-[10px] px-1.5">
               {skill.category}
             </Badge>
           ) : null}
-          {skill.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-[10px] font-normal">
-              #{tag}
-            </Badge>
-          ))}
         </div>
       )}
 
-      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3 py-2 border-t border-b">
+      {/* Stats */}
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-auto pt-2.5 border-t">
         <div className="flex items-center gap-1">
           <Download className="size-3" />
-          <span>{skill.downloads}</span>
+          <span>{formatDownloads(skill.downloads)}</span>
         </div>
-        {updatedAtLabel ? <span className="font-mono text-[11px]">{updatedAtLabel}</span> : null}
-      </div>
-
-      <div className="mt-auto">
-        {installed ? (
-          <Badge variant="secondary" className="w-full justify-center gap-1 text-[11px]">
-            <CheckCircle2 className="size-3" />
+        {skill.favorites != null && skill.favorites > 0 && (
+          <div className="flex items-center gap-1">
+            <Heart className="size-3" />
+            <span>{formatDownloads(skill.favorites)}</span>
+          </div>
+        )}
+        <div className="flex-1" />
+        {installed && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+            <CheckCircle2 className="size-2.5" />
             {t('skillsPage.alreadyInstalled')}
-          </Badge>
-        ) : (
-          <Button
-            size="sm"
-            variant="default"
-            className="w-full gap-1.5 text-xs"
-            onClick={onInstall}
-          >
-            <Download className="size-3" />
-            {t('skillsPage.install')}
-          </Button>
+          </span>
         )}
       </div>
     </div>
   )
 }
 
-// ── Market Provider Config Popover ──────────────────────────────────────────
-function MarketProviderConfig(): React.JSX.Element {
-  const { t } = useTranslation('settings')
-  const apiKey = useSettingsStore((s) => s.skillsMarketApiKey)
-  const updateSettings = useSettingsStore((s) => s.updateSettings)
-  const loadMarketSkills = useSkillsStore((s) => s.loadMarketSkills)
+function generatePageNumbers(current: number, total: number): (number | null)[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | null)[] = [1]
+  if (current > 3) pages.push(null)
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let p = start; p <= end; p++) pages.push(p)
+  if (current < total - 2) pages.push(null)
+  pages.push(total)
+  return pages
+}
 
-  const handleApiKeyChange = useCallback(
-    (value: string) => {
-      updateSettings({ skillsMarketApiKey: value })
-    },
-    [updateSettings]
-  )
+// ── Simple markdown renderer for skill summary ──────────────────────
 
-  const handleReload = useCallback(() => {
-    void loadMarketSkills('', true)
-  }, [loadMarketSkills])
+function SkillSummary({ text }: { text: string }): React.JSX.Element {
+  if (!text) return <p className="text-sm text-muted-foreground">—</p>
+
+  const lines = text.split('\n')
+  const elements: React.JSX.Element[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    // ## heading
+    if (/^##\s+/.test(line)) {
+      elements.push(
+        <h3 key={i} className="text-sm font-bold mt-4 mb-2 text-foreground">
+          {line.replace(/^##\s+/, '')}
+        </h3>
+      )
+      i++
+      continue
+    }
+
+    // ### heading
+    if (/^###\s+/.test(line)) {
+      elements.push(
+        <h4 key={i} className="text-xs font-semibold mt-3 mb-1.5 text-foreground">
+          {line.replace(/^###\s+/, '')}
+        </h4>
+      )
+      i++
+      continue
+    }
+
+    // --- separator
+    if (/^---\s*$/.test(line)) {
+      elements.push(<hr key={i} className="my-3 border-border/60" />)
+      i++
+      continue
+    }
+
+    // Bullet list
+    if (/^-\s+/.test(line)) {
+      const items: string[] = []
+      while (i < lines.length && /^-\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^-\s+/, ''))
+        i++
+      }
+      elements.push(
+        <ul key={i} className="list-disc list-inside space-y-1 text-sm text-muted-foreground mb-2">
+          {items.map((item, idx) => (
+            <li key={idx}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ul>
+      )
+      continue
+    }
+
+    // Numbered list
+    if (/^\d+[.)]\s/.test(line)) {
+      const items: string[] = []
+      while (i < lines.length && /^\d+[.)]\s/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+[.)]\s+/, ''))
+        i++
+      }
+      elements.push(
+        <ol key={i} className="list-decimal list-inside space-y-1 text-sm text-muted-foreground mb-2">
+          {items.map((item, idx) => (
+            <li key={idx}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ol>
+      )
+      continue
+    }
+
+    // Table rows (skip, render as text)
+    if (/^\|.*\|$/.test(line) && i + 1 < lines.length && /^\|[-:| ]+\|$/.test(lines[i + 1])) {
+      i += 2 // skip header and separator
+      const rows: string[][] = []
+      while (i < lines.length && /^\|.*\|$/.test(lines[i])) {
+        rows.push(lines[i].split('|').filter(Boolean).map(s => s.trim()))
+        i++
+      }
+      if (rows.length > 0) {
+        elements.push(
+          <div key={i} className="overflow-x-auto my-2 rounded-lg border">
+            <table className="w-full text-xs">
+              <tbody>
+                {rows.map((row, ri) => (
+                  <tr key={ri} className={ri % 2 === 0 ? 'bg-muted/30' : ''}>
+                    {row.map((cell, ci) => (
+                      <td key={ci} className="px-2.5 py-1.5 border-r last:border-r-0">{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+      continue
+    }
+
+    // Empty line
+    if (!line.trim()) {
+      elements.push(<div key={i} className="h-2" />)
+      i++
+      continue
+    }
+
+    // Bold text on its own line
+    if (/^\*\*.*\*\*$/.test(line.trim())) {
+      elements.push(
+        <p key={i} className="text-xs font-semibold text-foreground mt-2 mb-1">
+          {line.trim().replace(/\*\*/g, '')}
+        </p>
+      )
+      i++
+      continue
+    }
+
+    // Regular paragraph
+    elements.push(
+      <p key={i} className="text-sm text-muted-foreground leading-relaxed mb-1">
+        {renderInlineMarkdown(line)}
+      </p>
+    )
+    i++
+  }
+
+  return <div>{elements}</div>
+}
+
+function renderInlineMarkdown(text: string): React.ReactNode {
+  // Bold **text**
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>
+    }
+    // Inline code `text`
+    const codeParts = part.split(/(`[^`]+`)/g)
+    return codeParts.map((cp, j) => {
+      if (cp.startsWith('`') && cp.endsWith('`')) {
+        return <code key={j} className="bg-muted px-1 py-0.5 rounded text-[11px] font-mono">{cp.slice(1, -1)}</code>
+      }
+      return cp
+    })
+  })
+}
+
+// ── Full MarketSkillDetail type (local, matching IPC return) ────────
+
+interface SkillDetail {
+  id: string
+  name: string
+  description: string
+  subtitle?: string
+  category?: string
+  tags: string[]
+  downloads: number
+  favorites?: number
+  githubStars?: number
+  securityLevel?: string
+  sourceCredibility?: string
+  downloadUrl: string
+  icon?: string
+  author?: string
+  version?: string
+  views?: number
+  fileSize?: number
+  ratingCount?: number
+  inLeaderboard?: boolean
+  leaderboardRank?: number
+  summary?: string
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// ── Skill Detail Dialog ────────────────────────────────────────────
+
+function SkillDetailDialog({
+  skill,
+  installed,
+  open,
+  onClose,
+  onInstall
+}: {
+  skill: MarketSkillInfo | null
+  installed: boolean
+  open: boolean
+  onClose: () => void
+  onInstall: () => void
+}): React.JSX.Element | null {
+  const { t } = useTranslation('layout')
+  const [detail, setDetail] = useState<SkillDetail | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open || !skill) {
+      setDetail(null)
+      return
+    }
+    // Fetch full detail from API
+    let cancelled = false
+    setLoading(true)
+    ipcClient.invoke('skills:market-detail', { skillId: skill.id })
+      .then((result) => {
+        if (cancelled) return
+        const data = result as { detail?: SkillDetail; error?: string }
+        if (data.detail) {
+          setDetail(data.detail)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('[Skills] Detail fetch error:', err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [open, skill?.id])
+
+  if (!open || !skill) return null
+
+  const display = (detail || skill) as SkillDetail
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-          <Settings2 className="size-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-4 space-y-4">
-        <div>
-          <p className="text-sm font-semibold">{t('skillsmarket.title')}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{t('skillsmarket.skillsmpDesc')}</p>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-        {/* API Key */}
-        <div className="space-y-1.5">
-          <div className="flex items-start justify-between gap-2">
-            <label className="text-xs font-medium flex items-center gap-1">
-              <KeyRound className="size-3" />
-              {t('skillsmarket.apiKey')}
-            </label>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-[10px] text-primary"
-                onClick={() => window.open(SKILLS_MARKET_DASHBOARD_URL, '_blank', 'noopener')}
-              >
-                {t('skillsmarket.getApiKey')} <ExternalLink className="ml-0.5 size-2.5" />
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-[10px] text-primary"
-                onClick={() => window.open(SKILLS_MARKET_DOCS_URL, '_blank', 'noopener')}
-              >
-                {t('skillsmarket.openDocs')} <ExternalLink className="ml-0.5 size-2.5" />
-              </Button>
+      {/* Dialog */}
+      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border bg-card shadow-2xl mx-4">
+        {/* Header */}
+        <div className="sticky top-0 bg-card border-b px-6 py-5 rounded-t-xl z-10">
+          <div className="flex items-start gap-4">
+            <div className="shrink-0 size-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border flex items-center justify-center text-2xl">
+              {skill.icon || <Wand2 className="size-6 text-primary/60" />}
             </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold leading-tight">{display.name}</h2>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {display.author && (
+                  <span className="text-sm text-muted-foreground">by {display.author}</span>
+                )}
+                {display.version && (
+                  <Badge variant="outline" className="text-[10px]">v{display.version}</Badge>
+                )}
+                {display.inLeaderboard && (
+                  <Badge variant="default" className="text-[10px]">🏆 #{display.leaderboardRank}</Badge>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="shrink-0 size-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-4">
+                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+              </svg>
+            </button>
           </div>
-          <Input
-            type="password"
-            placeholder={t('skillsmarket.apiKeyPlaceholder')}
-            value={apiKey}
-            onChange={(e) => handleApiKeyChange(e.target.value)}
-            className="h-8 text-xs"
-          />
         </div>
 
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full h-7 text-xs gap-1.5"
-          onClick={handleReload}
-        >
-          <Loader2 className="size-3" />
-          {t('skillsmarket.test')}
-        </Button>
-      </PopoverContent>
-    </Popover>
+        {/* Body */}
+        <div className="px-6 py-5 space-y-5">
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">{t('skillsPage.loading', { defaultValue: 'Loading...' })}</span>
+            </div>
+          )}
+
+          {/* Meta grid */}
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="rounded-lg border p-2.5 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('skillsPage.downloads', { defaultValue: 'Downloads' })}</p>
+              <p className="text-sm font-bold mt-0.5">{formatDownloads(display.downloads)}</p>
+            </div>
+            {display.favorites != null && display.favorites > 0 && (
+              <div className="rounded-lg border p-2.5 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('skillsPage.favorites', { defaultValue: 'Favorites' })}</p>
+                <p className="text-sm font-bold mt-0.5">{formatDownloads(display.favorites)}</p>
+              </div>
+            )}
+            {display.githubStars != null && display.githubStars > 0 && (
+              <div className="rounded-lg border p-2.5 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">GitHub ⭐</p>
+                <p className="text-sm font-bold mt-0.5">{formatDownloads(display.githubStars)}</p>
+              </div>
+            )}
+            {display.views != null && display.views > 0 && (
+              <div className="rounded-lg border p-2.5 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('skillsPage.views', { defaultValue: 'Views' })}</p>
+                <p className="text-sm font-bold mt-0.5">{formatDownloads(display.views)}</p>
+              </div>
+            )}
+            {display.fileSize != null && display.fileSize > 0 && (
+              <div className="rounded-lg border p-2.5 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('skillsPage.size', { defaultValue: 'Size' })}</p>
+                <p className="text-sm font-bold mt-0.5">{formatFileSize(display.fileSize)}</p>
+              </div>
+            )}
+            {display.securityLevel && (
+              <div className="rounded-lg border p-2.5 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('skillsPage.security', { defaultValue: 'Security' })}</p>
+                <Badge variant={display.securityLevel.startsWith('S') ? 'default' : 'secondary'} className="mt-1 text-[11px]">
+                  {display.securityLevel}
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          {/* Tags */}
+          {display.tags && display.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {display.tags.map((tag: string) => (
+                <Badge key={tag} variant="secondary" className="text-[11px]">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Summary — rich markdown from API */}
+          {display.summary ? (
+            <div className="border-t pt-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                {t('skillsPage.detail', { defaultValue: 'Detail' })}
+              </h3>
+              <SkillSummary text={display.summary} />
+            </div>
+          ) : (
+            <div className="border-t pt-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                {t('skillsPage.description', { defaultValue: 'Description' })}
+              </h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">{display.description || '—'}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-card border-t px-6 py-4 rounded-b-xl">
+          {installed ? (
+            <Badge variant="secondary" className="w-full justify-center gap-1.5 text-sm py-2.5">
+              <CheckCircle2 className="size-4" />
+              {t('skillsPage.alreadyInstalled')}
+            </Badge>
+          ) : (
+            <Button
+              size="default"
+              className="w-full gap-2"
+              onClick={() => { onInstall(); onClose(); }}
+            >
+              <Download className="size-4" />
+              {t('skillsPage.install')}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
+// ── Market Provider Config Popover ──────────────────────────────────────────
 export function SkillsPage(): React.JSX.Element {
   const { t } = useTranslation('layout')
   const skills = useSkillsStore((s) => s.skills)
@@ -273,23 +596,52 @@ export function SkillsPage(): React.JSX.Element {
   const editContent = useSkillsStore((s) => s.editContent)
   const marketSkills = useSkillsStore((s) => s.marketSkills)
   const marketLoading = useSkillsStore((s) => s.marketLoading)
-  const marketQuery = useSkillsStore((s) => s.marketQuery)
   const marketTotal = useSkillsStore((s) => s.marketTotal)
+  const marketPage = useSkillsStore((s) => s.marketPage)
+  const marketPageSize = useSkillsStore((s) => s.marketPageSize)
+  const marketTab = useSkillsStore((s) => s.marketTab)
   const loadSkills = useSkillsStore((s) => s.loadSkills)
   const loadMarketSkills = useSkillsStore((s) => s.loadMarketSkills)
-  const loadMoreMarketSkills = useSkillsStore((s) => s.loadMoreMarketSkills)
+  const goToPage = useSkillsStore((s) => s.goToPage)
   const selectSkill = useSkillsStore((s) => s.selectSkill)
   const setActiveTab = useSkillsStore((s) => s.setActiveTab)
   const setEditing = useSkillsStore((s) => s.setEditing)
   const setEditContent = useSkillsStore((s) => s.setEditContent)
   const setMarketQuery = useSkillsStore((s) => s.setMarketQuery)
+  const setMarketTab = useSkillsStore((s) => s.setMarketTab)
+
+  const totalPages = Math.max(1, Math.ceil(marketTotal / marketPageSize))
+
+  // Local search state with debounce
+  const [searchText, setSearchText] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchText(value)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        setMarketQuery(value)
+      }, 300)
+    },
+    [setMarketQuery]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  // Skill detail dialog state
+  const [detailSkill, setDetailSkill] = useState<MarketSkillInfo | null>(null)
 
   // Installed tab search
   const [installedQuery, setInstalledQuery] = useState('')
 
   useEffect(() => {
     void loadSkills()
-    void loadMarketSkills('', true)
+    void loadMarketSkills('', 1)
   }, [loadSkills, loadMarketSkills])
 
   const installedNames = useMemo(() => new Set(skills.map((s) => s.name.toLowerCase())), [skills])
@@ -372,28 +724,6 @@ export function SkillsPage(): React.JSX.Element {
 
       <div className="flex-1" />
 
-      {/* Search — context-aware */}
-      <div className="relative w-56">
-        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        {activeTab === 'market' ? (
-          <Input
-            value={marketQuery}
-            onChange={(e) => setMarketQuery(e.target.value)}
-            placeholder={t('skillsPage.searchPlaceholder')}
-            className="h-8 pl-8 text-xs"
-          />
-        ) : (
-          <Input
-            value={installedQuery}
-            onChange={(e) => setInstalledQuery(e.target.value)}
-            placeholder={t('skillsPage.searchPlaceholder')}
-            className="h-8 pl-8 text-xs"
-          />
-        )}
-      </div>
-
-      {activeTab === 'market' && <MarketProviderConfig />}
-
       {activeTab === 'installed' && (
         <Button
           size="sm"
@@ -415,22 +745,59 @@ export function SkillsPage(): React.JSX.Element {
         {TopBar}
 
         <div className="flex-1 overflow-hidden flex flex-col">
-          {/* Hero */}
-          <div className="px-8 pt-8 pb-5 border-b shrink-0">
-            <div className="flex items-end gap-3 mb-1">
-              <h1 className="text-3xl font-bold tracking-tight">SKILLS</h1>
-              <span className="text-sm text-muted-foreground mb-1">
-                {t('skillsPage.skillCount', { count: marketSkills.length })}
-              </span>
+          {/* Hero + Category Tabs */}
+          <div className="px-8 pt-6 pb-3 border-b shrink-0">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-end gap-3 mb-1">
+                  <h1 className="text-2xl font-bold tracking-tight">SKILLS</h1>
+                  <span className="text-sm text-muted-foreground mb-0.5">
+                    {t('skillsPage.skillCount', { count: marketTotal })}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">{t('skillsPage.marketDescription')}</p>
+              </div>
+              {/* Search — top right */}
+              <div className="relative w-64 shrink-0">
+                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchText}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder={t('skillsPage.searchPlaceholder')}
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">{t('skillsPage.marketDescription')}</p>
+
+            {/* Category tabs */}
+            <div className="flex items-center gap-0.5 mt-3 overflow-x-auto pb-1 scrollbar-none">
+              {MARKET_TABS.map((tab) => {
+                const Icon = tab.icon
+                const active = marketTab === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setMarketTab(tab.key)}
+                    className={cn(
+                      'flex items-center gap-1.5 shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+                      active
+                        ? 'bg-primary/10 text-primary shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    )}
+                  >
+                    <Icon className="size-3.5" />
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Grid */}
-          <div className="flex-1 overflow-y-auto p-8">
+          <div className="flex-1 overflow-y-auto p-6">
             {marketLoading && marketSkills.length === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                <Wand2 className="size-4 mr-2 animate-pulse" /> Loading...
+                <Loader2 className="size-5 mr-2 animate-spin" /> Loading...
               </div>
             ) : marketSkills.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-2">
@@ -448,29 +815,54 @@ export function SkillsPage(): React.JSX.Element {
                         installedNames.has(ms.slug.toLowerCase()) ||
                         installedNames.has(ms.name.toLowerCase())
                       }
-                      onInstall={() => handleInstallMarket(ms)}
+                      onDetail={() => setDetailSkill(ms)}
                     />
                   ))}
                 </div>
 
-                {/* Load More */}
-                {marketSkills.length < marketTotal && (
-                  <div className="flex items-center justify-center py-4">
+                {/* Page pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-1.5 py-4">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => void loadMoreMarketSkills()}
-                      disabled={marketLoading}
+                      className="h-7 w-7 p-0"
+                      disabled={marketPage <= 1 || marketLoading}
+                      onClick={() => goToPage(marketPage - 1)}
                     >
-                      {marketLoading ? (
-                        <>
-                          <Loader2 className="size-3.5 animate-spin mr-2" />
-                          Loading...
-                        </>
-                      ) : (
-                        `Load More (${marketSkills.length}/${marketTotal})`
-                      )}
+                      <ChevronLeft className="size-3.5" />
                     </Button>
+
+                    {generatePageNumbers(marketPage, totalPages).map((page, idx) =>
+                      page === null ? (
+                        <span key={`ellipsis-${idx}`} className="text-[11px] text-muted-foreground px-0.5">...</span>
+                      ) : (
+                        <Button
+                          key={page}
+                          size="sm"
+                          variant={page === marketPage ? 'default' : 'outline'}
+                          className="h-7 min-w-[1.75rem] p-0 text-xs"
+                          disabled={marketLoading}
+                          onClick={() => goToPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      )
+                    )}
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0"
+                      disabled={marketPage >= totalPages || marketLoading}
+                      onClick={() => goToPage(marketPage + 1)}
+                    >
+                      <ChevronRight className="size-3.5" />
+                    </Button>
+
+                    <span className="text-[11px] text-muted-foreground ml-2">
+                      {marketPage} / {totalPages} · {marketTotal} total
+                    </span>
                   </div>
                 )}
               </div>
@@ -479,6 +871,18 @@ export function SkillsPage(): React.JSX.Element {
         </div>
 
         <SkillInstallDialog />
+        <SkillDetailDialog
+          skill={detailSkill}
+          installed={
+            detailSkill
+              ? installedNames.has(detailSkill.slug.toLowerCase()) ||
+                installedNames.has(detailSkill.name.toLowerCase())
+              : false
+          }
+          open={detailSkill !== null}
+          onClose={() => setDetailSkill(null)}
+          onInstall={() => detailSkill && handleInstallMarket(detailSkill)}
+        />
       </div>
     )
   }
@@ -488,9 +892,36 @@ export function SkillsPage(): React.JSX.Element {
     <div className="flex h-full flex-col">
       {TopBar}
 
+      {/* Cleanup warning */}
+      {skills.length > 0 && (
+        <div className="flex items-start gap-2.5 mx-4 mt-3 px-3 py-2.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200">
+          <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium">
+              {t('skillsPage.cleanupWarning', {
+                defaultValue:
+                  'Installed skills consume system resources and may slow down the agent. Please remove unused skills promptly.'
+              })}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Left list */}
         <div className="flex w-64 shrink-0 flex-col border-r bg-muted/20 overflow-hidden">
+          {/* Installed search */}
+          <div className="px-2.5 pt-2.5 pb-1.5 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={installedQuery}
+                onChange={(e) => setInstalledQuery(e.target.value)}
+                placeholder={t('skillsPage.searchPlaceholder')}
+                className="h-7 pl-7 text-[11px]"
+              />
+            </div>
+          </div>
           <div className="flex-1 overflow-y-auto px-2 py-2">
             {loading ? (
               <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">

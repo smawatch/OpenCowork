@@ -153,7 +153,7 @@
     "settings": "设置 (Ctrl+,)",
     "noModel": "未选择模型",
     "autoModel": "Auto",
-    "autoModelDesc": "先用快速模型识别任务类型，再动态选择主模型或快速模型",
+    "autoModelDesc": "自动判断最合适的模型",
     "autoModelTooltip": "Auto · 本次使用{{route}} · {{model}} · {{taskType}} · {{confidence}}{{complexity, select,  { } other { · {{complexity}}}}{{risk, select,  { } other { · {{risk}}}}{{reason, select,  { } other { · {{reason}}}}}",
     "autoModelTooltipIdle": "Auto · 尚未发送，本轮会在发送前动态判断",
     "autoModelRouting": "Auto · 正在判断本次任务类型…",
@@ -717,6 +717,7 @@
     "knowledge": "知识库",
     "aiCreation": "AI创作",
     "aiCreationDesc": "生图生视频能力",
+    "channels": "频道",
     "ssh": "SSH",
     "settings": "设置"
   },
@@ -1030,7 +1031,8 @@
     "downloading": "正在下载...",
     "noApiKeyTitle": "未配置 CoCoWork Skills API 密钥",
     "noApiKeyDesc": "点击顶栏的 ⚙️ 图标设置您的 API 密钥，即可浏览 skills.open-cowork.shop 技能市场。",
-    "getApiKey": "获取 API 密钥"
+    "getApiKey": "获取 API 密钥",
+    "cleanupWarning": "已安装的技能会占用系统资源，可能影响 Agent 运行效率。请及时移除不再使用的技能。"
   },
   "soulsPage": {
     "title": "SOUL 市场",

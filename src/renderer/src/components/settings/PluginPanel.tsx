@@ -9,6 +9,7 @@ import {
   Puzzle,
   ChevronDown,
   Check,
+  QrCode,
   Shield,
   X
 } from 'lucide-react'
@@ -409,6 +410,54 @@ function ChannelConfigPanelContent({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        {/* WeChat QR binding — at the top */}
+        {isWeixinOfficial && (
+          <section className="space-y-2 mb-5 rounded-lg border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <QrCode className="size-4 text-emerald-600" />
+              <label className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                {t('channel.weixin.binding', 'WeChat binding')}
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              {t('channel.weixin.bindingDesc', 'Scan QR code to obtain token and enable long-polling for message delivery.')}
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="default"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => void handleWeixinBind()}
+                disabled={weixinLoginPending}
+              >
+                <QrCode className="size-3.5" />
+                {weixinLoginPending
+                  ? t('channel.weixin.bindingInProgress', 'Binding...')
+                  : localConfig.token
+                    ? t('channel.weixin.rebind', 'Rebind')
+                    : t('channel.weixin.bind', 'Bind WeChat')}
+              </Button>
+              {localConfig.token && (
+                <span className="text-xs text-emerald-600 font-medium">
+                  {t('channel.weixin.bound', 'Bound to official WeChat account')}
+                </span>
+              )}
+            </div>
+            {weixinLoginMessage && (
+              <p className="text-[10px] text-muted-foreground mt-2">{weixinLoginMessage}</p>
+            )}
+            {weixinQrUrl && (
+              <div className="mt-3 rounded-md border bg-white p-3 flex justify-center">
+                <img
+                  src={weixinQrUrl}
+                  alt={t('channel.weixin.qrAlt', 'Weixin QR code')}
+                  className="max-h-[320px] w-auto object-contain"
+                />
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Bot Name */}
         <section className="grid gap-3 border-b border-border/60 pb-5 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
           <div className="space-y-1.5">
@@ -857,7 +906,7 @@ function ChannelConfigPanelContent({
           </Accordion>
         </section>
 
-        {isWeixinOfficial && (
+        {false && (
           <>
             <section className="space-y-2 mb-4">
               <label className="text-xs font-medium">
@@ -1053,16 +1102,34 @@ export function ChannelPanel({ projectId }: ChannelPanelProps = {}): React.JSX.E
   }, [loadProviders, loadChannels])
 
   const projectScopedChannels = useMemo(() => {
-    if (!projectId) return channels
+    if (!projectId) {
+      // Global view: deduplicate by channel type, prefer unbound (global) instances
+      const byType = new Map<string, PluginInstance>()
+      for (const channel of channels) {
+        const existing = byType.get(channel.type)
+        if (!existing || (!channel.projectId && existing.projectId)) {
+          byType.set(channel.type, channel)
+        }
+      }
+      return Array.from(byType.values())
+    }
     return channels.filter((channel) => channel.projectId === projectId)
   }, [channels, projectId])
 
   const filteredChannels = useMemo(() => {
-    if (!searchQuery.trim()) return projectScopedChannels
-    const q = searchQuery.toLowerCase()
-    return projectScopedChannels.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.type.toLowerCase().includes(q)
-    )
+    let list = projectScopedChannels
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      list = list.filter(
+        (p) => p.name.toLowerCase().includes(q) || p.type.toLowerCase().includes(q)
+      )
+    }
+    // Sort: WeChat first, then by type
+    return [...list].sort((a, b) => {
+      if (a.type === 'weixin-official') return -1
+      if (b.type === 'weixin-official') return 1
+      return a.type.localeCompare(b.type)
+    })
   }, [projectScopedChannels, searchQuery])
 
   useEffect(() => {
@@ -1114,7 +1181,8 @@ export function ChannelPanel({ projectId }: ChannelPanelProps = {}): React.JSX.E
                     {categoryPlugins.map((p) => {
                       const status = channelStatuses[p.id] ?? 'stopped'
                       const descriptor = getDescriptor(p.type)
-                      const displayName = p.builtin ? (descriptor?.displayName ?? p.name) : p.name
+                      const rawName = p.builtin ? (descriptor?.displayName ?? p.name) : p.name
+                      const displayName = t(rawName as any, rawName)
                       const isSelected = selectedChannelId === p.id
                       const isBoundToProject = !!projectId && p.projectId === projectId
                       return (
@@ -1135,6 +1203,11 @@ export function ChannelPanel({ projectId }: ChannelPanelProps = {}): React.JSX.E
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <span className="truncate text-sm font-medium">{displayName}</span>
+                              {p.type === 'weixin-official' && (
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-emerald-600 border-emerald-300 bg-emerald-50">
+                                  {t('channel.weixin.scanBind', '扫码绑定')}
+                                </Badge>
+                              )}
                               <span
                                 className={cn(
                                   'size-1.5 shrink-0 rounded-full',
