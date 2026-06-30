@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 [JsonSerializable(typeof(AgentRuntimeCapabilityResult))]
 [JsonSerializable(typeof(AgentRuntimeRunResult))]
 [JsonSerializable(typeof(AgentRuntimeCancelResult))]
+[JsonSerializable(typeof(AgentRuntimeStopResult))]
 [JsonSerializable(typeof(AgentRuntimeAppendMessagesResult))]
 [JsonSerializable(typeof(AgentRuntimeContextCompressionResponse))]
 [JsonSerializable(typeof(AgentRuntimeContextCompressionResult))]

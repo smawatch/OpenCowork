@@ -10,6 +10,8 @@ internal static partial class AgentRuntimeOpenAIResponsesProvider
         IReadOnlyList<AgentRuntimeChatMessage> conversation,
         bool allowPreviousResponseId)
     {
+        var sanitizedConversation = SanitizeConversationForReplay(conversation);
+        var requestConversation = sanitizedConversation.Messages;
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer, WriterOptions))
         {
@@ -19,8 +21,16 @@ internal static partial class AgentRuntimeOpenAIResponsesProvider
             {
                 writer.WriteString("model", JsonHelpers.GetString(provider, "model") ?? string.Empty);
             }
-            var previousResponse = allowPreviousResponseId
-                ? FindPreviousResponseAnchor(conversation)
+            if (sanitizedConversation.Changed)
+            {
+                WorkerLog.Debug(
+                    "responses replay sanitized " +
+                    $"messages={conversation.Count}->{requestConversation.Count} " +
+                    $"toolUses={CountToolUses(conversation)}->{CountToolUses(requestConversation)} " +
+                    $"toolResults={CountToolResults(conversation)}->{CountToolResults(requestConversation)}");
+            }
+            var previousResponse = allowPreviousResponseId && !sanitizedConversation.Changed
+                ? FindPreviousResponseAnchor(requestConversation)
                 : null;
             var inputStartIndex = 0;
             var includeSystemPrompt = true;
@@ -30,10 +40,14 @@ internal static partial class AgentRuntimeOpenAIResponsesProvider
                 inputStartIndex = previousResponse.Value.NextMessageIndex;
                 includeSystemPrompt = false;
             }
+            else if (allowPreviousResponseId && sanitizedConversation.Changed)
+            {
+                WorkerLog.Debug("responses previous_response_id suppressed due to sanitized replay");
+            }
             if (!omitted.Contains("input"))
             {
                 writer.WritePropertyName("input");
-                WriteResponsesInput(writer, provider, conversation, inputStartIndex, includeSystemPrompt);
+                WriteResponsesInput(writer, provider, requestConversation, inputStartIndex, includeSystemPrompt);
             }
             if (!omitted.Contains("stream"))
             {
@@ -108,7 +122,10 @@ internal static partial class AgentRuntimeOpenAIResponsesProvider
                 WriteResponsesToolResult(writer, toolResult);
             }
 
-            WriteResponsesTextMessage(writer, message.Role == "assistant" ? "assistant" : "user", message.Text);
+            if (!string.IsNullOrWhiteSpace(message.Text))
+            {
+                WriteResponsesTextMessage(writer, message.Role == "assistant" ? "assistant" : "user", message.Text);
+            }
 
             foreach (var toolUse in message.ToolUses)
             {
@@ -537,10 +554,291 @@ internal static partial class AgentRuntimeOpenAIResponsesProvider
             var responseId = conversation[index].ProviderResponseId;
             if (!string.IsNullOrWhiteSpace(responseId) && index + 1 < conversation.Count)
             {
+                if (!HasCompleteToolReplayTail(conversation, index))
+                {
+                    WorkerLog.Debug(
+                        $"responses previous_response_id skipped incomplete tool replay " +
+                        $"responseId={responseId} messageIndex={index}");
+                    continue;
+                }
                 return new ResponsesPreviousResponseAnchor(responseId, index + 1);
             }
         }
         return null;
+    }
+
+    private static bool HasCompleteToolReplayTail(
+        IReadOnlyList<AgentRuntimeChatMessage> conversation,
+        int assistantIndex)
+    {
+        if ((uint)assistantIndex >= (uint)conversation.Count)
+        {
+            return false;
+        }
+
+        var toolUseIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var toolUse in conversation[assistantIndex].ToolUses)
+        {
+            if (!string.IsNullOrWhiteSpace(toolUse.Id))
+            {
+                toolUseIds.Add(toolUse.Id);
+            }
+        }
+
+        if (toolUseIds.Count == 0)
+        {
+            return true;
+        }
+
+        var pairedToolUseIds = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = assistantIndex + 1; index < conversation.Count; index++)
+        {
+            var message = conversation[index];
+            if (!string.Equals(message.Role, "user", StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            if (message.ToolResults.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var toolResult in message.ToolResults)
+            {
+                if (!string.IsNullOrWhiteSpace(toolResult.ToolUseId) &&
+                    toolUseIds.Contains(toolResult.ToolUseId))
+                {
+                    pairedToolUseIds.Add(toolResult.ToolUseId);
+                }
+            }
+
+            if (pairedToolUseIds.Count == toolUseIds.Count)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ResponsesConversationSanitization SanitizeConversationForReplay(
+        IReadOnlyList<AgentRuntimeChatMessage> conversation)
+    {
+        if (conversation.Count == 0)
+        {
+            return new ResponsesConversationSanitization(conversation, false);
+        }
+
+        var validToolUseIds = new HashSet<string>(StringComparer.Ordinal);
+        var pairedToolUseIdsByAssistantIndex = new Dictionary<int, HashSet<string>>();
+
+        for (var index = 0; index < conversation.Count; index++)
+        {
+            var message = conversation[index];
+            if (!string.Equals(message.Role, "assistant", StringComparison.Ordinal) ||
+                message.ToolUses.Count == 0)
+            {
+                continue;
+            }
+
+            var toolUseIds = new HashSet<string>(
+                message.ToolUses
+                    .Select(toolUse => toolUse.Id)
+                    .Where(id => !string.IsNullOrWhiteSpace(id)),
+                StringComparer.Ordinal);
+            if (toolUseIds.Count == 0)
+            {
+                continue;
+            }
+
+            var pairedToolUseIds = new HashSet<string>(StringComparer.Ordinal);
+            for (var candidateIndex = index + 1; candidateIndex < conversation.Count; candidateIndex++)
+            {
+                var candidateMessage = conversation[candidateIndex];
+                if (!string.Equals(candidateMessage.Role, "user", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                if (candidateMessage.ToolResults.Count == 0)
+                {
+                    break;
+                }
+
+                foreach (var toolResult in candidateMessage.ToolResults)
+                {
+                    if (!string.IsNullOrWhiteSpace(toolResult.ToolUseId) &&
+                        toolUseIds.Contains(toolResult.ToolUseId))
+                    {
+                        pairedToolUseIds.Add(toolResult.ToolUseId);
+                        validToolUseIds.Add(toolResult.ToolUseId);
+                    }
+                }
+            }
+
+            pairedToolUseIdsByAssistantIndex[index] = pairedToolUseIds;
+        }
+
+        var changed = false;
+        var sanitizedMessages = new List<AgentRuntimeChatMessage>(conversation.Count);
+        for (var index = 0; index < conversation.Count; index++)
+        {
+            var message = conversation[index];
+            pairedToolUseIdsByAssistantIndex.TryGetValue(index, out var pairedToolUseIds);
+
+            var filteredToolUses = message.ToolUses;
+            if (message.ToolUses.Count > 0 && pairedToolUseIds is not null)
+            {
+                filteredToolUses = message.ToolUses
+                    .Where(toolUse => !string.IsNullOrWhiteSpace(toolUse.Id) && pairedToolUseIds.Contains(toolUse.Id))
+                    .ToList();
+                if (filteredToolUses.Count != message.ToolUses.Count)
+                {
+                    changed = true;
+                }
+            }
+
+            var filteredToolResults = message.ToolResults;
+            if (message.ToolResults.Count > 0)
+            {
+                filteredToolResults = message.ToolResults
+                    .Where(toolResult =>
+                        !string.IsNullOrWhiteSpace(toolResult.ToolUseId) &&
+                        validToolUseIds.Contains(toolResult.ToolUseId))
+                    .ToList();
+                if (filteredToolResults.Count != message.ToolResults.Count)
+                {
+                    changed = true;
+                }
+            }
+
+            List<JsonElement>? filteredBlocks = null;
+            if (message.ContentBlocks is { Count: > 0 } contentBlocks)
+            {
+                filteredBlocks = new List<JsonElement>(contentBlocks.Count);
+                foreach (var block in contentBlocks)
+                {
+                    switch (JsonHelpers.GetString(block, "type"))
+                    {
+                        case "tool_use":
+                            var toolUseId = JsonHelpers.GetString(block, "id");
+                            if (pairedToolUseIds is not null &&
+                                !string.IsNullOrWhiteSpace(toolUseId) &&
+                                pairedToolUseIds.Contains(toolUseId))
+                            {
+                                filteredBlocks.Add(block);
+                            }
+                            else if (pairedToolUseIds is null)
+                            {
+                                filteredBlocks.Add(block);
+                            }
+                            else
+                            {
+                                changed = true;
+                            }
+                            break;
+                        case "tool_result":
+                            var toolResultId = JsonHelpers.GetString(block, "toolUseId");
+                            if (!string.IsNullOrWhiteSpace(toolResultId) && validToolUseIds.Contains(toolResultId))
+                            {
+                                filteredBlocks.Add(block);
+                            }
+                            else
+                            {
+                                changed = true;
+                            }
+                            break;
+                        default:
+                            filteredBlocks.Add(block);
+                            break;
+                    }
+                }
+            }
+
+            var effectiveBlocks = filteredBlocks ?? message.ContentBlocks;
+            if (!HasMeaningfulReplayContent(message, filteredToolUses, filteredToolResults, effectiveBlocks))
+            {
+                changed = true;
+                continue;
+            }
+
+            if (ReferenceEquals(filteredToolUses, message.ToolUses) &&
+                ReferenceEquals(filteredToolResults, message.ToolResults) &&
+                ReferenceEquals(effectiveBlocks, message.ContentBlocks))
+            {
+                sanitizedMessages.Add(message);
+                continue;
+            }
+
+            sanitizedMessages.Add(new AgentRuntimeChatMessage(
+                message.Role,
+                message.Text,
+                filteredToolUses,
+                filteredToolResults,
+                message.ProviderResponseId,
+                effectiveBlocks));
+        }
+
+        return changed
+            ? new ResponsesConversationSanitization(sanitizedMessages, true)
+            : new ResponsesConversationSanitization(conversation, false);
+    }
+
+    private static bool HasMeaningfulReplayContent(
+        AgentRuntimeChatMessage message,
+        List<AgentRuntimeChatToolUse> toolUses,
+        List<AgentRuntimeToolResult> toolResults,
+        List<JsonElement>? contentBlocks)
+    {
+        if (contentBlocks is { Count: > 0 })
+        {
+            foreach (var block in contentBlocks)
+            {
+                switch (JsonHelpers.GetString(block, "type"))
+                {
+                    case "text":
+                        if (!string.IsNullOrWhiteSpace(JsonHelpers.GetString(block, "text")))
+                        {
+                            return true;
+                        }
+                        break;
+                    case "thinking":
+                        if (!string.IsNullOrWhiteSpace(JsonHelpers.GetString(block, "thinking")) ||
+                            !string.IsNullOrWhiteSpace(JsonHelpers.GetString(block, "encryptedContent")))
+                        {
+                            return true;
+                        }
+                        break;
+                    case "image":
+                    case "tool_use":
+                    case "tool_result":
+                        return true;
+                }
+            }
+        }
+
+        return !string.IsNullOrWhiteSpace(message.Text) || toolUses.Count > 0 || toolResults.Count > 0;
+    }
+
+    private static int CountToolUses(IReadOnlyList<AgentRuntimeChatMessage> conversation)
+    {
+        var count = 0;
+        foreach (var message in conversation)
+        {
+            count += message.ToolUses.Count;
+        }
+        return count;
+    }
+
+    private static int CountToolResults(IReadOnlyList<AgentRuntimeChatMessage> conversation)
+    {
+        var count = 0;
+        foreach (var message in conversation)
+        {
+            count += message.ToolResults.Count;
+        }
+        return count;
     }
 
     private static void WriteResponsesTools(Utf8JsonWriter writer, JsonElement parameters, JsonElement provider)
@@ -596,6 +894,10 @@ internal static partial class AgentRuntimeOpenAIResponsesProvider
         tools = default;
         return false;
     }
+
+    private readonly record struct ResponsesConversationSanitization(
+        IReadOnlyList<AgentRuntimeChatMessage> Messages,
+        bool Changed);
 
     private static void WriteToolSchema(Utf8JsonWriter writer, JsonElement tool)
     {

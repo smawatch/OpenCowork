@@ -580,6 +580,13 @@ export function registerSidecarHandlers(): void {
     return result
   })
 
+  registerMessagePackInvokeHandler<unknown>('agent:request-stop', async (_event, params) => {
+    if (!manager.isRunning) {
+      return { stopped: false }
+    }
+    return await manager.request('agent/request-stop', params, 10_000)
+  })
+
   registerMessagePackInvokeHandler<unknown>('agent:append-messages', async (_event, params) => {
     if (!manager.isRunning) {
       return { appended: false, count: 0 }

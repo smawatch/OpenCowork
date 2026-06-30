@@ -78,6 +78,13 @@ class AgentBridgeClient {
     )
   }
 
+  async requestStopAgent(runId: string): Promise<{ stopped: boolean; runId?: string }> {
+    return await invokeMessagePackBinary<{ stopped: boolean; runId?: string }>(
+      toMessagePackChannel('agent:request-stop'),
+      { runId }
+    )
+  }
+
   async appendAgentMessages(
     runId: string,
     messages: UnifiedMessage[]

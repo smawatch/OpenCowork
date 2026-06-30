@@ -130,6 +130,30 @@ internal static class AgentRuntimeTools
             WorkerJsonContext.Default.AgentRuntimeCancelResult);
     }
 
+    public static WorkerResponse RequestStop(JsonElement parameters)
+    {
+        var runId = JsonHelpers.GetString(parameters, "runId")?.Trim();
+        if (string.IsNullOrEmpty(runId))
+        {
+            return WorkerResponse.Json(
+                new AgentRuntimeStopResult(false, null),
+                WorkerJsonContext.Default.AgentRuntimeStopResult);
+        }
+
+        if (!ActiveRuns.TryGetValue(runId, out var state))
+        {
+            return WorkerResponse.Json(
+                new AgentRuntimeStopResult(false, runId),
+                WorkerJsonContext.Default.AgentRuntimeStopResult);
+        }
+
+        state.RequestStop("user");
+        WorkerLog.Info($"agent run stop requested runId={runId}");
+        return WorkerResponse.Json(
+            new AgentRuntimeStopResult(true, runId),
+            WorkerJsonContext.Default.AgentRuntimeStopResult);
+    }
+
     public static WorkerResponse AppendMessages(JsonElement parameters)
     {
         var runId = JsonHelpers.GetString(parameters, "runId")?.Trim();

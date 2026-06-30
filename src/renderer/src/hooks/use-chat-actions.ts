@@ -1758,13 +1758,44 @@ function requestStopAfterCurrentRequest(sessionId: string): boolean {
   return true
 }
 
-function stopActiveRunAfterCurrentRequest(sessionId: string): void {
-  if (!stopAfterCurrentRequestSessions.delete(sessionId)) return
+function abortCurrentRunImmediately(sessionId: string): void {
   const activeAbortController = sessionAbortControllers.get(sessionId)
   if (activeAbortController && !activeAbortController.signal.aborted) {
     activeAbortController.abort()
   }
   void cancelSidecarRun(sessionId)
+}
+
+async function requestSidecarRunStopAfterCurrentIteration(sessionId: string): Promise<boolean> {
+  const runId = sessionSidecarRunIds.get(sessionId)
+  if (!runId) return false
+  try {
+    const result = await agentBridge.requestStopAgent(runId)
+    if (result.stopped) {
+      console.log('[ChatActions] sidecar graceful stop requested', { sessionId, runId })
+      return true
+    }
+  } catch (error) {
+    console.warn('[ChatActions] sidecar graceful stop request failed', {
+      sessionId,
+      runId,
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
+  return false
+}
+
+function stopActiveRunAfterCurrentRequest(sessionId: string): void {
+  if (!stopAfterCurrentRequestSessions.delete(sessionId)) return
+  if (sessionSidecarRunIds.has(sessionId)) {
+    void requestSidecarRunStopAfterCurrentIteration(sessionId).then((stopped) => {
+      if (!stopped) {
+        abortCurrentRunImmediately(sessionId)
+      }
+    })
+    return
+  }
+  abortCurrentRunImmediately(sessionId)
 }
 
 export function promotePendingSessionMessageForImmediateDispatch(
