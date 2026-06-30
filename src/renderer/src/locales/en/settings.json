@@ -822,7 +822,10 @@
         "desc": "Connect MCP servers, skills, and third-party channles seamlessly."
       }
     },
-    "summary": "CoCoWork unifies multi-model workflows, MCP servers, skills, and custom channles inside one desktop experience so you can switch between Chat, Cowork, or Code modes while staying in control."
+    "summary": "CoCoWork unifies multi-model workflows, MCP servers, skills, and custom channles inside one desktop experience so you can switch between Chat, Cowork, or Code modes while staying in control.",
+    "exportLogs": "Export Logs",
+    "exportSuccess": "Logs exported to: {{path}}",
+    "exportError": "Export failed: {{error}}"
   },
   "dialog": {
     "title": "Quick Settings",

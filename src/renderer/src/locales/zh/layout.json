@@ -724,7 +724,31 @@
   "knowledgePage": {
     "title": "知识库",
     "subtitle": "浏览和管理你的知识库",
-    "empty": "暂无知识库"
+    "empty": "暂无知识库",
+    "readOnly": "只读",
+    "tabs": {
+      "enterprise": "企业知识库",
+      "local": "本地知识库"
+    },
+    "local": {
+      "add": "添加文档",
+      "importFile": "导入文件",
+      "embed": "生成索引",
+      "embedding": "向量化中...",
+      "embedded": "已索引 {{done}}/{{total}}",
+      "embedDone": "索引完成：{{count}} 个分块",
+      "search": "搜索...",
+      "searchSemantic": "语义搜索",
+      "searchKeyword": "关键词搜索",
+      "title": "标题",
+      "content": "内容（支持 Markdown）",
+      "noDocuments": "暂无本地文档，点击添加",
+      "chunks": "{{count}} 个分块",
+      "delete": "删除",
+      "confirmDelete": "确定删除此文档？",
+      "save": "保存",
+      "cancel": "取消"
+    }
   },
   "resourcesPage": {
     "title": "资源",

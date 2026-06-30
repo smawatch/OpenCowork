@@ -13,7 +13,8 @@ import {
   ClipboardList,
   Target,
   Puzzle,
-  BookOpen
+  BookOpen,
+  Layers
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Switch } from '@renderer/components/ui/switch'
@@ -39,6 +40,11 @@ import { resolveEffectiveActiveMcpIds, useMcpStore } from '@renderer/stores/mcp-
 import { useUIStore } from '@renderer/stores/ui-store'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
 import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
+import {
+  registerLocalKbSearchTool,
+  unregisterLocalKbSearchTool
+} from '@renderer/lib/tools/local-kb-search-tool'
+import { useAuthStore } from '@renderer/stores/auth-store'
 import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
 import {
   APP_PLUGIN_DESCRIPTORS,
@@ -86,6 +92,9 @@ export function SkillsMenu({
   const [open, setOpen] = React.useState(false)
   const [commands, setCommands] = React.useState<CommandCatalogItem[]>([])
   const [commandsLoading, setCommandsLoading] = React.useState(false)
+  const localKbEnabled = useKnowledgeStore((s) => s.localKbEnabled)
+  const setLocalKbEnabled = useKnowledgeStore((s) => s.setLocalKbEnabled)
+
   const skills = useSkillsStore((s) => s.skills)
   const loading = useSkillsStore((s) => s.loading)
   const loadSkills = useSkillsStore((s) => s.loadSkills)
@@ -192,6 +201,10 @@ export function SkillsMenu({
     void ipcClient
       .invoke(IPC.KNOWLEDGE_LIST_DATASETS)
       .then((r: any) => {
+        if (r?.code === 'UNAUTHORIZED') {
+          useAuthStore.getState().logout()
+          return
+        }
         if (!cancelled && r?.success) setKbDatasets(r.data ?? [])
       })
       .catch(() => {})
@@ -654,6 +667,30 @@ export function SkillsMenu({
                   })
                 )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    const next = !localKbEnabled
+                    setLocalKbEnabled(next)
+                    if (next) registerLocalKbSearchTool()
+                    else unregisterLocalKbSearchTool()
+                  }}
+                  className="flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 text-xs">
+                    <Layers className="size-3.5" />
+                    个人知识库
+                  </span>
+                  <span
+                    className={`flex size-4 items-center justify-center rounded border ${
+                      localKbEnabled
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-muted-foreground/30'
+                    }`}
+                  >
+                    {localKbEnabled && <Check className="size-3" />}
+                  </span>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
                     setOpen(false)

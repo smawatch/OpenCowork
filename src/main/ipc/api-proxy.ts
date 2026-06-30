@@ -11,6 +11,7 @@ import {
 } from '../../shared/openai-responses-websocket'
 import { ResponsesWebSocketSessionManager } from '../lib/responses-websocket-session-manager'
 import { applyDefaultApiUserAgent } from '../lib/api-user-agent'
+import { logApiCall } from '../log-manager'
 
 const MAX_RESPONSE_BODY_CHARS = 10_000_000
 
@@ -659,6 +660,7 @@ export function registerApiProxyHandlers(): void {
       })
     }
 
+    const startTime = Date.now()
     try {
       console.log(`[API Proxy] request ${method} ${url}`)
       let result: AttemptOutcome = {}
@@ -697,10 +699,18 @@ export function registerApiProxyHandlers(): void {
         }
       }
 
+      logApiCall({
+        method,
+        url,
+        statusCode: result.statusCode ?? 0,
+        durationMs: Date.now() - startTime,
+        error: result.error
+      })
       return { statusCode: result.statusCode, body: result.body, error: result.error }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       console.error(`[API Proxy] request fatal error: ${errMsg}`)
+      logApiCall({ method, url, statusCode: 0, durationMs: Date.now() - startTime, error: errMsg })
       return { statusCode: 0, error: errMsg }
     }
   })
@@ -724,6 +734,7 @@ export function registerApiProxyHandlers(): void {
     const requestHeaders = applyDefaultApiUserAgent(sanitizeHeaders(headers))
     const circuitKey = buildApiStreamCircuitKey({ url, providerId, providerBuiltinId, accountId })
 
+    const streamStart = Date.now()
     console.log(`[API Proxy] stream-request[${requestId}] ${method} ${url}`)
 
     // Abort plumbing: registered once for the lifetime of the retry loop.
@@ -802,6 +813,9 @@ export function registerApiProxyHandlers(): void {
           if (settled) return
           settled = true
           cancelCurrentAttempt = null
+          const statusCode = result.kind === 'streamed' ? 200 : result.kind === 'fallback' ? 0 : result.status
+          const errorMsg = result.kind === 'fatal' ? result.body?.slice(0, 200) : result.kind === 'fallback' ? result.reason : undefined
+          logApiCall({ method, url, statusCode, durationMs: Date.now() - streamStart, error: errorMsg, requestId })
           resolve(result)
         }
 

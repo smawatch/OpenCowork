@@ -2795,6 +2795,14 @@ async function* sendOpenAIChat(
   const requestStartedAt = Date.now()
   let firstTokenAt: number | null = null
   let outputTokens = 0
+  let messageEndEmitted = false
+  let stopReceived = false
+  let pendingUsage: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    prompt_tokens_details?: { cached_tokens?: number }
+    completion_tokens_details?: { reasoning_tokens?: number }
+  } | null = null
   const baseUrl = (config.baseUrl || 'https://api.openai.com/v1').trim().replace(/\/+$/, '')
   const url = `${baseUrl}/chat/completions`
   const body: Record<string, unknown> = {
@@ -2933,6 +2941,7 @@ async function* sendOpenAIChat(
       if (data.usage) {
         outputTokens = data.usage.completion_tokens ?? outputTokens
         const requestCompletedAt = Date.now()
+        messageEndEmitted = true
         yield {
           type: 'message_end',
           usage: {
@@ -3040,47 +3049,86 @@ async function* sendOpenAIChat(
       toolBuffers.clear()
     }
     if (finishReason === 'stop') {
-      const requestCompletedAt = Date.now()
+      stopReceived = true
       if (data.usage) {
         outputTokens = data.usage.completion_tokens ?? outputTokens
-      }
-      yield {
-        type: 'message_end',
-        stopReason: 'stop',
-        ...(data.usage
-          ? {
-              usage: {
-                inputTokens: data.usage.prompt_tokens ?? 0,
-                outputTokens: data.usage.completion_tokens ?? 0,
-                ...(data.usage.prompt_tokens_details?.cached_tokens
-                  ? {
-                      billableInputTokens: Math.max(
-                        0,
-                        (data.usage.prompt_tokens ?? 0) -
-                          data.usage.prompt_tokens_details.cached_tokens
-                      ),
-                      cacheReadTokens: data.usage.prompt_tokens_details.cached_tokens
-                    }
-                  : {}),
-                ...((data.usage.prompt_tokens ?? 0) > 0
-                  ? {
-                      cacheReadRatio:
-                        (data.usage.prompt_tokens_details?.cached_tokens ?? 0) /
-                        (data.usage.prompt_tokens ?? 0)
-                    }
-                  : {}),
-                contextTokens: data.usage.prompt_tokens ?? 0,
-                ...(data.usage.completion_tokens_details?.reasoning_tokens
-                  ? { reasoningTokens: data.usage.completion_tokens_details.reasoning_tokens }
-                  : {})
-              }
-            }
-          : {}),
-        timing: {
-          totalMs: requestCompletedAt - requestStartedAt,
-          ttftMs: firstTokenAt ? firstTokenAt - requestStartedAt : undefined,
-          tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt)
+        const requestCompletedAt = Date.now()
+        messageEndEmitted = true
+        yield {
+          type: 'message_end',
+          stopReason: 'stop',
+          usage: {
+            inputTokens: data.usage.prompt_tokens ?? 0,
+            outputTokens: data.usage.completion_tokens ?? 0,
+            ...(data.usage.prompt_tokens_details?.cached_tokens
+              ? {
+                  billableInputTokens: Math.max(
+                    0,
+                    (data.usage.prompt_tokens ?? 0) -
+                      data.usage.prompt_tokens_details.cached_tokens
+                  ),
+                  cacheReadTokens: data.usage.prompt_tokens_details.cached_tokens
+                }
+              : {}),
+            ...((data.usage.prompt_tokens ?? 0) > 0
+              ? {
+                  cacheReadRatio:
+                    (data.usage.prompt_tokens_details?.cached_tokens ?? 0) /
+                    (data.usage.prompt_tokens ?? 0)
+                }
+              : {}),
+            contextTokens: data.usage.prompt_tokens ?? 0,
+            ...(data.usage.completion_tokens_details?.reasoning_tokens
+              ? { reasoningTokens: data.usage.completion_tokens_details.reasoning_tokens }
+              : {})
+          },
+          timing: {
+            totalMs: requestCompletedAt - requestStartedAt,
+            ttftMs: firstTokenAt ? firstTokenAt - requestStartedAt : undefined,
+            tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt)
+          }
         }
+      }
+      // If stop chunk had no usage, defer — usage may arrive in a trailing chunk
+    }
+    // Buffer usage from chunks that have usage but no finish_reason
+    // (e.g., LiteLLM sends usage in a separate chunk before [DONE])
+    if (data.usage && finishReason !== 'stop') {
+      pendingUsage = data.usage
+    }
+  }
+  // Stream ended without message_end — emit deferred one with any buffered usage
+  if (!messageEndEmitted && (stopReceived || pendingUsage)) {
+    const requestCompletedAt = Date.now()
+    const usage = pendingUsage
+    yield {
+      type: 'message_end',
+      ...(stopReceived ? { stopReason: 'stop' as const } : {}),
+      ...(usage
+        ? {
+            usage: {
+              inputTokens: usage.prompt_tokens ?? 0,
+              outputTokens: usage.completion_tokens ?? 0,
+              ...(usage.prompt_tokens_details?.cached_tokens
+                ? {
+                    billableInputTokens: Math.max(
+                      0,
+                      (usage.prompt_tokens ?? 0) - usage.prompt_tokens_details.cached_tokens
+                    ),
+                    cacheReadTokens: usage.prompt_tokens_details.cached_tokens
+                  }
+                : {}),
+              contextTokens: usage.prompt_tokens ?? 0,
+              ...(usage.completion_tokens_details?.reasoning_tokens
+                ? { reasoningTokens: usage.completion_tokens_details.reasoning_tokens }
+                : {})
+            }
+          }
+        : {}),
+      timing: {
+        totalMs: requestCompletedAt - requestStartedAt,
+        ttftMs: firstTokenAt ? firstTokenAt - requestStartedAt : undefined,
+        tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt)
       }
     }
   }

@@ -3396,6 +3396,18 @@ function AboutPanel(): React.JSX.Element {
     { label: t('about.ui'), value: 'shadcn/ui · TailwindCSS' },
     { label: t('about.license'), value: 'Apache 2.0' }
   ]
+  const handleExportLogs = useCallback(async () => {
+    const result = (await ipcClient.invoke(IPC.LOG_EXPORT)) as {
+      success?: boolean
+      error?: string
+      filePath?: string
+    }
+    if (result.success) {
+      toast.success(t('about.exportSuccess', { path: result.filePath || '' }))
+    } else if (!result.success && result.error) {
+      toast.error(t('about.exportError', { error: result.error }))
+    }
+  }, [t])
   const featureCards = [
     {
       icon: Sparkles,
@@ -3420,16 +3432,15 @@ function AboutPanel(): React.JSX.Element {
           <h2 className="text-lg font-semibold">{t('about.title')}</h2>
           <p className="text-sm text-muted-foreground">{t('about.subtitle')}</p>
         </div>
-        {/*<Button*/}
-        {/*  variant="outline"*/}
-        {/*  size="sm"*/}
-        {/*  className="gap-1.5 text-xs"*/}
-        {/*  onClick={() =>*/}
-        {/*    window.open('https://github.com/AIDotNet/OpenCowork', '_blank', 'noopener')*/}
-        {/*  }*/}
-        {/*>*/}
-        {/*  <Github className="size-3.5" /> GitHub*/}
-        {/*</Button>*/}
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={handleExportLogs}
+        >
+          <HardDriveDownload className="size-3.5" />
+          {t('about.exportLogs')}
+        </Button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">

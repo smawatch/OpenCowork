@@ -724,7 +724,31 @@
   "knowledgePage": {
     "title": "Knowledge Base",
     "subtitle": "Browse your knowledge bases",
-    "empty": "No knowledge bases available"
+    "empty": "No knowledge bases available",
+    "readOnly": "Read-only",
+    "tabs": {
+      "enterprise": "Enterprise KB",
+      "local": "Local KB"
+    },
+    "local": {
+      "add": "Add Document",
+      "importFile": "Import File",
+      "embed": "Generate Index",
+      "embedding": "Indexing...",
+      "embedded": "Indexed {{done}}/{{total}}",
+      "embedDone": "Indexed {{count}} chunks",
+      "search": "Search...",
+      "searchSemantic": "Semantic Search",
+      "searchKeyword": "Keyword Search",
+      "title": "Title",
+      "content": "Content (Markdown supported)",
+      "noDocuments": "No local documents yet",
+      "chunks": "{{count}} chunks",
+      "delete": "Delete",
+      "confirmDelete": "Delete this document?",
+      "save": "Save",
+      "cancel": "Cancel"
+    }
   },
   "resourcesPage": {
     "title": "Resources",

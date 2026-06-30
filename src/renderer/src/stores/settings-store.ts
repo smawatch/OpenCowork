@@ -241,6 +241,15 @@ interface SettingsStore {
   baseUrl: string
   model: string
   fastModel: string
+  embeddingModel: string
+  embeddingBaseUrl: string
+  embeddingApiKey: string
+  rerankModel: string
+  rerankBaseUrl: string
+  rerankApiKey: string
+  cleanupModel: string
+  cleanupBaseUrl: string
+  cleanupApiKey: string
   maxTokens: number
   temperature: number
   systemPrompt: string
@@ -357,6 +366,15 @@ export const useSettingsStore = create<SettingsStore>()(
       baseUrl: '',
       model: 'claude-sonnet-4-20250514',
       fastModel: 'claude-3-5-haiku-20241022',
+      embeddingModel: 'text-embedding-v4',
+      embeddingBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',
+      embeddingApiKey: 'sk-050adcbf6c5d4250bfc894ca76a12f4c',
+      rerankModel: 'qwen3-rerank',
+      rerankBaseUrl: 'https://dashscope.aliyuncs.com/compatible-api/v1/reranks',
+      rerankApiKey: 'sk-050adcbf6c5d4250bfc894ca76a12f4c',
+      cleanupModel: 'qwen-flash',
+      cleanupBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+      cleanupApiKey: 'sk-050adcbf6c5d4250bfc894ca76a12f4c',
       maxTokens: 32000,
       temperature: 0.7,
       systemPrompt: '',
@@ -752,6 +770,15 @@ export const useSettingsStore = create<SettingsStore>()(
         baseUrl: state.baseUrl,
         model: state.model,
         fastModel: state.fastModel,
+        embeddingModel: state.embeddingModel,
+        embeddingBaseUrl: state.embeddingBaseUrl,
+        embeddingApiKey: state.embeddingApiKey,
+        rerankModel: state.rerankModel,
+        rerankBaseUrl: state.rerankBaseUrl,
+        rerankApiKey: state.rerankApiKey,
+        cleanupModel: state.cleanupModel,
+        cleanupBaseUrl: state.cleanupBaseUrl,
+        cleanupApiKey: state.cleanupApiKey,
         maxTokens: state.maxTokens,
         temperature: state.temperature,
         systemPrompt: state.systemPrompt,

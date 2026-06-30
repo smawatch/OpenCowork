@@ -15,8 +15,9 @@ import { registerCronTools } from './cron-tool'
 import { registerNotifyTool } from './notify-tool'
 import { registerGoalTools } from './goal-tool'
 import { registerMemoryTools } from './memory-tool'
-import { updateWikiToolRegistration } from './wiki-tool'
 import { registerKnowledgeSearchTool } from './knowledge-search-tool'
+import { registerLocalKbSearchTool } from './local-kb-search-tool'
+import { updateWikiToolRegistration } from './wiki-tool'
 import { refreshDynamicToolCatalog } from './dynamic-tool-catalog'
 import { registerCodeCompatibleTools } from './code-compatible-tool'
 
@@ -40,6 +41,7 @@ export async function registerAllTools(): Promise<void> {
   registerGoalTools()
   registerMemoryTools()
   registerKnowledgeSearchTool()
+  registerLocalKbSearchTool()
 
   // Skills and SubAgents are user-editable catalogs; load them once here and
   // refresh them again before every request via ensureRequestToolCatalogFresh().

@@ -1021,6 +1021,27 @@ export function getDb(): Database.Database {
     'CREATE INDEX IF NOT EXISTS idx_wiki_documents_parent ON wiki_documents(project_id, parent_id, sort_order)'
   )
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS local_kb_documents (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS local_kb_chunks (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      chunk_index INTEGER NOT NULL,
+      FOREIGN KEY (document_id) REFERENCES local_kb_documents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_local_kb_chunks_doc ON local_kb_chunks(document_id, chunk_index);
+  `)
+
+  ensureColumn(db, 'local_kb_chunks', 'embedding', 'BLOB')
+
   // --- Usage Events table ---
   db.exec(`
     CREATE TABLE IF NOT EXISTS usage_events (

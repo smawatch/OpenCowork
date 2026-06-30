@@ -421,11 +421,26 @@ export const IPC = {
   // SSH Remote Exec
   SSH_EXEC: 'ssh:exec',
 
+  // Logs
+  LOG_EXPORT: 'log:export',
+
   // Knowledge Base
   KNOWLEDGE_LIST_DATASETS: 'knowledge:list-datasets',
   KNOWLEDGE_LIST_COLLECTIONS: 'knowledge:list-collections',
   KNOWLEDGE_LIST_CHUNKS: 'knowledge:list-chunks',
-  KNOWLEDGE_SEARCH: 'knowledge:search'
+  KNOWLEDGE_SEARCH: 'knowledge:search',
+
+  // Local Knowledge Base
+  KNOWLEDGE_LOCAL_CREATE: 'knowledge:local:create',
+  KNOWLEDGE_LOCAL_LIST: 'knowledge:local:list',
+  KNOWLEDGE_LOCAL_DELETE: 'knowledge:local:delete',
+  KNOWLEDGE_LOCAL_GET_CHUNKS: 'knowledge:local:get-chunks',
+  KNOWLEDGE_LOCAL_IMPORT_FILE: 'knowledge:local:import-file',
+  KNOWLEDGE_LOCAL_EMBED: 'knowledge:local:embed',
+  KNOWLEDGE_LOCAL_EMBEDDED_STATUS: 'knowledge:local:embedded-status',
+  KNOWLEDGE_LOCAL_CLEANING_STATUS: 'knowledge:local:cleaning-status',
+  KNOWLEDGE_LOCAL_SEARCH_SEMANTIC: 'knowledge:local:search-semantic',
+  KNOWLEDGE_LOCAL_SEARCH: 'knowledge:local:search'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

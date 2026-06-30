@@ -822,7 +822,10 @@
         "desc": "无缝连接 MCP 服务器、Skills 与第三方聊天频道。"
       }
     },
-    "summary": "CoCoWork 将多模型工作流、MCP 服务器、Skills 与自定义聊天频道统一在一个桌面体验里，你可以在 Chat / Cowork / Code 模式间自由切换，并保持对所有数据的本地掌控。"
+    "summary": "CoCoWork 将多模型工作流、MCP 服务器、Skills 与自定义聊天频道统一在一个桌面体验里，你可以在 Chat / Cowork / Code 模式间自由切换，并保持对所有数据的本地掌控。",
+    "exportLogs": "导出日志",
+    "exportSuccess": "日志已导出到: {{path}}",
+    "exportError": "导出失败: {{error}}"
   },
   "dialog": {
     "title": "快速设置",

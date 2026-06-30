@@ -6,7 +6,7 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        external: ['better-sqlite3', '@jitsi/robotjs']
+        external: ['better-sqlite3', '@jitsi/robotjs', '@cognipeer/to-markdown', 'sharp', 'unpdf']
       }
     },
     assetsInclude: ['**/*.ico']
@@ -14,7 +14,7 @@ export default defineConfig({
   preload: {},
   renderer: {
     server: {
-      port: 3004,
+      port: 3005,
       strictPort: true
     },
     optimizeDeps: {

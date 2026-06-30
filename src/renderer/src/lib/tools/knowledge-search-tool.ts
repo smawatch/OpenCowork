@@ -6,9 +6,9 @@ import type { ToolHandler } from './tool-types'
 
 const knowledgeSearchHandler: ToolHandler = {
   definition: {
-    name: 'KnowledgeSearch',
+    name: 'EnterpriseKnowledgeSearch',
     description:
-      '搜索知识库，根据关键词或问题检索相关文档片段。返回最匹配的内容摘要、来源文件和相似度评分。当用户已选择知识库时，你必须在回答问题前优先调用此工具搜索相关知识库内容，基于检索结果回答并引用来源。',
+      '搜索企业知识库（远程API）。仅在用户已在+菜单中勾选了企业知识库数据集时才可使用。若未勾选企业知识库，禁止调用此工具，改用 LocalKnowledgeSearch 搜索本地文档。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -44,7 +44,7 @@ const knowledgeSearchHandler: ToolHandler = {
 
     // No KBs selected — tell agent to proceed without KB results
     if (selectedIds.length === 0) {
-      return '未选择知识库，请使用自有知识回答。'
+      return '未选择企业知识库。请尝试调用 LocalKnowledgeSearch 工具搜索用户个人导入的本地文档。'
     }
 
     console.log(`[知识库搜索] 开始检索 | query=${query} | selectedIds=${JSON.stringify(selectedIds)}`)
@@ -102,5 +102,5 @@ export function registerKnowledgeSearchTool(): void {
 export function unregisterKnowledgeSearchTool(): void {
   if (!registered) return
   registered = false
-  toolRegistry.unregister('KnowledgeSearch')
+  toolRegistry.unregister('EnterpriseKnowledgeSearch')
 }
