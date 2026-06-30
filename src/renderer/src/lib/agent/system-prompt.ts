@@ -210,17 +210,26 @@ function buildModePromptBody(
 }
 
 function buildKnowledgeBaseReminder(): string | null {
-  const selectedIds = useKnowledgeStore.getState().selectedDatasetIds
-  if (selectedIds.length === 0) return null
+  const state = useKnowledgeStore.getState()
+  const selectedIds = state.selectedDatasetIds
+  const localKbEnabled = state.localKbEnabled
 
-  return [
-    '<system-reminder>',
-    `Knowledge Base: User has selected ${selectedIds.length} knowledge base(s).`,
-    'You MUST call the KnowledgeSearch tool to search the selected knowledge bases BEFORE answering questions that could benefit from the user\'s knowledge base content.',
-    'Base your answer on the retrieved content and cite the source files when available.',
-    'If KnowledgeSearch returns no results, answer using your own knowledge.',
-    '</system-reminder>'
-  ].join('\n')
+  if (selectedIds.length === 0 && !localKbEnabled) return null
+
+  const parts: string[] = ['<system-reminder>']
+
+  if (localKbEnabled) {
+    parts.push(
+      '本地个人知识库已开启。优先调用 LocalKnowledgeSearch 工具检索用户导入的本地文档（PDF/Word/Markdown等）。'
+    )
+  }
+  if (selectedIds.length > 0) {
+    parts.push(
+      `企业知识库：用户已选择 ${selectedIds.length} 个知识库。请调用 EnterpriseKnowledgeSearch 工具搜索。`
+    )
+  }
+  parts.push('</system-reminder>')
+  return parts.join('\n')
 }
 
 function buildSkillsReminder(): string | null {

@@ -4,15 +4,18 @@ import { ipcStorage } from '@renderer/lib/ipc/ipc-storage'
 
 interface KnowledgeState {
   selectedDatasetIds: string[]
+  localKbEnabled: boolean
   toggleDataset: (id: string) => void
   isDatasetSelected: (id: string) => boolean
   setSelectedDatasets: (ids: string[]) => void
+  setLocalKbEnabled: (enabled: boolean) => void
 }
 
 export const useKnowledgeStore = create<KnowledgeState>()(
   persist(
     (set, get) => ({
       selectedDatasetIds: [],
+      localKbEnabled: false,
 
       toggleDataset: (id) => {
         const current = get().selectedDatasetIds
@@ -24,12 +27,17 @@ export const useKnowledgeStore = create<KnowledgeState>()(
 
       isDatasetSelected: (id) => get().selectedDatasetIds.includes(id),
 
-      setSelectedDatasets: (ids) => set({ selectedDatasetIds: ids })
+      setSelectedDatasets: (ids) => set({ selectedDatasetIds: ids }),
+
+      setLocalKbEnabled: (enabled) => set({ localKbEnabled: enabled })
     }),
     {
       name: 'knowledge-store',
       storage: createJSONStorage(() => ipcStorage),
-      partialize: (state) => ({ selectedDatasetIds: state.selectedDatasetIds })
+      partialize: (state) => ({
+        selectedDatasetIds: state.selectedDatasetIds,
+        localKbEnabled: state.localKbEnabled
+      })
     }
   )
 )

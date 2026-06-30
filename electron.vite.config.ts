@@ -6,7 +6,7 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        external: ['better-sqlite3', '@jitsi/robotjs']
+        external: ['better-sqlite3', '@jitsi/robotjs', '@cognipeer/to-markdown', 'sharp', 'unpdf']
       }
     },
     assetsInclude: ['**/*.ico']

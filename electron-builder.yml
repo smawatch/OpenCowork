@@ -107,6 +107,7 @@ asarUnpack:
   - node_modules/cpu-features/**
   - node_modules/@jitsi/robotjs/**
   - node_modules/node-gyp-build/**
+  - node_modules/sharp/**
 win:
   executableName: CoCoWork
   icon: build/icon.ico

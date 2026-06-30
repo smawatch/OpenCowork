@@ -18,11 +18,11 @@ dotenv.config()
 
 // Fix Windows console encoding for Chinese characters
 if (process.platform === 'win32') {
-  process.stdout.setDefaultEncoding?.('utf-8')
-  process.stderr.setDefaultEncoding?.('utf-8')
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { execSync } = require('child_process')
+    // Must use stdio:'inherit' so the child process shares the parent's console.
+    // With stdio:'ignore' the child gets its own console and chcp has no effect on the parent.
     execSync('chcp 65001', { stdio: 'ignore' })
   } catch {
     // Ignore if chcp fails
@@ -91,6 +91,8 @@ import { McpManager } from './mcp/mcp-manager'
 import { closeDb } from './db/database'
 import { cleanupExpiredUsageEvents } from './db/usage-events-dao'
 import { registerSshHandlers, closeAllSshSessions } from './ipc/ssh-handlers'
+import { initLogManager } from './log-manager'
+import { registerLogHandlers } from './ipc/log-handlers'
 import { writeCrashLog, getCrashLogDir } from './crash-logger'
 import { setupAutoUpdater } from './updater'
 import { safeSendToWindow } from './window-ipc'
@@ -1104,6 +1106,8 @@ if (gotSingleInstanceLock) {
     })
     console.log(`[CrashLogger] Logs will be written to ${getCrashLogDir()}`)
 
+    initLogManager()
+
     // Set app identity for Windows integration
     electronApp.setAppUserModelId('com.opencowork.app')
 
@@ -1180,6 +1184,7 @@ if (gotSingleInstanceLock) {
     registerTeamWorkerHandlers()
     registerSessionReportHandlers()
     registerKnowledgeHandlers()
+    registerLogHandlers()
 
     try {
       const sidecarReady = await getSidecarManager().ensureStarted()
