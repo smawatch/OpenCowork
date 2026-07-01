@@ -283,7 +283,7 @@ export function registerKnowledgeHandlers(): void {
 
       const storeSettings = readSettings()
       const persistedState = (storeSettings['opencowork-settings'] as any)?.state
-      const apiKey = (persistedState?.embeddingApiKey as string) || 'sk-050adcbf6c5d4250bfc894ca76a12f4c'
+      const apiKey = (persistedState?.embeddingApiKey as string) || 'sk-ws-H.RXHPLPH.c3ew.MEUCIQD1K6lOYD_ChOs21FyrXohsPf88gfsv6Q6Zpjf6XipAWQIgRG1hMto8MGxQtbO6M5DED0eghKhbFqIBGoMc9RsrGZ0'
       const baseUrl = (persistedState?.embeddingBaseUrl as string) || 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings'
       const model = (persistedState?.embeddingModel as string) || 'text-embedding-v4'
 
@@ -308,7 +308,7 @@ export function registerKnowledgeHandlers(): void {
       console.log('[本地知识库] 语义搜索开始:', args.query)
       const storeSettings = readSettings()
       const persistedState = (storeSettings['opencowork-settings'] as any)?.state
-      const apiKey = (persistedState?.embeddingApiKey as string) || 'sk-050adcbf6c5d4250bfc894ca76a12f4c'
+      const apiKey = (persistedState?.embeddingApiKey as string) || 'sk-ws-H.RXHPLPH.c3ew.MEUCIQD1K6lOYD_ChOs21FyrXohsPf88gfsv6Q6Zpjf6XipAWQIgRG1hMto8MGxQtbO6M5DED0eghKhbFqIBGoMc9RsrGZ0'
       const baseUrl = (persistedState?.embeddingBaseUrl as string) || 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings'
       const model = (persistedState?.embeddingModel as string) || 'text-embedding-v4'
 
@@ -335,7 +335,7 @@ export function registerKnowledgeHandlers(): void {
       console.log(`[本地知识库] Embedding 粗筛: ${coarse.length} 条候选 (从 ${chunksForSearch.length} 个已索引分块)`)
 
       // Fine: rerank if configured
-      const rerankKey = (persistedState?.rerankApiKey as string) || 'sk-050adcbf6c5d4250bfc894ca76a12f4c'
+      const rerankKey = (persistedState?.rerankApiKey as string) || 'sk-ws-H.RXHPLPH.c3ew.MEUCIQD1K6lOYD_ChOs21FyrXohsPf88gfsv6Q6Zpjf6XipAWQIgRG1hMto8MGxQtbO6M5DED0eghKhbFqIBGoMc9RsrGZ0'
       const rerankUrl = (persistedState?.rerankBaseUrl as string) || 'https://dashscope.aliyuncs.com/compatible-api/v1/reranks'
       const rerankModel = (persistedState?.rerankModel as string) || 'qwen3-rerank'
 
