@@ -283,8 +283,8 @@ export function registerKnowledgeHandlers(): void {
 
       const storeSettings = readSettings()
       const persistedState = (storeSettings['opencowork-settings'] as any)?.state
-      const apiKey = (persistedState?.embeddingApiKey as string) || ''
-      const baseUrl = (persistedState?.embeddingBaseUrl as string) || 'https://api.openai.com/v1/embeddings'
+      const apiKey = (persistedState?.embeddingApiKey as string) || 'sk-050adcbf6c5d4250bfc894ca76a12f4c'
+      const baseUrl = (persistedState?.embeddingBaseUrl as string) || 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings'
       const model = (persistedState?.embeddingModel as string) || 'text-embedding-v4'
 
       if (!apiKey) return { success: false, error: '未配置 API Key' }
@@ -308,8 +308,8 @@ export function registerKnowledgeHandlers(): void {
       console.log('[本地知识库] 语义搜索开始:', args.query)
       const storeSettings = readSettings()
       const persistedState = (storeSettings['opencowork-settings'] as any)?.state
-      const apiKey = (persistedState?.embeddingApiKey as string) || ''
-      const baseUrl = (persistedState?.embeddingBaseUrl as string) || 'https://api.openai.com/v1/embeddings'
+      const apiKey = (persistedState?.embeddingApiKey as string) || 'sk-050adcbf6c5d4250bfc894ca76a12f4c'
+      const baseUrl = (persistedState?.embeddingBaseUrl as string) || 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings'
       const model = (persistedState?.embeddingModel as string) || 'text-embedding-v4'
 
       if (!apiKey) {
@@ -335,9 +335,9 @@ export function registerKnowledgeHandlers(): void {
       console.log(`[本地知识库] Embedding 粗筛: ${coarse.length} 条候选 (从 ${chunksForSearch.length} 个已索引分块)`)
 
       // Fine: rerank if configured
-      const rerankKey = (persistedState?.rerankApiKey as string) || ''
-      const rerankUrl = (persistedState?.rerankBaseUrl as string) || ''
-      const rerankModel = (persistedState?.rerankModel as string) || ''
+      const rerankKey = (persistedState?.rerankApiKey as string) || 'sk-050adcbf6c5d4250bfc894ca76a12f4c'
+      const rerankUrl = (persistedState?.rerankBaseUrl as string) || 'https://dashscope.aliyuncs.com/compatible-api/v1/reranks'
+      const rerankModel = (persistedState?.rerankModel as string) || 'qwen3-rerank'
 
       if (rerankKey && rerankUrl && rerankModel && coarse.length > 1) {
         try {
