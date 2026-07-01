@@ -45,8 +45,8 @@ const modeHints = {
   },
   cowork: {
     icon: <Briefcase className="size-12 text-muted-foreground/20" />,
-    titleKey: 'messageList.startCowork',
-    descKey: 'messageList.startCoworkDesc'
+    titleKey: 'messageList.startCoWork',
+    descKey: 'messageList.startCoWorkDesc'
   },
   code: {
     icon: <Code2 className="size-12 text-muted-foreground/20" />,

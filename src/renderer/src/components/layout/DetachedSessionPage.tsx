@@ -50,7 +50,7 @@ export function DetachedSessionPage({ sessionId }: DetachedSessionPageProps): Re
   const isMac = /Mac/.test(navigator.userAgent)
 
   useEffect(() => {
-    document.title = sessionView.title ? `${sessionView.title} | OpenCoWork` : 'OpenCoWork'
+    document.title = sessionView.title ? `${sessionView.title} | OpenCowork` : 'OpenCowork'
   }, [sessionView.title])
 
   useEffect(() => {

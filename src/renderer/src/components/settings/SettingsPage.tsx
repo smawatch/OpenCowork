@@ -3461,7 +3461,7 @@ function AboutPanel(): React.JSX.Element {
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 {t('about.heroTagline')}
               </p>
-              <h3 className="text-2xl font-semibold text-foreground">CoCowork</h3>
+              <h3 className="text-2xl font-semibold text-foreground">CoCoWork</h3>
               <p className="text-sm text-muted-foreground">{t('about.heroDescription')}</p>
             </div>
           </div>

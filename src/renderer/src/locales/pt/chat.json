@@ -162,7 +162,7 @@
         "description": "Use-o para entender o objetivo, limites, restrições e critérios de aceitação antes da execução. É melhor para pedir e reduzir as coisas primeiro."
       },
       "modeCowork": {
-        "title": "Este é o modo Cowork",
+        "title": "Este é o modo CoWork",
         "description": "Use-o para a colaboração geral do projeto: pesquisa, planos de organização, ferramentas de coordenação, manipulação de arquivos e avanço do trabalho multi-passo."
       },
       "modeCode": {
@@ -252,7 +252,7 @@
         "title": "Primeiros Passos Recomendados",
         "bullets": [
           "Criar um projeto e vincular uma pasta de trabalho antes de iniciar um trabalho sério.",
-          "Use Clarify para descoberta de requisitos, Cowork para assistência geral e Código para tarefas de implementação.",
+          "Use Clarify para descoberta de requisitos, CoWork para assistência geral e Código para tarefas de implementação.",
           "Para trabalho de código, mencione arquivos com @ primeiro, depois descreva o objetivo e restrições.",
           "Durante a execução, fique de olho em Passos, Arquivos, Artefatos e Contexto do lado direito.",
           "Quando a sessão crescer, use a compressão de contexto para manter o modelo focado."
@@ -661,7 +661,7 @@
     "startConversationDesc": "Pergunte qualquer coisa, ou use a pesquisa na web e as ferramentas MCP selecionadas.",
     "startClarify": "Iniciar a clarificação",
     "startClarifyDesc": "Interrogue o objetivo, restrições, riscos e lacunas antes do planejamento. Ele defaults to clareing-first behavior, mas permissões correspondem ao modo Código.",
-    "startCowork": "Iniciar uma sessão de Cowork",
+    "startCowork": "Iniciar uma sessão de CoWork",
     "startCoworkDesc": "Selecione uma pasta de trabalho e peça ao assistente para ajudar no seu projeto.",
     "startCoding": "Iniciar a codificação",
     "startCodingDesc": "Descreva o que deseja construir e o assistente irá escrever o código.",

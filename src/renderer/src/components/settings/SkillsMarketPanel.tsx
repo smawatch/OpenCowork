@@ -89,7 +89,7 @@ export function SkillsMarketPanel(): React.JSX.Element {
         <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Wand2 className="size-4 text-primary" />
-            CoCoWork Skills
+            CoWork Skills
           </div>
           <p className="text-xs text-muted-foreground">{t('skillsmarket.skillsmpInfo')}</p>
           <Button
@@ -127,7 +127,7 @@ export function SkillsMarketPanel(): React.JSX.Element {
         <h3 className="text-sm font-medium">{t('skillsmarket.configSummary')}</h3>
         <div className="text-xs space-y-1 text-muted-foreground">
           <p>
-            <strong>{t('skillsmarket.provider')}:</strong> CoCoWork Skills
+            <strong>{t('skillsmarket.provider')}:</strong> CoWork Skills
           </p>
           <p>
             <strong>{t('skillsmarket.apiKey')}:</strong>{' '}

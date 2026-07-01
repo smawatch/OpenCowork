@@ -154,7 +154,7 @@
       "retry": "Retry"
     },
     "done": {
-      "action": "Enter CoCoWork",
+      "action": "Enter CoWork",
       "toast": "جاهز",
       "failed": "فشل في إنهاء التجهيز"
     }

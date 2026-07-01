@@ -44,7 +44,7 @@
     "newProject": "Neues Projekt",
     "projectName": "Projektbezeichnung",
     "projectNameHint": "Beim Auswählen eines Ordners wird der Ordnername als Projektname verwendet.",
-    "projectNamePlaceholder": "Zum Beispiel: CoCoWork",
+    "projectNamePlaceholder": "Zum Beispiel: CoWork",
     "createProject": "Projekt erstellen",
     "createProjectSubtitle": "Wählen Sie einen lokalen oder SSH-Ordner. Der Projektname folgt dem Ordnernamen.",
     "projectSource": "Projektquelle",
@@ -162,7 +162,7 @@
         "description": "Verwenden Sie es, um das Ziel, die Grenzen, die Einschränkungen und die Akzeptanzkriterien vor der Ausführung zu verstehen."
       },
       "modeCowork": {
-        "title": "Das ist Cowork Mode",
+        "title": "Das ist CoWork Mode",
         "description": "Verwenden Sie es für die allgemeine Projektzusammenarbeit: Recherchieren, Organisieren von Plänen, Koordinieren von Tools, Verwalten von Dateien und Voranbringen von mehrstufiger Arbeit."
       },
       "modeCode": {
@@ -252,7 +252,7 @@
         "title": "Empfohlene erste Schritte",
         "bullets": [
           "Erstellen Sie ein Projekt und binden Sie einen Arbeitsordner, bevor Sie mit der ernsthaften Arbeit beginnen.",
-          "Verwenden Sie Clarify für Anforderungserkennung, Cowork für allgemeine Unterstützung und Code für Implementierungsaufgaben.",
+          "Verwenden Sie Clarify für Anforderungserkennung, CoWork für allgemeine Unterstützung und Code für Implementierungsaufgaben.",
           "Erwähnen Sie für die Codearbeit zuerst Dateien mit @ und beschreiben Sie dann das Ziel und die Einschränkungen.",
           "Behalten Sie während der Ausführung Schritte, Dateien, Artefakte und Kontext auf der rechten Seite im Auge.",
           "Wenn die Sitzung lang wird, verwenden Sie die Kontextkomprimierung, um das Modell fokussiert zu halten."
@@ -661,7 +661,7 @@
     "startConversationDesc": "Fragen Sie etwas, oder verwenden Sie die Websuche und ausgewählte MCP-Tools.",
     "startClarify": "Beginn der Klarstellung",
     "startClarifyDesc": "Ziel, Einschränkungen, Risiken und Lücken vor der Planung abfragen. Standardmäßig geht es um Klarstellungsverhalten, aber Berechtigungen stimmen mit dem Code-Modus überein.",
-    "startCowork": "Starten Sie eine Cowork Session",
+    "startCowork": "Starten Sie eine CoWork Session",
     "startCoworkDesc": "Wählen Sie einen Arbeitsordner aus und bitten Sie den Assistenten, bei Ihrem Projekt zu helfen.",
     "startCoding": "Startcode",
     "startCodingDesc": "Beschreiben Sie, was Sie bauen möchten, und der Assistent wird den Code schreiben.",

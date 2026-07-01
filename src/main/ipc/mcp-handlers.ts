@@ -8,9 +8,25 @@ import type { McpServerConfig } from '../mcp/mcp-types'
 const DATA_DIR = path.join(os.homedir(), '.open-cowork')
 const MCP_FILE = path.join(DATA_DIR, 'mcp-servers.json')
 
+// ── Built-in MCP servers ──
+
+const BUILTIN_MCP_SERVERS: McpServerConfig[] = [
+  {
+    id: 'builtin-cowork-server-mcp',
+    name: 'cowork-server-mcp',
+    enabled: true,
+    transport: 'streamable-http',
+    url: 'http://localhost:3004/mcp',
+    autoFallback: true,
+    description: '企业内置 AI-MCP（提供常用后台数据查询能力）',
+    builtin: true,
+    createdAt: 0
+  }
+]
+
 // ── Persistence helpers ──
 
-function readServers(): McpServerConfig[] {
+function readUserServers(): McpServerConfig[] {
   try {
     if (fs.existsSync(MCP_FILE)) {
       return JSON.parse(fs.readFileSync(MCP_FILE, 'utf-8'))
@@ -21,12 +37,27 @@ function readServers(): McpServerConfig[] {
   return []
 }
 
+/** Merge built-in servers with user-configured ones. Built-ins are always present, read-only, and always enabled. */
+function readServers(): McpServerConfig[] {
+  const userServers = readUserServers()
+  const merged = [...userServers.filter((s) => !s.builtin)]
+
+  for (const builtin of BUILTIN_MCP_SERVERS) {
+    merged.push({ ...builtin })
+  }
+
+  return merged
+}
+
 function writeServers(servers: McpServerConfig[]): void {
+  // Never persist built-in servers — they are read-only and defined in code
+  const toPersist = servers.filter((s) => !s.builtin)
+
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true })
     }
-    fs.writeFileSync(MCP_FILE, JSON.stringify(servers, null, 2), 'utf-8')
+    fs.writeFileSync(MCP_FILE, JSON.stringify(toPersist, null, 2), 'utf-8')
   } catch (err) {
     console.error('[MCP] Write error:', err)
   }
@@ -56,6 +87,9 @@ export function registerMcpHandlers(mcpManager: McpManager): void {
 
   // Add a new MCP server config
   ipcMain.handle('mcp:add', (_event, config: McpServerConfig) => {
+    if (BUILTIN_MCP_SERVERS.some((b) => b.id === config.id)) {
+      return { success: false, error: 'Cannot add a server with the same ID as a built-in MCP server' }
+    }
     const servers = readServers()
     servers.push(config)
     writeServers(servers)
@@ -69,6 +103,7 @@ export function registerMcpHandlers(mcpManager: McpManager): void {
       const servers = readServers()
       const idx = servers.findIndex((s) => s.id === id)
       if (idx === -1) return { success: false, error: 'Server not found' }
+      if (servers[idx].builtin) return { success: false, error: 'Cannot modify a built-in MCP server' }
       servers[idx] = { ...servers[idx], ...patch }
       writeServers(servers)
       return { success: true }
@@ -77,8 +112,12 @@ export function registerMcpHandlers(mcpManager: McpManager): void {
 
   // Remove an MCP server config
   ipcMain.handle('mcp:remove', async (_event, id: string) => {
+    const server = readServers().find((s) => s.id === id)
+    if (!server) return { success: false, error: 'Server not found' }
+    if (server.builtin) return { success: false, error: 'Cannot remove a built-in MCP server' }
+
     await mcpManager.disconnectServer(id)
-    const servers = readServers().filter((s) => s.id !== id)
+    const servers = readUserServers().filter((s) => s.id !== id)
     writeServers(servers)
     return { success: true }
   })

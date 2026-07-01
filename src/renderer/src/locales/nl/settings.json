@@ -2,7 +2,7 @@
   "page": {
     "title": "Instellingen",
     "subtitle": "Voorkeuren & modelinstellingen",
-    "poweredBy": "Aangedreven door CoCoWork",
+    "poweredBy": "Aangedreven door CoWork",
     "groups": {
       "foundation": "Stichting",
       "system": "Systeem",
@@ -14,13 +14,13 @@
   "profile": {
     "title": "Profiel",
     "subtitle": "Lokale identiteits- en tokenactiviteit",
-    "defaultName": "CoCoWork-gebruiker",
+    "defaultName": "CoWork-gebruiker",
     "localAccount": "Lokaal profiel",
     "edit": "Bewerken",
     "save": "Opslaan",
     "cancel": "Annuleren",
     "displayName": "Naam tonen",
-    "displayNamePlaceholder": "CoCoWork-gebruiker",
+    "displayNamePlaceholder": "CoWork-gebruiker",
     "chooseAvatar": "Avatar kiezen",
     "removeAvatar": "Avatar verwijderen",
     "avatarInvalid": "Kies een afbeeldingsbestand.",
@@ -237,7 +237,7 @@
   },
   "sync": {
     "title": "Synchroniseren",
-    "subtitle": "Record-level CoCoWork data synchroniseren met WebDAV.",
+    "subtitle": "Record-level CoWork data synchroniseren met WebDAV.",
     "loading": "Synchronisatieinstellingen worden geladen...",
     "provider": {
       "title": "Aanbieder",
@@ -302,7 +302,7 @@
     "shell": {
       "endpoint": {
         "title": "eindpunt van de shell-uitvoering",
-        "desc": "Kies welke shell CoCoWork gebruikt voor Bash tool calls. De opties worden gefilterd door het huidige besturingssysteem.",
+        "desc": "Kies welke shell CoWork gebruikt voor Bash tool calls. De opties worden gefilterd door het huidige besturingssysteem.",
         "selectLabel": "Beschikbare schelpen",
         "options": {
           "auto": {
@@ -349,7 +349,7 @@
         "desc": "Beheer extra omgevingsvariabelen geïnjecteerd in nieuwe lokale shellsessies.",
         "placeholder": "FOO=bar\nPATH=/tmp/test-bin:$PATH\n# export HELLO=world",
         "formatHint": "Eén variabele per regel. Ondersteunde formaten: KEY=VALUE of export KEY=VALUE.",
-        "precedenceHint": "CoCoWork waarden overschrijven de huidige procesomgeving wanneer namen botsen.",
+        "precedenceHint": "CoWork waarden overschrijven de huidige procesomgeving wanneer namen botsen.",
         "newSessionHint": "Beïnvloedt alleen nieuw aangemaakte lokale shellsessies, achtergrondprocessen en terminaltabbladen.",
         "validationError": "Regel {{line}} is ongeldig en is niet opgeslagen. Gebruik sleutel=VALUE of exporteer sleutel=VALUE."
       }
@@ -645,9 +645,9 @@
       "cookiesCleared": "Browser-cookies gewist",
       "cookiesClearFailed": "Kon browsercookies niet wissen",
       "userDataReuse": "Lokaal browserprofiel simuleren",
-      "userDataReuseDesc": "Standaard aan. De ingebouwde browser gebruikt de geselecteerde browser-identiteit terwijl CoCoWork-opslag geïsoleerd wordt gehouden om lokale browsergegevens te beschermen.",
+      "userDataReuseDesc": "Standaard aan. De ingebouwde browser gebruikt de geselecteerde browser-identiteit terwijl CoWork-opslag geïsoleerd wordt gehouden om lokale browsergegevens te beschermen.",
       "userDataSource": "Browsergegevensbron",
-      "userDataSourceDesc": "Kies welk geïnstalleerd browserprofiel CoCoWork eerst moet proberen.",
+      "userDataSourceDesc": "Kies welk geïnstalleerd browserprofiel CoWork eerst moet proberen.",
       "sources": {
         "auto": "Automatisch detecteren",
         "chrome": "Google Chrome",
@@ -656,9 +656,9 @@
         "chromium": "Chroom"
       },
       "activeProfile": "Gedetecteerd bronprofiel: {{browserName}} ' {{profileName}} Wat? {{path}}",
-      "profileFallback": "Er is geen profiel gevonden voor de geselecteerde bron, dus CoCoWork gebruikt zijn eigen browser-identiteit.",
+      "profileFallback": "Er is geen profiel gevonden voor de geselecteerde bron, dus CoWork gebruikt zijn eigen browser-identiteit.",
       "isolatedStorage": "Geïsoleerde opslag: {{path}}",
-      "restartRequired": "CoCoWork opnieuw opstarten voor deze browserprofielmodus om volledig in werking te treden.",
+      "restartRequired": "CoWork opnieuw opstarten voor deze browserprofielmodus om volledig in werking te treden.",
       "blockedDomains": "Geblokkeerde domeinen",
       "blockedDomainsDesc": "Navigatie naar deze domeinen en subdomeinen wordt geweigerd.",
       "allowedDomains": "Toegestane domeinen",
@@ -689,7 +689,7 @@
   },
   "migration": {
     "title": "Migratiecentrum",
-    "subtitle": "OpenCode-configuratie bekijken en migreren naar CoCoWork",
+    "subtitle": "OpenCode-configuratie bekijken en migreren naar CoWork",
     "sourceTitle": "OpenCode-bron",
     "sourceDesc": "Momenteel leest alleen ~/.config/opencode/opencode.json en migrees providers, model selecties, commando's, agenten, MCP servers, en instructies.",
     "reloadAction": "Voorbeeld verversen",
@@ -753,7 +753,7 @@
     "framework": "Kader",
     "ui": "UI",
     "license": "Licentie",
-    "description": "CoCoWork is een open-source AI samenwerkingsplatform dat meerdere LLM-aanbieders ondersteunt.",
+    "description": "CoWork is een open-source AI samenwerkingsplatform dat meerdere LLM-aanbieders ondersteunt.",
     "github": "GitHub",
     "heroTagline": "AI Collaboratieve Werkbank",
     "heroDescription": "Coördineer meerdere modellen, agenten en vaardigheden binnen één eigen werkplek.",
@@ -775,7 +775,7 @@
         "desc": "Sluit MCP servers, vaardigheden, en derden channels naadloos."
       }
     },
-    "summary": "CoCoWork verenigt multi-model workflows, MCP-servers, vaardigheden en aangepaste channels binnen één desktop ervaring, zodat u kunt schakelen tussen Chat, Cowork, of Code modes terwijl u in controle blijft."
+    "summary": "CoWork verenigt multi-model workflows, MCP-servers, vaardigheden en aangepaste channels binnen één desktop ervaring, zodat u kunt schakelen tussen Chat, CoWork, of Code modes terwijl u in controle blijft."
   },
   "dialog": {
     "title": "Snelle instellingen",
@@ -1352,15 +1352,15 @@
     "provider": "Marktaanbieder",
     "providerDesc": "Selecteer waar vaardigheden vandaan gehaald moeten worden",
     "selectProvider": "Selecteer een aanbieder",
-    "skillsmpDesc": "CoCoWork Skills marktplaats (optioneel API sleutel)",
+    "skillsmpDesc": "CoWork Skills marktplaats (optioneel API sleutel)",
     "builtinLabel": "Ingebouwd",
     "builtinDesc": "Lokale gebundelde vaardighedenlijst (geen API-sleutel vereist)",
     "builtinInfo": "Gebruikt de gebundelde vaardigheden verzonden met de app. Marketplace installeert downloadt het officiële vaardighedenpakket en voert lokale veiligheidscontroles voor de installatie.",
     "skillsmpInfo": "Fetches de nieuwste vaardigheden catalogus van skills.open-cowork.shop. Browsen heeft geen API sleutel meer nodig; als je extra mogelijkheden nodig hebt, maak er een in Dashboard en gebruik Docs voor het instellen.",
     "apiKey": "API-sleutel",
-    "apiKeyDesc": "Optioneel: uw CoCoWork Skills API-sleutel, als u er een heeft",
+    "apiKeyDesc": "Optioneel: uw CoWork Skills API-sleutel, als u er een heeft",
     "apiKeyPlaceholder": "sk live...",
-    "apiKeyRequired": "Het doorbladeren van de CoCoWork Skills markt heeft geen API sleutel meer nodig.",
+    "apiKeyRequired": "Het doorbladeren van de CoWork Skills markt heeft geen API sleutel meer nodig.",
     "getApiKey": "API-sleutel ophalen",
     "openDocs": "Documenten openen",
     "test": "Testverbinding",
@@ -1373,7 +1373,7 @@
   },
   "soulmarket": {
     "title": "SOUL Market",
-    "desc": "Blader door CoCoWork SOULs met de gedeelde Vaardigheden markt API sleutel.",
+    "desc": "Blader door CoWork SOULs met de gedeelde Vaardigheden markt API sleutel.",
     "apiKey": "API-sleutel",
     "getApiKey": "API-sleutel ophalen",
     "openDocs": "Documenten openen",
@@ -1432,7 +1432,7 @@
     "toggleRightPanel": "Rechterpaneel aan/uit",
     "commandPalette": "Commandopalet",
     "prevNextSession": "Vorige/volgende sessie",
-    "switchMode": "Schakelmodus (Chat/Cowork/Code)",
+    "switchMode": "Schakelmodus (Chat/CoWork/Code)",
     "scrollTopBottom": "Naar boven/onder schuiven",
     "cycleRightTab": "Tabblad rechts fietspaneel",
     "sendMessage": "Bericht versturen",

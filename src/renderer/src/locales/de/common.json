@@ -82,7 +82,7 @@
   "mode": {
     "chat": "Chat",
     "clarify": "Klarstellung",
-    "cowork": "Cowork",
+    "cowork": "CoWork",
     "code": "Code",
     "acp": "AKP"
   },
@@ -91,8 +91,8 @@
     "next": "Nächster Artikel",
     "back": "Früher",
     "intro": {
-      "title": "Hallo, willkommen bei CoCoWork",
-      "subtitle": "CoCoWork ist ein erster lokaler Arbeitsbereich für die Zusammenarbeit mit mehreren Agenten. Er kann Ihren Projektkontext lesen, lokale Tools mit Genehmigung verwenden und Agenten bei der Zusammenarbeit mit Ihnen in Code, Forschung, Planung und täglichen Workflows unterstützen.",
+      "title": "Hallo, willkommen bei CoWork",
+      "subtitle": "CoWork ist ein erster lokaler Arbeitsbereich für die Zusammenarbeit mit mehreren Agenten. Er kann Ihren Projektkontext lesen, lokale Tools mit Genehmigung verwenden und Agenten bei der Zusammenarbeit mit Ihnen in Code, Forschung, Planung und täglichen Workflows unterstützen.",
       "points": {
         "local": {
           "title": "Lokale Tools, realer Kontext",
@@ -116,13 +116,13 @@
       "en": "Englisch"
     },
     "nickname": {
-      "title": "Wie sollte CoCoWork Sie nennen?",
+      "title": "Wie sollte CoWork Sie nennen?",
       "subtitle": "Dies wird lokal gespeichert und in USER.md geschrieben, damit Agenten Sie natürlich ansprechen können.",
       "placeholder": "Dein Spitzname"
     },
     "interests": {
       "title": "Welche Bereiche interessieren Sie?",
-      "subtitle": "Wählen Sie einen oder mehrere. CoCoWork verwendet diesen, um bessere Standardeinstellungen auszuwählen und Ihr lokales Profil zu personalisieren.",
+      "subtitle": "Wählen Sie einen oder mehrere. CoWork verwendet diesen, um bessere Standardeinstellungen auszuwählen und Ihr lokales Profil zu personalisieren.",
       "options": {
         "content": "Erstellung von Inhalten",
         "coding": "Kodierung und Entwicklung",
@@ -154,8 +154,8 @@
       "retry": "Versuch"
     },
     "done": {
-      "action": "Betreten von CoCoWork",
-      "toast": "CoCoWork ist bereit",
+      "action": "Betreten von CoWork",
+      "toast": "CoWork ist bereit",
       "failed": "Fehlgeschlagen, um Setup zu beenden"
     }
   },

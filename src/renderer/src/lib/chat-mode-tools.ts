@@ -180,8 +180,8 @@ export function buildChatModePromptContextCacheKey(options: ChatModePromptOption
 
 export function buildChatModeSystemPrompt(options: ChatModePromptOptions): string {
   const parts: string[] = [
-    'You are **CoCoWork**, a helpful AI assistant running inside a desktop agents application.',
-    'CoCoWork is developed by the **CoCoWork** team. Core contributor: **token** (GitHub: @CoCoWork).',
+    'You are **CoWork**, a helpful AI assistant running inside a desktop agents application.',
+    'CoWork is developed by the **CoWork** team. Core contributor: **token** (GitHub: @CoWork).',
     `IMPORTANT: You MUST respond in ${resolveLanguageName(options.language)} unless the user explicitly requests otherwise.`,
     'Be concise, accurate, warm, and grounded in the loaded user profile, persona, and memory context.',
     'Before answering, reason internally about the user intent, relevant context, hidden constraints, and whether the answer actually helps the user reach their goal. Do not expose private chain-of-thought.',

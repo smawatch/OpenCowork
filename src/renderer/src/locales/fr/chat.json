@@ -44,7 +44,7 @@
     "newProject": "Nouveau projet",
     "projectName": "Nom du projet",
     "projectNameHint": "Sélectionner un dossier utilise le nom du dossier comme nom du projet.",
-    "projectNamePlaceholder": "Par exemple: CoCoWork",
+    "projectNamePlaceholder": "Par exemple: CoWork",
     "createProject": "Créer un projet",
     "createProjectSubtitle": "Choisissez un dossier local ou SSH. Le nom du projet suit le nom du dossier.",
     "projectSource": "Source du projet",
@@ -162,7 +162,7 @@
         "description": "Utilisez-le pour comprendre le but, les limites, les contraintes et les critères d'acceptation avant l'exécution."
       },
       "modeCowork": {
-        "title": "C'est le mode Cowork",
+        "title": "C'est le mode CoWork",
         "description": "Utilisez-le pour la collaboration générale des projets: recherche, organisation des plans, coordination des outils, traitement des dossiers et avancement des travaux en plusieurs étapes."
       },
       "modeCode": {
@@ -252,7 +252,7 @@
         "title": "Première étape recommandée",
         "bullets": [
           "Créez un projet et liez un dossier de travail avant de commencer un travail sérieux.",
-          "Utiliser Clarify pour la découverte des besoins, Cowork pour l'assistance générale et Code pour les tâches de mise en oeuvre.",
+          "Utiliser Clarify pour la découverte des besoins, CoWork pour l'assistance générale et Code pour les tâches de mise en oeuvre.",
           "Pour le travail de code, mentionnez les fichiers avec @ d'abord, puis décrivez le but et les contraintes.",
           "Pendant l'exécution, gardez un œil sur Étapes, Fichiers, Artefacts, et Contexte sur le côté droit.",
           "Lorsque la session devient longue, utilisez la compression contextuelle pour garder le modèle concentré."

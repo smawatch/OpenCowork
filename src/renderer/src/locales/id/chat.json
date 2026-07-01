@@ -44,7 +44,7 @@
     "newProject": "Proyek baru",
     "projectName": "Nama projek",
     "projectNameHint": "Memilih folder memakai nama folder sebagai nama projek.",
-    "projectNamePlaceholder": "Sebagai contoh: CoCoWork",
+    "projectNamePlaceholder": "Sebagai contoh: CoWork",
     "createProject": "Buat projek",
     "createProjectSubtitle": "Pilih folder lokal atau SSH. Nama projek mengikuti nama folder.",
     "projectSource": "Sumber projek",
@@ -162,7 +162,7 @@
         "description": "Gunakan itu untuk memahami tujuan, batas, batasan, dan kriteria penerimaan sebelum eksekusi."
       },
       "modeCowork": {
-        "title": "Ini adalah mode Cowork",
+        "title": "Ini adalah mode CoWork",
         "description": "Gunakan untuk kolaborasi proyek umum: meneliti, mengorganisir rencana, mengkoordinasikan alat, menangani berkas, dan memajukan multi- langkah kerja."
       },
       "modeCode": {

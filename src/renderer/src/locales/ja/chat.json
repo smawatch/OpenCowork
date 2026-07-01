@@ -44,7 +44,7 @@
     "newProject": "新規プロジェクト",
     "projectName": "プロジェクト名",
     "projectNameHint": "フォルダを選択すると、フォルダ名をプロジェクト名として使用します。",
-    "projectNamePlaceholder": "例えば: CoCoWork",
+    "projectNamePlaceholder": "例えば: CoWork",
     "createProject": "プロジェクトの作成",
     "createProjectSubtitle": "ローカルまたはSSHフォルダを選択します。 プロジェクト名は、フォルダ名に従います。",
     "projectSource": "プロジェクトソース",
@@ -162,7 +162,7 @@
         "description": "実行前に目標、境界、制約、受諾基準を理解するために使用します。 最初に物事を尋ねて絞り込む方が良いです。"
       },
       "modeCowork": {
-        "title": "Cowork モード",
+        "title": "CoWork モード",
         "description": "一般的なプロジェクトコラボレーションのために使用します。計画の調査、整理、ツールの調整、ファイル処理、マルチステップ作業の推進。"
       },
       "modeCode": {
@@ -661,7 +661,7 @@
     "startConversationDesc": "何かを尋ねるか、またはWeb検索と選択したMCPツールを使用します。",
     "startClarify": "明確に始める",
     "startClarifyDesc": "計画する前に目標、制約、リスク、ギャップを遮断します。 デフォルトでは、明確化優先の動作を宣言しますが、コードモードにマッチする権限を付与します。",
-    "startCowork": "Coworkセッションを開始",
+    "startCowork": "CoWorkセッションを開始",
     "startCoworkDesc": "作業フォルダを選択し、アシスタントに依頼してプロジェクトを支援してください。",
     "startCoding": "コーディングを始める",
     "startCodingDesc": "ビルドしたいものを記述し、アシスタントはコードを書きます。",

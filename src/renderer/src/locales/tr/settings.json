@@ -2,7 +2,7 @@
   "page": {
     "title": "Ayarlar",
     "subtitle": "Tercihler ve Model Ayarları",
-    "poweredBy": "Powered by CoCoWork",
+    "poweredBy": "Powered by CoWork",
     "groups": {
       "foundation": "Vakıf Vakfı",
       "system": "Sistem Sistemi",
@@ -14,13 +14,13 @@
   "profile": {
     "title": "Profil Profili",
     "subtitle": "Yerel kimlik ve token aktivite",
-    "defaultName": "CoCoWork User",
+    "defaultName": "CoWork User",
     "localAccount": "Yerel profil",
     "edit": "Edit Edit",
     "save": "Kaydet Kaydet Kaydet",
     "cancel": "Cancel Cancel Cancel Cancel",
     "displayName": "Ekran adı",
-    "displayNamePlaceholder": "CoCoWork User",
+    "displayNamePlaceholder": "CoWork User",
     "chooseAvatar": "seçin Avatar",
     "removeAvatar": "Kaldır Avatar",
     "avatarInvalid": "Lütfen bir görüntü dosyasını seçin.",
@@ -237,7 +237,7 @@
   },
   "sync": {
     "title": "Sen",
-    "subtitle": "Rekor düzeyinde CoCoWork verileri WebDAV ile senkronize eder.",
+    "subtitle": "Rekor düzeyinde CoWork verileri WebDAV ile senkronize eder.",
     "loading": "Kargo ayarları Yükleniyor...",
     "provider": {
       "title": "Sağlayıcı",
@@ -302,7 +302,7 @@
     "shell": {
       "endpoint": {
         "title": "Shell execution endpoint",
-        "desc": "Bash aracı aramaları için hangi kabuk CoCoWork kullanır seçin. seçenekler mevcut işletim sistemi tarafından filtrelenir.",
+        "desc": "Bash aracı aramaları için hangi kabuk CoWork kullanır seçin. seçenekler mevcut işletim sistemi tarafından filtrelenir.",
         "selectLabel": "Mevcut kabuklar",
         "options": {
           "auto": {
@@ -349,7 +349,7 @@
         "desc": "Yeni yerel kabuk seanslarına enjekte edilen ekstra çevre değişkenlerini yönetin.",
         "placeholder": "FOO=bar\nPATH=/tmp/test-bin:$PATH\n# export HELLO =world",
         "formatHint": "Hat başına bir değişken: Desteklenen formatlar: KEY=VALUE veya ihracat KEY=VALUE.",
-        "precedenceHint": "CoCoWork, isimleri çarpıtırken mevcut işlem ortamına değer verir.",
+        "precedenceHint": "CoWork, isimleri çarpıtırken mevcut işlem ortamına değer verir.",
         "newSessionHint": "Sadece yeni yaratılan yerel kabuk seanslarını, arka süreçleri ve terminal sekmelerini etkiler.",
         "validationError": "Line Line Line {{line}} geçersizdir ve kurtarılmadı. KEY=VALUE veya ihracat KEY=VALUE."
       }
@@ -554,7 +554,7 @@
     "promptRecommendationModes": {
       "chat": "Chat Mode",
       "clarify": "Clarify Mode",
-      "cowork": "Cowork Mode",
+      "cowork": "CoWork Mode",
       "code": "Kod Modu",
       "acp": "ACP Mode"
     },
@@ -645,9 +645,9 @@
       "cookiesCleared": "Tarayıcı kurabiyeleri temizlendi",
       "cookiesClearFailed": "Net tarayıcı kurabiyelerine başarısız oldu",
       "userDataReuse": "Simulate yerel tarayıcı profili",
-      "userDataReuseDesc": "Varsayılan olarak, yerleşik tarayıcı, yerel tarayıcı verilerini korumak için CoCoWork depolamayı izole ederken seçilmiş tarayıcı kimliğini kullanır.",
+      "userDataReuseDesc": "Varsayılan olarak, yerleşik tarayıcı, yerel tarayıcı verilerini korumak için CoWork depolamayı izole ederken seçilmiş tarayıcı kimliğini kullanır.",
       "userDataSource": "Tarayıcı veri kaynağı",
-      "userDataSourceDesc": "Hangi yüklü tarayıcı profili CoCoWork ilk denemelidir.",
+      "userDataSourceDesc": "Hangi yüklü tarayıcı profili CoWork ilk denemelidir.",
       "sources": {
         "auto": "Auto detect",
         "chrome": "Google Chrome",
@@ -656,9 +656,9 @@
         "chromium": "Kromium"
       },
       "activeProfile": "Kaynak profili:: {{browserName}} / / {{profileName}} – – {{path}}",
-      "profileFallback": "Seçilen kaynak için profil tespit edilmedi, bu yüzden CoCoWork kendi tarayıcı kimliğini kullanıyor.",
+      "profileFallback": "Seçilen kaynak için profil tespit edilmedi, bu yüzden CoWork kendi tarayıcı kimliğini kullanıyor.",
       "isolatedStorage": "İzole depolama: {{path}}",
-      "restartRequired": "CoCoWork for this browser profili modu tamamen etkilenecek.",
+      "restartRequired": "CoWork for this browser profili modu tamamen etkilenecek.",
       "blockedDomains": "Blocked domains",
       "blockedDomainsDesc": "Bu alanlara ve alt alanlara yolculuk reddedilir.",
       "allowedDomains": "İzin verilen alanlar",
@@ -689,7 +689,7 @@
   },
   "migration": {
     "title": "Göç Merkezi",
-    "subtitle": "Preview ve göç OpenCode yapılandırması CoCoWork",
+    "subtitle": "Preview ve göç OpenCode yapılandırması CoWork",
     "sourceTitle": "OpenCode Source",
     "sourceDesc": "Şu anda sadece - / açık kod/opencode.json ve göç sağlayıcıları, model seçimi, komutlar, ajanlar, MCP sunucuları ve talimatlar.",
     "reloadAction": "Tazelik",
@@ -753,7 +753,7 @@
     "framework": "Çerçeve Çerçeve Çerçeve Çerçeve",
     "ui": "UI UI",
     "license": "Lisans Lisans Lisans Lisans Lisans Lisans Lisans",
-    "description": "CoCoWork, birden fazla LLM sağlayıcıyı destekleyen açık kaynaklı bir AI işbirliği platformudur.",
+    "description": "CoWork, birden fazla LLM sağlayıcıyı destekleyen açık kaynaklı bir AI işbirliği platformudur.",
     "github": "GitHub",
     "heroTagline": "AI Collaborative Workbench",
     "heroDescription": "Birden fazla model, ajanlar ve tek bir yerel çalışma alanı içinde beceriler.",
@@ -775,7 +775,7 @@
         "desc": "Connect MCP sunucuları, beceriler ve üçüncü taraf channles sorunsuz bir şekilde."
       }
     },
-    "summary": "CoCoWork multi-model iş akışları, MCP sunucuları, beceriler ve bir masaüstü deneyimi içinde özel channles, böylece Chat, Cowork veya Code modları arasında kontrolde kalırken değiştirebilirsiniz."
+    "summary": "CoWork multi-model iş akışları, MCP sunucuları, beceriler ve bir masaüstü deneyimi içinde özel channles, böylece Chat, CoWork veya Code modları arasında kontrolde kalırken değiştirebilirsiniz."
   },
   "dialog": {
     "title": "Hızlı Ayarlar",
@@ -1352,15 +1352,15 @@
     "provider": "Market Provider",
     "providerDesc": "Becerileri nereden getireceğini seçin",
     "selectProvider": "Bir sağlayıcı seçin",
-    "skillsmpDesc": "CoCoWork Skills market (API anahtar opsiyon)",
+    "skillsmpDesc": "CoWork Skills market (API anahtar opsiyon)",
     "builtinLabel": "İnşa Edilmiş -",
     "builtinDesc": "Yerel paket becerileri listesi (g API anahtarı gerekli değildir)",
     "builtinInfo": "Uygulama ile gönderilen paket becerileri kullanın. Market installs resmi yetenek paketi indirin ve kurulumdan önce yerel güvenlik kontrollerini çalıştırın.",
     "skillsmpInfo": "Fetches the latest skills catalog from skills.open-cowork.shop. Browsing no now requires an API key; if you need extra skills, create one in Dashboard and use Docs for installation.",
     "apiKey": "API Anahtar",
-    "apiKeyDesc": "Seçmeli: CoCoWork Skills API anahtarınız varsa, bir tane varsa",
+    "apiKeyDesc": "Seçmeli: CoWork Skills API anahtarınız varsa, bir tane varsa",
     "apiKeyPlaceholder": "sk live...",
-    "apiKeyRequired": "CoCoWork Skills pazarı artık API anahtarı gerektirmez.",
+    "apiKeyRequired": "CoWork Skills pazarı artık API anahtarı gerektirmez.",
     "getApiKey": "API Key",
     "openDocs": "Open Docs",
     "test": "Test Bağlantısı",
@@ -1432,7 +1432,7 @@
     "toggleRightPanel": "Doğru panel",
     "commandPalette": "Komutan",
     "prevNextSession": "Önceki / sonraki oturum",
-    "switchMode": "Anahtar modu (Chat/Cowork/Code)",
+    "switchMode": "Anahtar modu (Chat/CoWork/Code)",
     "scrollTopBottom": "üst / alt",
     "cycleRightTab": "Sağ panel sekmesi",
     "sendMessage": "Mesaj Gönder",

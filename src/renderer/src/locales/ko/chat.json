@@ -44,7 +44,7 @@
     "newProject": "새로운 프로젝트",
     "projectName": "프로젝트 이름",
     "projectNameHint": "폴더 선택은 프로젝트 이름으로 폴더 이름을 사용합니다.",
-    "projectNamePlaceholder": "예를 들면: CoCoWork",
+    "projectNamePlaceholder": "예를 들면: CoWork",
     "createProject": "프로젝트",
     "createProjectSubtitle": "로컬 또는 SSH 폴더를 선택하십시오. 프로젝트 이름은 폴더 이름을 따릅니다.",
     "projectSource": "프로젝트 소스",
@@ -162,7 +162,7 @@
         "description": "실행하기 전에 목표, 경계, 제약 및 합격 기준을 이해하기 위해 사용하십시오. 먼저 묻고 좁은 것들을 위해 더 낫습니다."
       },
       "modeCowork": {
-        "title": "Cowork 모드",
+        "title": "CoWork 모드",
         "description": "일반 프로젝트 협업을 위한 사용: 연구, 계획, 조정 도구, 처리 파일 및 다단계 작업을 추진."
       },
       "modeCode": {
@@ -661,7 +661,7 @@
     "startConversationDesc": "질문, 또는 웹 검색 및 선택 MCP 도구.",
     "startClarify": "자주 묻는 질문",
     "startClarifyDesc": "계획하기 전에 목표, 제약, 위험 및 격차를 교차하십시오. 그것은 clarification-first 행동에 기본적으로, 하지만 권한 일치 코드 모드.",
-    "startCowork": "Cowork 세션 시작",
+    "startCowork": "CoWork 세션 시작",
     "startCoworkDesc": "작업 폴더를 선택한 다음 프로젝트에 도움을 요청하십시오.",
     "startCoding": "시작 코딩",
     "startCodingDesc": "빌드하려는 것을 설명하고 조수는 코드를 작성합니다.",

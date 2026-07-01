@@ -44,7 +44,7 @@
     "newProject": "Nuevo proyecto",
     "projectName": "Nombre del proyecto",
     "projectNameHint": "Seleccionar una carpeta utiliza el nombre de la carpeta como nombre del proyecto.",
-    "projectNamePlaceholder": "Por ejemplo: CoCoWork",
+    "projectNamePlaceholder": "Por ejemplo: CoWork",
     "createProject": "Crear proyecto",
     "createProjectSubtitle": "Elija una carpeta local o SSH. El nombre del proyecto sigue el nombre de la carpeta.",
     "projectSource": "Fuente del proyecto",
@@ -162,7 +162,7 @@
         "description": "Úsalo para entender el objetivo, los límites, las limitaciones y los criterios de aceptación antes de la ejecución. Es mejor para pedir y reducir las cosas primero."
       },
       "modeCowork": {
-        "title": "Este es el modo Cowork",
+        "title": "Este es el modo CoWork",
         "description": "Úsalo para la colaboración general de proyectos: investigación, organización de planes, herramientas de coordinación, manejo de archivos y promoción de trabajo multi-paso."
       },
       "modeCode": {
@@ -252,7 +252,7 @@
         "title": "Primer paso recomendado",
         "bullets": [
           "Crear un proyecto y vincular una carpeta de trabajo antes de comenzar un trabajo serio.",
-          "Use Clarify para el descubrimiento de requisitos, Cowork for general assistance, y Code for implementation tasks.",
+          "Use Clarify para el descubrimiento de requisitos, CoWork for general assistance, y Code for implementation tasks.",
           "Para el trabajo de código, mencione los archivos con @ primero, luego describa el objetivo y las limitaciones.",
           "Durante la ejecución, vigila Pasos, Archivos, Objetos y Contexto en el lado derecho.",
           "Cuando la sesión crece mucho, use la compresión Context para mantener el modelo enfocado."

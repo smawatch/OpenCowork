@@ -2,7 +2,7 @@
   "page": {
     "title": "設定",
     "subtitle": "環境設定とモデル設定",
-    "poweredBy": "CoCoWork 上で動作",
+    "poweredBy": "CoWork 上で動作",
     "groups": {
       "foundation": "基盤",
       "system": "システム",
@@ -14,13 +14,13 @@
   "profile": {
     "title": "プロフィール",
     "subtitle": "ローカルのアイデンティティとトークン利用",
-    "defaultName": "CoCoWork ユーザー",
+    "defaultName": "CoWork ユーザー",
     "localAccount": "ローカルプロフィール",
     "edit": "編集",
     "save": "保存",
     "cancel": "キャンセル",
     "displayName": "表示名",
-    "displayNamePlaceholder": "CoCoWork ユーザー",
+    "displayNamePlaceholder": "CoWork ユーザー",
     "chooseAvatar": "アバターを選択",
     "removeAvatar": "アバターを削除",
     "avatarInvalid": "画像ファイルを選択してください。",
@@ -237,7 +237,7 @@
   },
   "sync": {
     "title": "同期",
-    "subtitle": "WebDAVと記録レベルのCoCoWorkデータ同期。",
+    "subtitle": "WebDAVと記録レベルのCoWorkデータ同期。",
     "loading": "同期設定をロードする...",
     "provider": {
       "title": "プロバイダー",
@@ -302,7 +302,7 @@
     "shell": {
       "endpoint": {
         "title": "シェル実行エンドポイント",
-        "desc": "どのシェルCoCoWorkがバッシュツールコールに使用するかを選択します。 オプションは、現在のオペレーティングシステムによってフィルタリングされます。",
+        "desc": "どのシェルCoWorkがバッシュツールコールに使用するかを選択します。 オプションは、現在のオペレーティングシステムによってフィルタリングされます。",
         "selectLabel": "利用可能なシェル",
         "options": {
           "auto": {
@@ -349,7 +349,7 @@
         "desc": "新しいローカルシェルセッションに注入された追加の環境変数を管理します。",
         "placeholder": "FOO=バー\nPATH=/tmp/test-bin:$PATH\n# 輸出HELLO=世界",
         "formatHint": "ラインごとの1つの変数。 サポートされている形式: KEY=VALUE または KEY=VALUE をエクスポートします。",
-        "precedenceHint": "CoCoWork は、コールライド時に現在のプロセス環境を上書きする値です。",
+        "precedenceHint": "CoWork は、コールライド時に現在のプロセス環境を上書きする値です。",
         "newSessionHint": "新しく作成されたローカルシェルセッション、背景プロセス、ターミナルタブのみに影響します。",
         "validationError": "ライン{{line}}は無効であり、保存されていない。 KEY=VALUE または KEY=VALUE をエクスポートします。"
       }
@@ -645,9 +645,9 @@
       "cookiesCleared": "ブラウザのクッキーはクリア",
       "cookiesClearFailed": "ブラウザのクッキーをクリアできない",
       "userDataReuse": "ローカルブラウザプロファイルをシミュレート",
-      "userDataReuseDesc": "デフォルト ビルトインブラウザは、CoCoWorkストレージを分離してローカルブラウザデータを保護しながら、選択したブラウザ ID を使用します。",
+      "userDataReuseDesc": "デフォルト ビルトインブラウザは、CoWorkストレージを分離してローカルブラウザデータを保護しながら、選択したブラウザ ID を使用します。",
       "userDataSource": "ブラウザーのデータソース",
-      "userDataSourceDesc": "インストールしたブラウザのプロファイルCoCoWorkが最初に試してみるかを選択します。",
+      "userDataSourceDesc": "インストールしたブラウザのプロファイルCoWorkが最初に試してみるかを選択します。",
       "sources": {
         "auto": "自動検出",
         "chrome": "サイトマップ",
@@ -656,9 +656,9 @@
         "chromium": "クロム"
       },
       "activeProfile": "検出された源のプロフィール: {{browserName}}/{{profileName}} — {{path}}",
-      "profileFallback": "選択したソースでプロファイルが検出されないため、CoCoWorkは独自のブラウザのアイデンティティを使用しています。",
+      "profileFallback": "選択したソースでプロファイルが検出されないため、CoWorkは独自のブラウザのアイデンティティを使用しています。",
       "isolatedStorage": "隔離された貯蔵:{{path}}",
-      "restartRequired": "このブラウザプロファイルモードでCoCoWorkを再起動して、完全に効果を発揮します。",
+      "restartRequired": "このブラウザプロファイルモードでCoWorkを再起動して、完全に効果を発揮します。",
       "blockedDomains": "ブロックドメイン",
       "blockedDomainsDesc": "これらのドメインとサブドメインへのナビゲーションは拒否されます。",
       "allowedDomains": "許可されたドメイン",
@@ -689,7 +689,7 @@
   },
   "migration": {
     "title": "移住センター",
-    "subtitle": "OpenCode の設定を CoCoWork にプレビューして移行する",
+    "subtitle": "OpenCode の設定を CoWork にプレビューして移行する",
     "sourceTitle": "OpenCode ソース",
     "sourceDesc": "現在、~/.config/opencode/opencode.json と migrates プロバイダー、モデル選択、コマンド、エージェント、MCP サーバー、および指示のみを読み込みます。",
     "reloadAction": "プレビュー",
@@ -753,7 +753,7 @@
     "framework": "アーカイブ",
     "ui": "ログイン",
     "license": "ライセンス",
-    "description": "CoCoWorkは、複数のLMプロバイダーをサポートするオープンソースのAIコラボレーションプラットフォームです。",
+    "description": "CoWorkは、複数のLMプロバイダーをサポートするオープンソースのAIコラボレーションプラットフォームです。",
     "github": "GitHubの特長",
     "heroTagline": "AI連携ワークベンチ",
     "heroDescription": "1つのネイティブワークスペース内で複数のモデル、エージェント、スキルを調整します。",
@@ -775,7 +775,7 @@
         "desc": "MCP サーバー、スキル、およびサードパーティのチャンドルをシームレスに接続します。"
       }
     },
-    "summary": "CoCoWorkは、マルチモデルのワークフロー、MCPサーバー、スキル、カスタムチャンヌルを1つのデスクトップエクスペリエンス内で統一することで、チャット、コワーキング、またはコードモードを切り替えながらコントロールできます。"
+    "summary": "CoWorkは、マルチモデルのワークフロー、MCPサーバー、スキル、カスタムチャンヌルを1つのデスクトップエクスペリエンス内で統一することで、チャット、コワーキング、またはコードモードを切り替えながらコントロールできます。"
   },
   "dialog": {
     "title": "クイック設定",
@@ -1352,15 +1352,15 @@
     "provider": "マーケットプロバイダー",
     "providerDesc": "スキルを取得する場所を選択",
     "selectProvider": "プロバイダーを選択",
-    "skillsmpDesc": "CoCoWorkスキルマーケットプレース(APIキーオプション)",
+    "skillsmpDesc": "CoWorkスキルマーケットプレース(APIキーオプション)",
     "builtinLabel": "作り付け",
     "builtinDesc": "ローカルバンドルスキルリスト(APIキーは必要ありません)",
     "builtinInfo": "バンドルされたスキルをアプリで出荷します。 Marketplaceは、公式のスキルパッケージをダウンロードしてインストールする前にローカルの安全チェックを実行します。",
     "skillsmpInfo": "Skill.open-cowork.shopから最新のスキルカタログを入手してください。 Browsing は API キーを必要としません。追加の機能が必要な場合は、Dashboard で 1 つを作成し、Docs を使用してセットアップを行います。",
     "apiKey": "APIキー",
-    "apiKeyDesc": "オプション: CoCoWork スキル API キー, 1 つを持っている場合",
+    "apiKeyDesc": "オプション: CoWork スキル API キー, 1 つを持っている場合",
     "apiKeyPlaceholder": "sk live ...",
-    "apiKeyRequired": "CoCoWork スキルのマーケットプレースは API キーを必要としません。",
+    "apiKeyRequired": "CoWork スキルのマーケットプレースは API キーを必要としません。",
     "getApiKey": "APIキーの取得",
     "openDocs": "ドキュメントを開く",
     "test": "テスト接続",
@@ -1373,7 +1373,7 @@
   },
   "soulmarket": {
     "title": "SOULマーケット",
-    "desc": "CoCoWork SOULs をシェアしたスキルマーケットプレース API キーで参照してください。",
+    "desc": "CoWork SOULs をシェアしたスキルマーケットプレース API キーで参照してください。",
     "apiKey": "APIキー",
     "getApiKey": "APIキーの取得",
     "openDocs": "ドキュメントを開く",

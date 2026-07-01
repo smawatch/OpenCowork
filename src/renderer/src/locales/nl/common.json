@@ -82,7 +82,7 @@
   "mode": {
     "chat": "Gesprek",
     "clarify": "Verduidelijken",
-    "cowork": "Cowork",
+    "cowork": "CoWork",
     "code": "Rubriek",
     "acp": "ACS"
   },
@@ -91,8 +91,8 @@
     "next": "Volgende",
     "back": "Vorige",
     "intro": {
-      "title": "Welkom bij CoCoWork.",
-      "subtitle": "CoCoWork is een lokaal-eerste werkplek voor multi-agent AI samenwerking. Het kan uw project context lezen, gebruik maken van lokale tools met goedkeuring, en help agenten werken samen met u in code, onderzoek, planning en dagelijkse workflows.",
+      "title": "Welkom bij CoWork.",
+      "subtitle": "CoWork is een lokaal-eerste werkplek voor multi-agent AI samenwerking. Het kan uw project context lezen, gebruik maken van lokale tools met goedkeuring, en help agenten werken samen met u in code, onderzoek, planning en dagelijkse workflows.",
       "points": {
         "local": {
           "title": "Lokale hulpmiddelen, echte context",
@@ -116,13 +116,13 @@
       "en": "Engels"
     },
     "nickname": {
-      "title": "Hoe moet CoCoWork je noemen?",
+      "title": "Hoe moet CoWork je noemen?",
       "subtitle": "Dit wordt lokaal opgeslagen en geschreven in USER.md zodat agenten je op natuurlijke wijze kunnen aanspreken.",
       "placeholder": "Uw bijnaam"
     },
     "interests": {
       "title": "In welke gebieden bent u geïnteresseerd?",
-      "subtitle": "Kies er één of meer. CoCoWork gebruikt dit om betere standaards te kiezen en uw lokale profiel te personaliseren.",
+      "subtitle": "Kies er één of meer. CoWork gebruikt dit om betere standaards te kiezen en uw lokale profiel te personaliseren.",
       "options": {
         "content": "Aanmaken van inhoud",
         "coding": "Codering en ontwikkeling",
@@ -154,8 +154,8 @@
       "retry": "Opnieuw proberen"
     },
     "done": {
-      "action": "CoCoWork invoeren",
-      "toast": "CoCoWork is klaar",
+      "action": "CoWork invoeren",
+      "toast": "CoWork is klaar",
       "failed": "Afwerking mislukt"
     }
   },

@@ -44,7 +44,7 @@
     "newProject": "Yeni proje",
     "projectName": "Proje adı",
     "projectNameHint": "Bir klasör seçmek, proje adı olarak klasör ismini kullanır.",
-    "projectNamePlaceholder": "Örneğin: CoCoWork",
+    "projectNamePlaceholder": "Örneğin: CoWork",
     "createProject": "Create project Create project",
     "createProjectSubtitle": "Yerel veya SSH klasörü seçin. Proje adı klasör adını takip eder.",
     "projectSource": "Project source",
@@ -162,7 +162,7 @@
         "description": "Hedefi, sınırları, kısıtlamaları ve kabul kriterlerini uygulamadan önce anlamak için kullanın. İlk önce şeyleri sormak ve daraltmak daha iyidir."
       },
       "modeCowork": {
-        "title": "Bu Cowork modu",
+        "title": "Bu CoWork modu",
         "description": "Genel proje işbirliği için kullanın: araştırma, organize planlar, koordinasyon araçları, dosyaları işlemek ve çok adımlı çalışma geliştirmek."
       },
       "modeCode": {
@@ -252,7 +252,7 @@
         "title": "Önerilen İlk Adımlar",
         "bullets": [
           "Bir proje oluşturun ve ciddi çalışmaya başlamadan önce bir çalışma klasörüne bağlanır.",
-          "Gerekli keşif için Clarify kullanın, genel yardım için Cowork ve uygulama görevleri için Kod.",
+          "Gerekli keşif için Clarify kullanın, genel yardım için CoWork ve uygulama görevleri için Kod.",
           "Kod çalışması için, @ first ile dosyalardan bahsedin, sonra hedefi ve kısıtlamaları tanımlayın.",
           "Uygulama sırasında, adımlar, dosyalar, Artifacts ve Context üzerinde bir göz tutun.",
           "Oturum uzun zaman büyürken, model odaklanmış tutmak için Context sıkıştırma kullanın."
@@ -661,7 +661,7 @@
     "startConversationDesc": "Bir şey sorun ya da web aramasını kullanın ve seçilmiş MCP araçları kullanın.",
     "startClarify": "Açıklanmaya başlayın",
     "startClarifyDesc": "Hedefe, kısıtlamalara, risklere ve planlamadan önce boşluklara yol açıyor. Bu, ilk davranışı gizlemek için varsayılandır, ancak Kod modunu onaylar.",
-    "startCowork": "Bir Cowork seansı başlatın",
+    "startCowork": "Bir CoWork seansı başlatın",
     "startCoworkDesc": "Bir çalışma klasörü seçin, sonra asistanın projenizle yardımcı olmasını isteyin.",
     "startCoding": "Başlangıç",
     "startCodingDesc": "Ne inşa etmek istediğinizi ve asistan kodu yazacaktır.",

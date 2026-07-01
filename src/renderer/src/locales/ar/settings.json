@@ -237,7 +237,7 @@
   },
   "sync": {
     "title": "الرمز",
-    "subtitle": "Record-level CoCoWork data coincide with WebDAV.",
+    "subtitle": "Record-level CoWork data coincide with WebDAV.",
     "loading": "وضع مزامنة",
     "provider": {
       "title": "Provider",
@@ -658,7 +658,7 @@
       "activeProfile": "بيان المصدر المحدد: {{browserName}} / {{profileName}} - {{path}}",
       "profileFallback": "لم يكتشف أي ملف للمصدر المختار لذا فالعمل المفتوح يستخدم هويته الخاصة",
       "isolatedStorage": "التخزين المعزول: {{path}}",
-      "restartRequired": "Reart CoCoWork for this browser profile mode to fully take effect.",
+      "restartRequired": "Reart CoWork for this browser profile mode to fully take effect.",
       "blockedDomains": "المجالات غير الساحلية",
       "blockedDomainsDesc": "وترفض الملاحة في هذه المجالات وضواحيها.",
       "allowedDomains": "المجالات المسموح بها",
@@ -689,7 +689,7 @@
   },
   "migration": {
     "title": "مركز الهجرة",
-    "subtitle": "Preview and migrate OpenCode formation into CoCoWork",
+    "subtitle": "Preview and migrate OpenCode formation into CoWork",
     "sourceTitle": "المصدر",
     "sourceDesc": "ولا يُقرأ في الوقت الراهن إلا على النحو التالي: &quot; كوريغ/أوبينكود/أوبينكود &quot; ، ومقدمو خدمات الهجرة، واختيار النماذج، والقيادات، والوكلاء، وخواديم برنامج المقارنات المتعددة الأطراف، والتعليمات.",
     "reloadAction": "إعادة النظر",
@@ -1373,7 +1373,7 @@
   },
   "soulmarket": {
     "title": "سوق الأوراق المالية",
-    "desc": "Browse CoCoWork SOULs with the shared Skills marketplace API key.",
+    "desc": "Browse CoWork SOULs with the shared Skills marketplace API key.",
     "apiKey": "API Key",
     "getApiKey": "الحصول على مفتاح API",
     "openDocs": "افتحوا الوثيقة",

@@ -82,7 +82,7 @@
   "mode": {
     "chat": "Chat",
     "clarify": "Clarifier",
-    "cowork": "Cowork",
+    "cowork": "CoWork",
     "code": "Code",
     "acp": "ACP"
   },
@@ -91,8 +91,8 @@
     "next": "Suivant",
     "back": "Précédent",
     "intro": {
-      "title": "Bonjour, bienvenue à CoCoWork",
-      "subtitle": "CoCoWork est un espace de travail d'abord local pour la collaboration multi-agents AI. Il peut lire le contexte de votre projet, utiliser des outils locaux avec approbation et aider les agents à travailler avec vous dans le code, la recherche, la planification et les workflows quotidiens.",
+      "title": "Bonjour, bienvenue à CoWork",
+      "subtitle": "CoWork est un espace de travail d'abord local pour la collaboration multi-agents AI. Il peut lire le contexte de votre projet, utiliser des outils locaux avec approbation et aider les agents à travailler avec vous dans le code, la recherche, la planification et les workflows quotidiens.",
       "points": {
         "local": {
           "title": "Outils locaux, contexte réel",
@@ -116,13 +116,13 @@
       "en": "changements climatiques"
     },
     "nickname": {
-      "title": "Que devrait vous appeler CoCoWork?",
+      "title": "Que devrait vous appeler CoWork?",
       "subtitle": "Ceci est stocké localement et écrit dans USER.md afin que les agents puissent vous adresser naturellement.",
       "placeholder": "Votre surnom"
     },
     "interests": {
       "title": "Quels sont les domaines qui vous intéressent?",
-      "subtitle": "Choisissez un ou plusieurs. CoCoWork utilise ceci pour choisir de meilleurs par défaut et personnaliser votre profil local.",
+      "subtitle": "Choisissez un ou plusieurs. CoWork utilise ceci pour choisir de meilleurs par défaut et personnaliser votre profil local.",
       "options": {
         "content": "Création de contenu",
         "coding": "Codage et développement",
@@ -154,8 +154,8 @@
       "retry": "Réessayer"
     },
     "done": {
-      "action": "Entrez CoCoWork",
-      "toast": "CoCoWork est prêt",
+      "action": "Entrez CoWork",
+      "toast": "CoWork est prêt",
       "failed": "Impossible de terminer la configuration"
     }
   },

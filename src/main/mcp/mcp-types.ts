@@ -33,6 +33,9 @@ export interface McpServerConfig {
   // Metadata
   createdAt: number
   description?: string
+
+  /** Built-in server — always shown, cannot be removed, persisted separately */
+  builtin?: boolean
 }
 
 /** MCP server runtime status */

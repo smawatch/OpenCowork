@@ -800,7 +800,7 @@ function createTray(): void {
 
   tray = new Tray(getTrayIcon())
 
-  tray.setToolTip('CoCoWork')
+  tray.setToolTip('CoWork')
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -1068,9 +1068,9 @@ configureRendererHeapLimit()
 
 // 闃叉�dev鐜��鍜岀敓浜х幆澧冨啿绐侊紝瀵艰嚧鏃犳硶鍚�姩
 if (!app.isPackaged) {
-  app.setName('CoCoWork-dev')
+  app.setName('CoWork-dev')
 } else {
-  app.setName('CoCoWork')
+  app.setName('CoWork')
 }
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock()

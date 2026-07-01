@@ -44,7 +44,7 @@
     "newProject": "Nuovo progetto",
     "projectName": "Nome del progetto",
     "projectNameHint": "La selezione di una cartella utilizza il nome della cartella come nome del progetto.",
-    "projectNamePlaceholder": "Ad esempio: CoCoWork",
+    "projectNamePlaceholder": "Ad esempio: CoWork",
     "createProject": "Crea un progetto",
     "createProjectSubtitle": "Scegli una cartella locale o SSH. Il nome del progetto segue il nome della cartella.",
     "projectSource": "Fonte del progetto",
@@ -162,7 +162,7 @@
         "description": "Usalo per capire l'obiettivo, i confini, i vincoli e i criteri di accettazione prima dell'esecuzione."
       },
       "modeCowork": {
-        "title": "Questa è la modalità Cowork",
+        "title": "Questa è la modalità CoWork",
         "description": "Usalo per la collaborazione generale del progetto: ricerca, organizzazione dei piani, coordinamento degli strumenti, gestione dei file e promozione del lavoro multi-step."
       },
       "modeCode": {

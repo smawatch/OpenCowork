@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "CoCoWork": "CoCoWork",
+    "CoCoWork": "CoWork",
     "conversations": "Gespräche",
     "newConversation": "Neues Gespräch (Strg+N)",
     "exportAll": "Exportieren Sie alle Gespräche",
@@ -401,7 +401,7 @@
     "switchMode": "Schaltmodus",
     "switchToChat": "Wechsel in den Chat-Modus",
     "switchToClarify": "Wechsel zum Klarstellungsmodus",
-    "switchToCowork": "Wechsel in den Cowork Mode",
+    "switchToCowork": "Wechsel in den CoWork Mode",
     "switchToCode": "Wechsel in den Codemodus",
     "switchToAcp": "Wechsel in den AKP-Modus",
     "currentSession": "Aktuelle Sitzung",
@@ -999,7 +999,7 @@
     "agentReviewFailed": "Fehlgeschlagen",
     "agentReviewing": "Überprüfung...",
     "downloading": "Download...",
-    "noApiKeyTitle": "CoCoWork Skills API-Schlüssel nicht konfiguriert",
+    "noApiKeyTitle": "CoWork Skills API-Schlüssel nicht konfiguriert",
     "noApiKeyDesc": "Stellen Sie Ihren API-Schlüssel über das ⚙️-Symbol in der oberen Leiste ein, um den Marktplatz skills.open-cowork.shop zu durchsuchen.",
     "getApiKey": "Get API Key"
   },

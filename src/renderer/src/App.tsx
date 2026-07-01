@@ -983,7 +983,7 @@ function App(): React.JSX.Element {
               style={isMac ? { paddingLeft: '80px' } : undefined}
             >
               <span className="titlebar-no-drag text-xs font-medium text-muted-foreground">
-                CoCoWork
+                CoWork
               </span>
               {!isMac && (
                 <div className="absolute right-0 top-0 z-10">

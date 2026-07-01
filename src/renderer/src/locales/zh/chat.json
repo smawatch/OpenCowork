@@ -44,7 +44,7 @@
     "newProject": "新建项目",
     "projectName": "项目名",
     "projectNameHint": "选择目录后会使用目录名作为项目名。",
-    "projectNamePlaceholder": "例如：CoCoWork",
+    "projectNamePlaceholder": "例如：CoWork",
     "createProject": "创建项目",
     "createProjectSubtitle": "选择本地目录或 SSH 目录，项目名会自动使用目录名。",
     "projectSource": "项目来源",
@@ -278,7 +278,7 @@
         "title": "推荐上手顺序",
         "bullets": [
           "先新建项目并绑定工作目录，再开始会话。",
-          "Clarify 适合先问清需求，Cowork 适合通用协作，Code 适合直接改代码。",
+          "Clarify 适合先问清需求，CoWork 适合通用协作，Code 适合直接改代码。",
           "做代码任务时优先用 @ 引用文件，再描述目标和约束。",
           "执行过程中重点看右侧的 Steps、Files、Artifacts 和 Context。",
           "会话变长后可在 Context 里压缩上下文，减少模型遗忘前文的问题。"

@@ -2,7 +2,7 @@
   "page": {
     "title": "Configuração",
     "subtitle": "Configurações & Modelo",
-    "poweredBy": "Alimentado por CoCoWork",
+    "poweredBy": "Alimentado por CoWork",
     "groups": {
       "foundation": "Fundação",
       "system": "Sistema",
@@ -14,13 +14,13 @@
   "profile": {
     "title": "Perfil",
     "subtitle": "Identidade local e actividade do símbolo",
-    "defaultName": "Usuário do CoCoWork",
+    "defaultName": "Usuário do CoWork",
     "localAccount": "Perfil local",
     "edit": "Editar",
     "save": "Gravar",
     "cancel": "Cancelar",
     "displayName": "Mostrar o nome",
-    "displayNamePlaceholder": "Usuário do CoCoWork",
+    "displayNamePlaceholder": "Usuário do CoWork",
     "chooseAvatar": "Escolher o avatar",
     "removeAvatar": "Remover avatar",
     "avatarInvalid": "Por favor, escolha um arquivo de imagem.",
@@ -237,7 +237,7 @@
   },
   "sync": {
     "title": "Sincronizar",
-    "subtitle": "Sincronização de dados CoCoWork de nível de gravação com WebDAV.",
+    "subtitle": "Sincronização de dados CoWork de nível de gravação com WebDAV.",
     "loading": "Carregando configurações de sincronização...",
     "provider": {
       "title": "Fornecedor",
@@ -302,7 +302,7 @@
     "shell": {
       "endpoint": {
         "title": "Endpoint de execução de shell",
-        "desc": "Escolha qual shell CoCoWork usa para chamadas de ferramentas Bash. As opções são filtradas pelo sistema operacional atual.",
+        "desc": "Escolha qual shell CoWork usa para chamadas de ferramentas Bash. As opções são filtradas pelo sistema operacional atual.",
         "selectLabel": "Conchas disponíveis",
         "options": {
           "auto": {
@@ -349,7 +349,7 @@
         "desc": "Gerencie variáveis de ambiente extras injetadas em novas sessões de shell locais.",
         "placeholder": "FOO=bar\nPATH=/tmp/test-bin:$PATH\n# Exportar HELLO=world",
         "formatHint": "Uma variável por linha. Formatos suportados: KEY=ValUE ou exportar KEY=ValUE.",
-        "precedenceHint": "Os valores do CoCoWork sobrepõem-se ao ambiente de processo atual quando os nomes colidem.",
+        "precedenceHint": "Os valores do CoWork sobrepõem-se ao ambiente de processo atual quando os nomes colidem.",
         "newSessionHint": "Apenas afeta as novas sessões locais de shell, processos de fundo e abas de terminal.",
         "validationError": "Linha {{line}} é inválido e não foi salvo. Use KEY=ValUE ou exporte KEY=ValUE."
       }
@@ -645,9 +645,9 @@
       "cookiesCleared": "Cookies de navegador limpos",
       "cookiesClearFailed": "Falha ao limpar os cookies do navegador",
       "userDataReuse": "Simular o perfil do navegador local",
-      "userDataReuseDesc": "O navegador incorporado usa a identidade do navegador selecionado, mantendo o armazenamento do CoCoWork isolado para proteger os dados do navegador local.",
+      "userDataReuseDesc": "O navegador incorporado usa a identidade do navegador selecionado, mantendo o armazenamento do CoWork isolado para proteger os dados do navegador local.",
       "userDataSource": "Fonte de dados do navegador",
-      "userDataSourceDesc": "Escolha qual perfil de navegador instalado CoCoWork deve tentar primeiro.",
+      "userDataSourceDesc": "Escolha qual perfil de navegador instalado CoWork deve tentar primeiro.",
       "sources": {
         "auto": "Auto- detectar",
         "chrome": "Google Chrome",
@@ -656,9 +656,9 @@
         "chromium": "Crómio"
       },
       "activeProfile": "Perfil de origem detectado: {{browserName}} / {{profileName}} — {{path}}",
-      "profileFallback": "Nenhum perfil foi detectado para a fonte selecionada, então o CoCoWork está usando sua própria identidade de navegador.",
+      "profileFallback": "Nenhum perfil foi detectado para a fonte selecionada, então o CoWork está usando sua própria identidade de navegador.",
       "isolatedStorage": "Armazenamento isolado: {{path}}",
-      "restartRequired": "Reinicie o CoCoWork para que este modo de perfil do navegador tenha efeito total.",
+      "restartRequired": "Reinicie o CoWork para que este modo de perfil do navegador tenha efeito total.",
       "blockedDomains": "Domínios bloqueados",
       "blockedDomainsDesc": "A navegação para estes domínios e subdomínios é negada.",
       "allowedDomains": "Domínios permitidos",
@@ -689,7 +689,7 @@
   },
   "migration": {
     "title": "Centro de Migração",
-    "subtitle": "Visualizar e migrar a configuração do OpenCode para o CoCoWork",
+    "subtitle": "Visualizar e migrar a configuração do OpenCode para o CoWork",
     "sourceTitle": "Código OpenCode",
     "sourceDesc": "Atualmente lê apenas ~/.config/opencode/opencode.json e migra provedores, seleções de modelos, comandos, agentes, servidores MCP e instruções.",
     "reloadAction": "Actualizar a Antevisão",
@@ -753,7 +753,7 @@
     "framework": "Quadro",
     "ui": "UI",
     "license": "Licença",
-    "description": "CoCoWork é uma plataforma de colaboração de IA de código aberto que suporta vários provedores LLM.",
+    "description": "CoWork é uma plataforma de colaboração de IA de código aberto que suporta vários provedores LLM.",
     "github": "GitHub",
     "heroTagline": "AI Banco de Trabalho Colaborativo",
     "heroDescription": "Coordene vários modelos, agentes e habilidades dentro de um espaço de trabalho nativo.",
@@ -775,7 +775,7 @@
         "desc": "Conecte servidores MCP, habilidades e channles de terceiros perfeitamente."
       }
     },
-    "summary": "O CoCoWork unifica fluxos de trabalho multimodelos, servidores MCP, habilidades e channles personalizados dentro de uma experiência de desktop para que você possa alternar entre os modos Chat, Cowork ou Code enquanto estiver no controle."
+    "summary": "O CoWork unifica fluxos de trabalho multimodelos, servidores MCP, habilidades e channles personalizados dentro de uma experiência de desktop para que você possa alternar entre os modos Chat, CoWork ou Code enquanto estiver no controle."
   },
   "dialog": {
     "title": "Configuração Rápida",
@@ -1352,15 +1352,15 @@
     "provider": "Fornecedor de Mercados",
     "providerDesc": "Selecione de onde obter habilidades",
     "selectProvider": "Selecionar um provedor",
-    "skillsmpDesc": "Mercado de competências CoCoWork (chave opcional API)",
+    "skillsmpDesc": "Mercado de competências CoWork (chave opcional API)",
     "builtinLabel": "Incorporado",
     "builtinDesc": "Lista local de competências agrupadas (sem chave API necessária)",
     "builtinInfo": "Utiliza as habilidades empacotadas enviadas com o aplicativo. Marketplace instala baixar o pacote de habilidade oficial e executar verificações de segurança local antes da instalação.",
     "skillsmpInfo": "Fetches the latest skills catalog from skills.open-cowork.shop. Navegar não requer mais uma chave API; se você precisar de recursos extras, crie um no Dashboard e use Docs para configuração.",
     "apiKey": "Chave da API",
-    "apiKeyDesc": "Opcional: sua chave de API CoCoWork Skills, se você tiver uma",
+    "apiKeyDesc": "Opcional: sua chave de API CoWork Skills, se você tiver uma",
     "apiKeyPlaceholder": "sk live...",
-    "apiKeyRequired": "Navegar no mercado de Habilidades CoCoWork não requer mais uma chave API.",
+    "apiKeyRequired": "Navegar no mercado de Habilidades CoWork não requer mais uma chave API.",
     "getApiKey": "Obter a Chave da API",
     "openDocs": "Abrir os Documentos",
     "test": "Testar a Ligação",
@@ -1373,7 +1373,7 @@
   },
   "soulmarket": {
     "title": "Mercado da Soul",
-    "desc": "Navegue no CoCoWork SOULs com a chave de API de mercado de Skills compartilhada.",
+    "desc": "Navegue no CoWork SOULs com a chave de API de mercado de Skills compartilhada.",
     "apiKey": "Chave da API",
     "getApiKey": "Obter a Chave da API",
     "openDocs": "Abrir os Documentos",
@@ -1432,7 +1432,7 @@
     "toggleRightPanel": "Alternar painel direito",
     "commandPalette": "Paleta de Comando",
     "prevNextSession": "Sessão anterior/próxima",
-    "switchMode": "Modo de mudança (Chat/Cowork/Code)",
+    "switchMode": "Modo de mudança (Chat/CoWork/Code)",
     "scrollTopBottom": "Rolar para o topo/baixo",
     "cycleRightTab": "Rodar a página do painel direito",
     "sendMessage": "Enviar mensagem",

@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "CoCoWork": "CoCoWork",
+    "CoCoWork": "CoWork",
     "conversations": "Беседы",
     "newConversation": "Новый разговор (Ctrl+N)",
     "exportAll": "Экспорт всех разговоров",
@@ -401,7 +401,7 @@
     "switchMode": "Режим коммутации",
     "switchToChat": "Переключитесь в режим чат",
     "switchToClarify": "Переключитесь в режим уточнения",
-    "switchToCowork": "Переключение в режим Cowork",
+    "switchToCowork": "Переключение в режим CoWork",
     "switchToCode": "Переключение в Code Mode",
     "switchToAcp": "Переключение в режим ACP",
     "currentSession": "Текущая сессия",
@@ -999,7 +999,7 @@
     "agentReviewFailed": "неудачник",
     "agentReviewing": "Обзор...",
     "downloading": "Скачать...",
-    "noApiKeyTitle": "CoCoWork Skills API ключ не настроен",
+    "noApiKeyTitle": "CoWork Skills API ключ не настроен",
     "noApiKeyDesc": "Установите ключ API через значок.️ в верхней панели, чтобы просмотреть рынок skills.open-cowork.shop.",
     "getApiKey": "Получить API Key"
   },

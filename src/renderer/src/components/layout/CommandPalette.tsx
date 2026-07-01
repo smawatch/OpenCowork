@@ -249,7 +249,7 @@ export function CommandPalette(): React.JSX.Element {
               },
               {
                 value: 'cowork' as AppMode,
-                label: t('commandPalette.switchToCowork'),
+                label: t('commandPalette.switchToCoWork'),
                 icon: <Briefcase className="size-4" />
               },
               {

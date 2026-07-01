@@ -44,7 +44,7 @@
     "newProject": "New project",
     "projectName": "Project name",
     "projectNameHint": "Selecting a folder uses the folder name as the project name.",
-    "projectNamePlaceholder": "For example: CoCoWork",
+    "projectNamePlaceholder": "For example: CoWork",
     "createProject": "Create project",
     "createProjectSubtitle": "Choose a local or SSH folder. The project name follows the folder name.",
     "projectSource": "Project source",
@@ -188,7 +188,7 @@
         "description": "Use it to understand the goal, boundaries, constraints, and acceptance criteria before execution. It is better for asking and narrowing things down first."
       },
       "modeCowork": {
-        "title": "This is Cowork mode",
+        "title": "This is CoWork mode",
         "description": "Use it for general project collaboration: researching, organizing plans, coordinating tools, handling files, and advancing multi-step work."
       },
       "modeCode": {
@@ -278,7 +278,7 @@
         "title": "Recommended First Steps",
         "bullets": [
           "Create a project and bind a working folder before starting serious work.",
-          "Use Clarify for requirement discovery, Cowork for general assistance, and Code for implementation tasks.",
+          "Use Clarify for requirement discovery, CoWork for general assistance, and Code for implementation tasks.",
           "For code work, mention files with @ first, then describe the goal and constraints.",
           "During execution, keep an eye on Steps, Files, Artifacts, and Context on the right side.",
           "When the session grows long, use Context compression to keep the model focused."
@@ -695,7 +695,7 @@
     "startConversationDesc": "Ask anything, or use web search and selected MCP tools.",
     "startClarify": "Start clarifying",
     "startClarifyDesc": "Interrogate the goal, constraints, risks, and gaps before planning. It defaults to clarification-first behavior, but permissions match Code mode.",
-    "startCowork": "Start a Cowork session",
+    "startCowork": "Start a CoWork session",
     "startCoworkDesc": "Select a working folder, then ask the assistant to help with your project.",
     "startCoding": "Start coding",
     "startCodingDesc": "Describe what you want to build and the assistant will write the code.",

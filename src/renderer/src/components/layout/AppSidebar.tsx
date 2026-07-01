@@ -417,11 +417,11 @@ export function AppSidebar(): React.JSX.Element {
           <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <img
               src={appIconUrl}
-              alt="OpenCoWork"
+              alt="OpenCowork"
               className="size-8 rounded-xl object-cover shadow-sm"
             />
             <span className="flex-1 text-sm font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-              OpenCoWork
+              OpenCowork
             </span>
             {/* Debug button - REMOVE AFTER TESTING */}
             <button

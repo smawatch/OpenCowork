@@ -148,7 +148,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSwitchToRegis
                   setPassword(e.target.value);
                   if (error) setError('');
                 }}
-                placeholder="请输入密码"
+                placeholder="请输入密码，激活用户默认密码：sma@123456"
                 disabled={isLoading}
                 autoComplete="current-password"
                 className="pr-10"

@@ -361,7 +361,7 @@ function ActiveMcpsBadge({ projectId }: { projectId?: string | null }): React.JS
 const placeholderKeys: Record<AppMode, string> = {
   chat: 'input.placeholder',
   clarify: 'input.placeholderClarify',
-  cowork: 'input.placeholderCowork',
+  cowork: 'input.placeholderCoWork',
   code: 'input.placeholderCode',
   acp: 'input.placeholderAcp'
 }
@@ -369,7 +369,7 @@ const placeholderKeys: Record<AppMode, string> = {
 const defaultRecommendationKeys: Record<AppMode, string> = {
   chat: 'input.recommendationDefaultChat',
   clarify: 'input.recommendationDefaultClarify',
-  cowork: 'input.recommendationDefaultCowork',
+  cowork: 'input.recommendationDefaultCoWork',
   code: 'input.recommendationDefaultCode',
   acp: 'input.recommendationDefaultAcp'
 }

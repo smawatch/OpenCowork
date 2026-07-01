@@ -91,8 +91,8 @@
     "next": "Próxima",
     "back": "Anterior",
     "intro": {
-      "title": "Olá, bem-vindo ao CoCoWork",
-      "subtitle": "O CoCoWork é um espaço de trabalho local para colaboração de IA multiagentes. Ele pode ler seu contexto de projeto, usar ferramentas locais com aprovação e ajudar agentes a trabalhar ao seu lado em código, pesquisa, planejamento e fluxos de trabalho diários.",
+      "title": "Olá, bem-vindo ao CoWork",
+      "subtitle": "O CoWork é um espaço de trabalho local para colaboração de IA multiagentes. Ele pode ler seu contexto de projeto, usar ferramentas locais com aprovação e ajudar agentes a trabalhar ao seu lado em código, pesquisa, planejamento e fluxos de trabalho diários.",
       "points": {
         "local": {
           "title": "Ferramentas locais, contexto real",
@@ -116,13 +116,13 @@
       "en": "Inglês"
     },
     "nickname": {
-      "title": "Como deve ser chamado o CoCoWork?",
+      "title": "Como deve ser chamado o CoWork?",
       "subtitle": "Isto é armazenado localmente e escrito no USER.md para que os agentes possam endereçá-lo naturalmente.",
       "placeholder": "A tua alcunha"
     },
     "interests": {
       "title": "Em que áreas está interessado?",
-      "subtitle": "Escolha um ou mais. O CoCoWork usa isso para escolher padrões melhores e personalizar seu perfil local.",
+      "subtitle": "Escolha um ou mais. O CoWork usa isso para escolher padrões melhores e personalizar seu perfil local.",
       "options": {
         "content": "Criação de conteúdo",
         "coding": "Codificação e desenvolvimento",
@@ -154,8 +154,8 @@
       "retry": "Repetir"
     },
     "done": {
-      "action": "Digite CoCoWork",
-      "toast": "CoCoWork está pronto",
+      "action": "Digite CoWork",
+      "toast": "CoWork está pronto",
       "failed": "Falha ao terminar a configuração"
     }
   },

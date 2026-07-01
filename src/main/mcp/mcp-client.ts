@@ -88,7 +88,7 @@ export class McpClientWrapper {
     // Clean up any existing client
     await this.cleanupClient()
 
-    this.client = new Client({ name: 'CoCoWork', version: '1.0.0' }, { capabilities: {} })
+    this.client = new Client({ name: 'CoWork', version: '1.0.0' }, { capabilities: {} })
 
     this.transport = this.createTransport(transportType)
     await this.client.connect(this.transport)

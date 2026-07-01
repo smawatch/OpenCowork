@@ -44,7 +44,7 @@
     "newProject": "Nieuw project",
     "projectName": "Projectnaam",
     "projectNameHint": "Een map selecteren gebruikt de mapnaam als projectnaam.",
-    "projectNamePlaceholder": "Bijvoorbeeld: CoCoWork",
+    "projectNamePlaceholder": "Bijvoorbeeld: CoWork",
     "createProject": "Project aanmaken",
     "createProjectSubtitle": "Kies een lokale of SSH-map. De projectnaam volgt de mapnaam.",
     "projectSource": "Projectbron",
@@ -162,7 +162,7 @@
         "description": "Gebruik het om het doel te begrijpen, grenzen, beperkingen, en acceptatie criteria voor uitvoering. Het is beter om eerst vragen en beperken dingen."
       },
       "modeCowork": {
-        "title": "Dit is Cowork mode",
+        "title": "Dit is CoWork mode",
         "description": "Gebruik het voor algemene projectsamenwerking: onderzoeken, plannen organiseren, tools coördineren, bestanden verwerken en meerdere stappen vooruit helpen."
       },
       "modeCode": {
@@ -252,7 +252,7 @@
         "title": "Aanbevolen eerste stappen",
         "bullets": [
           "Maak een project aan en bind een werkmap aan voordat u serieus gaat werken.",
-          "Gebruik Clarify voor vereiste ontdekking, Cowork voor algemene bijstand, en Code voor implementatietaken.",
+          "Gebruik Clarify voor vereiste ontdekking, CoWork voor algemene bijstand, en Code voor implementatietaken.",
           "Voor code werk, noem bestanden met @ eerst, beschrijf dan het doel en beperkingen.",
           "Tijdens de uitvoering, houd een oogje op Steps, Files, Artefacts, en Context aan de rechterkant.",
           "Wanneer de sessie langer wordt, gebruik Context compressie om het model gefocust te houden."

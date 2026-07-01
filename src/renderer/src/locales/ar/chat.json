@@ -44,7 +44,7 @@
     "newProject": "المشروع الجديد",
     "projectName": "اسم المشروع",
     "projectNameHint": "اختيار ملف يستخدم اسم الملف باسم المشروع",
-    "projectNamePlaceholder": "For example: CoCoWork",
+    "projectNamePlaceholder": "For example: CoWork",
     "createProject": "مشروع إنشاء",
     "createProjectSubtitle": "اختر ملفا محليا أو SSH، اسم المشروع يتبع اسم الملف.",
     "projectSource": "مصدر المشروع",
@@ -252,7 +252,7 @@
         "title": "الخطوات الأولى الموصى بها",
         "bullets": [
           "إنشاء مشروع وربط ملف عمل قبل بدء عمل جاد.",
-          "Use Clarify for requirement discovery, Cowork for general assistance, and Code for implementation tasks.",
+          "Use Clarify for requirement discovery, CoWork for general assistance, and Code for implementation tasks.",
           "For code work, mention files with @ first, then describe the goal and constraints.",
           "أثناء الإعدام، راقبوا خطوات، أفلام، قطع أثرية، وكونكست على الجانب الأيمن.",
           "وعندما تنمو الدورة لفترة طويلة، تستخدم ضغط السياق للحفاظ على تركيز النموذج."
