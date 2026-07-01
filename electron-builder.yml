@@ -73,8 +73,6 @@ files:
   - '!node_modules/property-information/**'
   - '!node_modules/space-separated-tokens/**'
   - '!node_modules/comma-separated-tokens/**'
-  - '!node_modules/parse5/**'
-  - '!node_modules/entities/**'
   - '!node_modules/devlop/**'
   - '!node_modules/ccount/**'
   - '!node_modules/character-entities*/**'
@@ -96,6 +94,7 @@ files:
   - '!node_modules/better-sqlite3/docs/**'
   - '!node_modules/better-sqlite3/benchmark/**'
   # Exclude unnecessary files from all modules
+  - '!node_modules/pdf-parse/test/**'
   - '!node_modules/**/README.md'
   - '!node_modules/**/CHANGELOG.md'
   - '!node_modules/**/*.ts'
