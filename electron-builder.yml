@@ -1,6 +1,5 @@
 appId: com.opencowork.app
 productName: OpenCoWork
-buildVersion: ${version}
 directories:
   buildResources: build
 afterPack: build/after-sign-mac.cjs
