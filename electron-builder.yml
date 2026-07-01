@@ -101,8 +101,6 @@ asarUnpack:
   - node_modules/node-gyp-build/**
 win:
   executableName: OpenCoWork
-  fileVersion: ${version}
-  productVersion: ${version}
   icon: build/icon.ico
   legalTrademarks: OpenCoWork
 nsis:
