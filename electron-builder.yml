@@ -13,7 +13,6 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   # Exclude renderer-only / build-only node_modules (already bundled by Vite)
   - '!node_modules/monaco-editor/**'
-  - '!node_modules/gpt-tokenizer/**'
   - '!node_modules/@lobehub/**'
   - '!node_modules/lucide-react/**'
   - '!node_modules/lightningcss*/**'
