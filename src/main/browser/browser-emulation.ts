@@ -253,10 +253,85 @@ export function shouldUseDefaultBrowserSession(): boolean {
   return mode.reuseEnabled
 }
 
+/** 检测是否为本地/内网地址 */
+function isLocalOrPrivateHost(hostname: string): boolean {
+  return hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) ||
+    /^192\.168\./.test(hostname)
+}
+
 export function getBuiltInBrowserSession(): Session {
-  return shouldUseDefaultBrowserSession()
+  const browserSession = shouldUseDefaultBrowserSession()
     ? session.defaultSession
     : session.fromPartition(BUILTIN_BROWSER_PARTITION)
+
+  // 配置浏览器会话以允许不安全的内容
+  if (!browserSession._configuredForInsecureContent) {
+    browserSession._configuredForInsecureContent = true
+
+    // 设置权限请求处理
+    browserSession.setPermissionRequestHandler((webContents, permission, callback) => {
+      callback(true)
+    })
+
+    // 处理证书验证，自动接受本地地址的自签名证书
+    browserSession.setCertificateVerifyProc((request, callback) => {
+      const { hostname, url } = request
+
+      if (isLocalOrPrivateHost(hostname)) {
+        console.log('[Browser] Auto-accepting certificate for local address:', url)
+        // 0 表示接受证书
+        callback(0)
+        return
+      }
+
+      // 使用默认验证
+      callback(-3)
+    })
+
+    // 在请求级别处理本地地址
+    browserSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
+      const url = new URL(details.url)
+
+      if (isLocalOrPrivateHost(url.hostname)) {
+        // 对于本地地址，允许所有请求正常进行，不做任何拦截
+        callback({ cancel: false })
+        return
+      }
+
+      callback({ cancel: false })
+    })
+    
+    // 移除所有可能触发 HTTPS 升级的响应头
+    browserSession.webRequest.onHeadersReceived((details, callback) => {
+      const responseHeaders = details.responseHeaders || {}
+      
+      // 删除 HSTS 相关头部
+      delete responseHeaders['strict-transport-security']
+      delete responseHeaders['Strict-Transport-Security']
+      
+      // 删除内容安全策略中的 upgrade-insecure-requests
+      if (responseHeaders['content-security-policy']) {
+        responseHeaders['content-security-policy'] = responseHeaders['content-security-policy'].map(header => {
+          return header.replace(/upgrade-insecure-requests/gi, '')
+        }).filter(Boolean)
+      }
+      
+      if (responseHeaders['Content-Security-Policy']) {
+        responseHeaders['Content-Security-Policy'] = responseHeaders['Content-Security-Policy'].map(header => {
+          return header.replace(/upgrade-insecure-requests/gi, '')
+        }).filter(Boolean)
+      }
+      
+      callback({
+        responseHeaders: responseHeaders
+      })
+    })
+  }
+  
+  return browserSession
 }
 
 export function getBuiltInBrowserStorageSessions(): Session[] {
@@ -352,6 +427,35 @@ export function configureBuiltInBrowserSession(): BrowserEmulationStatus {
   const browserId = getEffectiveBrowserId(mode)
   const userAgent = getBrowserLikeUserAgent(browserId)
   const acceptLanguages = getAcceptLanguages()
+
+  // 设置权限请求处理
+  browserSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(true)
+  })
+  
+  // 🔑 关键修复：处理证书验证，自动接受本地地址的自签名证书
+  browserSession.setCertificateVerifyProc((request, callback) => {
+    console.log('[Browser] Certificate verify request:', request)
+    const { hostname } = request
+    
+    // 检测本地地址
+    const isLocalAddress = 
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      /^10\./.test(hostname) ||
+      /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) ||
+      /^192\.168\./.test(hostname)
+    
+    if (isLocalAddress) {
+      console.log('[Browser] Auto-accepting certificate for local address:', hostname)
+      // 0 表示接受证书
+      callback(0)
+      return
+    }
+    
+    // 使用默认验证
+    callback(-3)
+  })
 
   if (readBrowserUserDataReuseEnabled()) {
     browserSession.setUserAgent(userAgent, acceptLanguages)

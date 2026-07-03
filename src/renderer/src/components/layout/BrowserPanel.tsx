@@ -10,6 +10,7 @@ import {
   describeWebviewOperationError,
   isPromiseLike,
   isWebviewConnected,
+  normalizeUrl,
   type MaybePromise
 } from '@renderer/lib/browser/webview-helpers'
 import { useTranslation } from 'react-i18next'
@@ -131,15 +132,6 @@ export function BrowserPanel({
     setCommittedUrl(storedUrl)
   }, [storedUrl])
 
-  const normalizeUrl = (url: string): string => {
-    let normalized = url.trim()
-    if (!normalized) return ''
-    if (!/^https?:\/\//i.test(normalized) && !normalized.startsWith('http://localhost')) {
-      normalized = `https://${normalized}`
-    }
-    return normalized
-  }
-
   const blockNavigation = useCallback(
     (url: string, reason?: string): void => {
       setBrowserErrorInfo(
@@ -257,8 +249,12 @@ export function BrowserPanel({
     }
 
     const onWillNavigate = (e: Event & { url?: string; preventDefault: () => void }): void => {
-      if (!e.url || canNavigateTo(e.url)) return
-      e.preventDefault()
+      if (!e.url) return
+      
+      // 检查访问控制
+      if (!canNavigateTo(e.url)) {
+        e.preventDefault()
+      }
     }
 
     const onNewWindow = (e: Event & { url: string; preventDefault: () => void }): void => {
