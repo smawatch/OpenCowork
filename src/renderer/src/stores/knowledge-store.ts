@@ -5,10 +5,12 @@ import { ipcStorage } from '@renderer/lib/ipc/ipc-storage'
 interface KnowledgeState {
   selectedDatasetIds: string[]
   localKbEnabled: boolean
+  datasetNames: Record<string, string>
   toggleDataset: (id: string) => void
   isDatasetSelected: (id: string) => boolean
   setSelectedDatasets: (ids: string[]) => void
   setLocalKbEnabled: (enabled: boolean) => void
+  setDatasetNames: (names: Record<string, string>) => void
 }
 
 export const useKnowledgeStore = create<KnowledgeState>()(
@@ -16,6 +18,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     (set, get) => ({
       selectedDatasetIds: [],
       localKbEnabled: false,
+      datasetNames: {},
 
       toggleDataset: (id) => {
         const current = get().selectedDatasetIds
@@ -29,7 +32,9 @@ export const useKnowledgeStore = create<KnowledgeState>()(
 
       setSelectedDatasets: (ids) => set({ selectedDatasetIds: ids }),
 
-      setLocalKbEnabled: (enabled) => set({ localKbEnabled: enabled })
+      setLocalKbEnabled: (enabled) => set({ localKbEnabled: enabled }),
+
+      setDatasetNames: (names) => set({ datasetNames: names })
     }),
     {
       name: 'knowledge-store',

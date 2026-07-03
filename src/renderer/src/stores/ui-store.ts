@@ -18,6 +18,7 @@ import {
   parseSettingsRoute,
   replaceSettingsRoute
 } from '@renderer/lib/settings-route'
+import { parseKnowledgeRoute } from '@renderer/lib/knowledge-route'
 
 export type AppMode = 'chat' | 'clarify' | 'cowork' | 'code' | 'acp'
 
@@ -2003,6 +2004,25 @@ export const useUIStore = create<UIStore>()(
           if (window.location.hash !== settingsRoute.canonicalHash) {
             window.history.replaceState(null, '', settingsRoute.canonicalHash)
           }
+          return
+        }
+
+        const knowledgeRoute = parseKnowledgeRoute(window.location.hash)
+        if (knowledgeRoute.kind === 'detail' || window.location.hash === '#/knowledge') {
+          set({
+            knowledgePageOpen: true,
+            settingsPageOpen: false,
+            settingsOpen: false,
+            skillsPageOpen: false,
+            soulsPageOpen: false,
+            syncPageOpen: false,
+            resourcesPageOpen: false,
+            translatePageOpen: false,
+            drawPageOpen: false,
+            tasksPageOpen: false,
+            aiCreationPageOpen: false,
+            ...closeRightSidePanels()
+          })
           return
         }
 

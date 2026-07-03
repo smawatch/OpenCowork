@@ -13,8 +13,7 @@ import {
   ClipboardList,
   Target,
   Puzzle,
-  BookOpen,
-  Layers
+  BookOpen
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Switch } from '@renderer/components/ui/switch'
@@ -40,10 +39,6 @@ import { resolveEffectiveActiveMcpIds, useMcpStore } from '@renderer/stores/mcp-
 import { useUIStore } from '@renderer/stores/ui-store'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
 import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
-import {
-  registerLocalKbSearchTool,
-  unregisterLocalKbSearchTool
-} from '@renderer/lib/tools/local-kb-search-tool'
 import { useAuthStore } from '@renderer/stores/auth-store'
 import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
 import {
@@ -92,8 +87,6 @@ export function SkillsMenu({
   const [open, setOpen] = React.useState(false)
   const [commands, setCommands] = React.useState<CommandCatalogItem[]>([])
   const [commandsLoading, setCommandsLoading] = React.useState(false)
-  const localKbEnabled = useKnowledgeStore((s) => s.localKbEnabled)
-  const setLocalKbEnabled = useKnowledgeStore((s) => s.setLocalKbEnabled)
 
   const skills = useSkillsStore((s) => s.skills)
   const loading = useSkillsStore((s) => s.loading)
@@ -131,6 +124,7 @@ export function SkillsMenu({
 
   const selectedDatasetIds = useKnowledgeStore((s) => s.selectedDatasetIds)
   const toggleDataset = useKnowledgeStore((s) => s.toggleDataset)
+  const setDatasetNames = useKnowledgeStore((s) => s.setDatasetNames)
   const [kbDatasets, setKbDatasets] = React.useState<Array<{ id: string; name: string; intro?: string }>>([])
   const [kbLoading, setKbLoading] = React.useState(false)
   const pluginsByProject = useAppPluginStore((s) => s.pluginsByProject)
@@ -196,18 +190,33 @@ export function SkillsMenu({
 
     let cancelled = false
 
-    // Fetch knowledge base list
+    // Fetch knowledge base list (enterprise + personal)
     setKbLoading(true)
-    void ipcClient
-      .invoke(IPC.KNOWLEDGE_LIST_DATASETS)
-      .then((r: any) => {
-        if (r?.code === 'UNAUTHORIZED') {
-          useAuthStore.getState().logout()
-          return
+    Promise.all([
+      ipcClient.invoke(IPC.KNOWLEDGE_LIST_DATASETS).catch(() => null),
+      ipcClient.invoke(IPC.KNOWLEDGE_PERSONAL_LIST_DATASETS).catch(() => null)
+    ]).then(([enterpriseR, personalR]: any) => {
+      if (enterpriseR?.code === 'UNAUTHORIZED' || personalR?.code === 'UNAUTHORIZED') {
+        useAuthStore.getState().logout()
+        return
+      }
+      const enterprise = enterpriseR?.success ? enterpriseR.data ?? [] : []
+      const personal = personalR?.success ? personalR.data ?? [] : []
+      if (!cancelled) {
+        const merged = [...personal, ...enterprise]
+        setKbDatasets(merged)
+        const names: Record<string, string> = {}
+        const validIds = new Set(merged.map((ds) => ds.id))
+        for (const ds of merged) names[ds.id] = ds.name
+        setDatasetNames(names)
+        // Clean up stale selected IDs that no longer exist
+        const currentIds = useKnowledgeStore.getState().selectedDatasetIds
+        const cleanIds = currentIds.filter((id) => validIds.has(id))
+        if (cleanIds.length !== currentIds.length) {
+          useKnowledgeStore.getState().setSelectedDatasets(cleanIds)
         }
-        if (!cancelled && r?.success) setKbDatasets(r.data ?? [])
-      })
-      .catch(() => {})
+      }
+    }).catch(() => {})
       .finally(() => {
         if (!cancelled) setKbLoading(false)
       })
@@ -666,31 +675,6 @@ export function SkillsMenu({
                     )
                   })
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    const next = !localKbEnabled
-                    setLocalKbEnabled(next)
-                    if (next) registerLocalKbSearchTool()
-                    else unregisterLocalKbSearchTool()
-                  }}
-                  className="flex items-center justify-between cursor-pointer"
-                >
-                  <span className="flex items-center gap-2 text-xs">
-                    <Layers className="size-3.5" />
-                    个人知识库
-                  </span>
-                  <span
-                    className={`flex size-4 items-center justify-center rounded border ${
-                      localKbEnabled
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-muted-foreground/30'
-                    }`}
-                  >
-                    {localKbEnabled && <Check className="size-3" />}
-                  </span>
-                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
                     setOpen(false)

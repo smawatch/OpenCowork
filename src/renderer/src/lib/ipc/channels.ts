@@ -430,6 +430,18 @@ export const IPC = {
   KNOWLEDGE_LIST_CHUNKS: 'knowledge:list-chunks',
   KNOWLEDGE_SEARCH: 'knowledge:search',
 
+  // Personal Knowledge Base (API)
+  KNOWLEDGE_PERSONAL_LIST_DATASETS: 'knowledge:personal:list-datasets',
+  KNOWLEDGE_PERSONAL_DELETE_COLLECTIONS: 'knowledge:personal:delete-collections',
+  KNOWLEDGE_PERSONAL_DELETE_DATASET: 'knowledge:personal:delete-dataset',
+  KNOWLEDGE_PERSONAL_UPDATE_DATASET: 'knowledge:personal:update-dataset',
+  KNOWLEDGE_PERSONAL_CREATE_DATASET: 'knowledge:personal:create-dataset',
+  KNOWLEDGE_PERSONAL_IMPORT_FILE: 'knowledge:personal:import-file',
+  KNOWLEDGE_PERSONAL_CREATE_TEXT_COLLECTION: 'knowledge:personal:create-text-collection',
+  KNOWLEDGE_PERSONAL_CREATE_FOLDER: 'knowledge:personal:create-folder',
+  KNOWLEDGE_PERSONAL_DOWNLOAD_FILE: 'knowledge:personal:download-file',
+  KNOWLEDGE_PERSONAL_LIST_FILES: 'knowledge:personal:list-files',
+
   // Local Knowledge Base
   KNOWLEDGE_LOCAL_CREATE: 'knowledge:local:create',
   KNOWLEDGE_LOCAL_LIST: 'knowledge:local:list',

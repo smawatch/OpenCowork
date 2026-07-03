@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { FadeIn, ScaleIn } from '@renderer/components/animate-ui'
 import { cn } from '@renderer/lib/utils'
+import { SaveToKnowledgePopover } from './SaveToKnowledgePopover'
 import { ImageGeneratingLoader } from './ImageGeneratingLoader'
 import { ImageGenerationErrorCard } from './ImageGenerationErrorCard'
 import { AgentErrorCard } from './AgentErrorCard'
@@ -1676,6 +1677,31 @@ export function AssistantMessage({
     isLiveMode && msgId ? s.generatingImagePreviews[msgId] : undefined
   )
 
+  // 获取会话标题和前一条用户消息，用于保存到知识库
+  const sessionTitleForSave = useChatStore((s) => {
+    if (!sessionId) return undefined
+    const idx = s.sessionsById[sessionId]
+    if (idx === undefined) return undefined
+    return s.sessions[idx]?.title
+  })
+  const userQuestionForSave = useChatStore((s) => {
+    if (!sessionId || !msgId) return undefined
+    const idx = s.sessionsById[sessionId]
+    if (idx === undefined) return undefined
+    const messages = s.sessions[idx]?.messages || []
+    // 找到当前消息在列表中的位置，取前一条用户消息
+    const currentIdx = messages.findIndex((m) => m.id === msgId)
+    for (let i = currentIdx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        const c = messages[i].content
+        const content = typeof c === 'string' ? c
+          : (c as any[]).map((b) => (b as any).text || '').join(' ').trim()
+        return content.slice(0, 100)
+      }
+    }
+    return undefined
+  })
+
   const stringSegments = useMemo(
     () => (typeof content === 'string' ? parseThinkTags(content) : null),
     [content]
@@ -2948,6 +2974,14 @@ export function AssistantMessage({
                   onClick={() => msgId && onRetry?.(msgId)}
                 />
               ) : null}
+              {plainText && msgId && (
+                <SaveToKnowledgePopover
+                  messageContent={plainText}
+                  sessionTitle={sessionTitleForSave}
+                  userQuestion={userQuestionForSave}
+                  msgId={msgId}
+                />
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

@@ -6,7 +6,6 @@ import { buildLeadCoordinatorPrompt } from './teams/prompts'
 import type { ActiveTeam } from '../../stores/team-store'
 import { resolveLanguageName } from '../i18n-language'
 import { buildParallelToolCallsPrompt } from './parallel-tool-calls-prompt'
-import { useKnowledgeStore } from '../../stores/knowledge-store'
 
 export type PromptEnvironmentContext = {
   target: 'local' | 'ssh'
@@ -210,26 +209,7 @@ function buildModePromptBody(
 }
 
 function buildKnowledgeBaseReminder(): string | null {
-  const state = useKnowledgeStore.getState()
-  const selectedIds = state.selectedDatasetIds
-  const localKbEnabled = state.localKbEnabled
-
-  if (selectedIds.length === 0 && !localKbEnabled) return null
-
-  const parts: string[] = ['<system-reminder>']
-
-  if (localKbEnabled) {
-    parts.push(
-      '本地个人知识库已开启。优先调用 LocalKnowledgeSearch 工具检索用户导入的本地文档（PDF/Word/Markdown等）。'
-    )
-  }
-  if (selectedIds.length > 0) {
-    parts.push(
-      `企业知识库：用户已选择 ${selectedIds.length} 个知识库。请调用 EnterpriseKnowledgeSearch 工具搜索。`
-    )
-  }
-  parts.push('</system-reminder>')
-  return parts.join('\n')
+  return null
 }
 
 function buildSkillsReminder(): string | null {
