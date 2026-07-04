@@ -9,6 +9,7 @@ import {
   describeWebviewOperationError,
   isPromiseLike,
   isWebviewConnected,
+  normalizeUrl,
   type MaybePromise
 } from '../browser/webview-helpers'
 
@@ -158,10 +159,7 @@ const browserNavigateHandler: ToolHandler = {
       if (action === 'goto') {
         let url = input.url as string
         if (!url || typeof url !== 'string') return encodeToolError('"url" is required for goto')
-        url = url.trim()
-        if (!/^https?:\/\//i.test(url) && !url.startsWith('http://localhost')) {
-          url = `https://${url}`
-        }
+        url = normalizeUrl(url)
         const accessError = getBrowserAccessError(url)
         if (accessError) return accessError
         useUIStore.getState().openBrowserTab(url, ctx.sessionId)

@@ -16,6 +16,12 @@ import {
 import * as dotenv from 'dotenv'
 dotenv.config()
 
+// 禁用一些安全特性，允许访问非 SSL 链接和自签名证书
+app.commandLine.appendSwitch('ignore-certificate-errors')
+app.commandLine.appendSwitch('allow-insecure-localhost')
+app.commandLine.appendSwitch('disable-web-security')
+app.commandLine.appendSwitch('disable-features', 'IsolateOrigins,site-per-process')
+
 // Fix Windows console encoding for Chinese characters
 if (process.platform === 'win32') {
   try {
@@ -1098,6 +1104,30 @@ if (gotSingleInstanceLock) {
     await syncMacOSShellEnvironment()
     await configureSystemProxy()
     const browserEmulationStatus = configureBuiltInBrowserSession()
+    
+    // 🔑 关键修复：在 app ready 后为默认 session 配置证书验证处理
+    session.defaultSession.setCertificateVerifyProc((request, callback) => {
+      console.log('[App] Default session certificate verify request:', request)
+      const { hostname } = request
+      
+      // 检测本地地址
+      const isLocalAddress = 
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        /^10\./.test(hostname) ||
+        /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) ||
+        /^192\.168\./.test(hostname)
+      
+      if (isLocalAddress) {
+        console.log('[App] Default session auto-accepting certificate for local address:', hostname)
+        // 0 表示接受证书
+        callback(0)
+        return
+      }
+      
+      // 使用默认验证
+      callback(-3)
+    })
 
     recordCrash('app_started', {
       userDataPath: app.getPath('userData'),
@@ -1120,6 +1150,73 @@ if (gotSingleInstanceLock) {
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
       attachWindowCrashLogging(window)
+    })
+
+    // 处理证书错误，允许访问自签名证书
+    app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+      console.log('[App] Certificate error:', { url, error })
+      // 检查是否是本地地址
+      try {
+        const parsedUrl = new URL(url)
+        const hostname = parsedUrl.hostname
+        const isLocalAddress = 
+          hostname === 'localhost' || 
+          hostname === '127.0.0.1' ||
+          hostname.startsWith('10.') ||
+          (hostname.startsWith('172.') && parseInt(hostname.split('.')[1]) >= 16 && parseInt(hostname.split('.')[1]) <= 31) ||
+          hostname.startsWith('192.168.')
+        
+        // 如果是本地地址，忽略证书错误
+        if (isLocalAddress) {
+          console.log('[App] Auto-accepting certificate for local address:', url)
+          event.preventDefault()
+          callback(true)
+          return
+        }
+      } catch {}
+      
+      // 非本地地址，使用默认行为
+      callback(false)
+    })
+    
+    // 配置所有 webContents 的安全设置
+    app.on('web-contents-created', (_, webContents) => {
+      console.log('[App] WebContents created, type:', webContents.getType())
+      
+      // 🔑 关键修复：为所有 webContents 配置证书验证处理
+      webContents.session.setCertificateVerifyProc((request, callback) => {
+        console.log('[App] Certificate verify request for', webContents.getType(), ':', request)
+        const { hostname } = request
+        
+        // 检测本地地址
+        const isLocalAddress = 
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1' ||
+          /^10\./.test(hostname) ||
+          /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) ||
+          /^192\.168\./.test(hostname)
+        
+        if (isLocalAddress) {
+          console.log('[App] Auto-accepting certificate for local address:', hostname)
+          // 0 表示接受证书
+          callback(0)
+          return
+        }
+        
+        // 使用默认验证
+        callback(-3)
+      })
+      
+      // 检查是否是 webview
+      if (webContents.getType() === 'webview') {
+        console.log('[App] Webview created, configuring security settings')
+        
+        // 为 webview 设置安全选项
+        webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+          // 允许所有权限
+          callback(true)
+        })
+      }
     })
 
     // IPC test
