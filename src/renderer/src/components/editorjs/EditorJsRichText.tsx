@@ -1,5 +1,5 @@
 import { useEffect, useRef, memo, useCallback, useState, useImperativeHandle, forwardRef } from 'react'
-import EditorJS, { type OutputData, type ToolSettings } from '@editorjs/editorjs'
+import EditorJS, { type OutputData, type ToolSettings, type BlockMutationEvent } from '@editorjs/editorjs'
 import type { ToolConstructable, API as EditorAPI } from '@editorjs/editorjs'
 import Header from '@editorjs/header'
 import List from '@editorjs/list'
@@ -99,6 +99,7 @@ const EDITOR_TOOLS: Record<string, ToolSettings> = {
 const I18N_ZH = {
   toolNames: {
     Text: '文本',
+    Paragraph: '段落',
     Heading: '标题',
     List: '列表',
     Code: '代码',
@@ -114,15 +115,41 @@ const I18N_ZH = {
       'Heading 2': '二级标题',
       'Heading 3': '三级标题'
     },
+    list: {
+      Ordered: '有序列表',
+      Unordered: '无序列表',
+      'Start with': '起始编号',
+      'Counter type': '计数类型'
+    },
     quote: {
       'Enter a quote': '输入引用内容',
       'Enter a caption': '输入出处（可选）'
+    },
+    table: {
+      'With headings': '带表头',
+      'Without headings': '无表头',
+      Stretch: '拉伸宽度',
+      Collapse: '收起宽度',
+      'Add column to left': '左侧添加列',
+      'Add column to right': '右侧添加列',
+      'Delete column': '删除列',
+      'Add row above': '上方添加行',
+      'Add row below': '下方添加行',
+      'Delete row': '删除行',
+      Heading: '表头'
+    },
+    code: {
+      'Enter a code': '输入代码'
+    },
+    checklist: {
+      Checklist: '待办清单'
     }
   },
   blockTunes: {
     delete: { Delete: '删除', 'Click to delete': '点击删除' },
     moveUp: { 'Move up': '上移' },
-    moveDown: { 'Move down': '下移' }
+    moveDown: { 'Move down': '下移' },
+    moveVertically: { 'Click to drag': '拖动排序' }
   },
   ui: {
     toolbar: {
@@ -191,14 +218,31 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
   {
     label: '表格',
     icon: <TableIcon className="size-4" />,
-    action: (api) =>
-      api.blocks.insert('table', {
-        withHeadings: true,
-        content: [
-          ['', ''],
-          ['', '']
-        ]
-      })
+    action: (api) => {
+      // 在当前位置插入 table，并在其后追加一个空 paragraph，
+      // 防止用户完成表格编辑后光标被困、无法继续在表格下方输入正文
+      const currentIndex = api.blocks.getCurrentBlockIndex()
+      api.blocks.insert(
+        'table',
+        {
+          withHeadings: true,
+          content: [
+            ['表头 1', '表头 2'],
+            ['', '']
+          ]
+        },
+        {},
+        currentIndex + 1,
+        true
+      )
+      api.blocks.insert(
+        'paragraph',
+        { text: '' },
+        {},
+        currentIndex + 2,
+        true
+      )
+    }
   },
   {
     label: '分隔线',
@@ -252,14 +296,61 @@ function EditorJsRichTextInner(
   })
 
   const internalChangeRef = useRef(false)
+  const trailingInsertingRef = useRef(false)
 
-  const handleChange = useCallback(async () => {
-    if (!editorRef.current || !onChangeRef.current) return
-    internalChangeRef.current = true
-    const saved = await editorRef.current.save()
-    console.log('[EditorJS] onChange fired, blocks:', saved.blocks?.length)
-    onChangeRef.current(saved)
-  }, [])
+  const handleChange = useCallback(
+    async (_api: EditorAPI, event: BlockMutationEvent | BlockMutationEvent[]) => {
+      if (!editorRef.current || !onChangeRef.current) return
+      // 跳过由我们内部追加 trailing paragraph 触发的 onChange，避免循环
+      if (trailingInsertingRef.current) return
+
+      const events = Array.isArray(event) ? event : [event]
+      const types = events.map((e) => e.type)
+
+      internalChangeRef.current = true
+      const saved = await editorRef.current.save()
+      const blocks = saved.blocks
+
+      // 当新增/修改 block 后，若末尾是 table，自动追加一个空 paragraph，
+      // 防止光标被困在表格中无法继续输入正文。
+      // - block-changed: 用户在 table 单元格内编辑完成后触发
+      // - block-added:   用户通过 "+" 弹出菜单或粘贴添加 table 时触发
+      //                  （toolbar 按钮走 TOOLBAR_ACTIONS，已主动插入了 paragraph）
+      const shouldCheck = types.includes('block-changed') || types.includes('block-added')
+      if (shouldCheck && blocks.length > 0 && blocks[blocks.length - 1].type === 'table') {
+        const currentCount = editorRef.current.blocks.getBlocksCount()
+        // 再次确认末尾真的是 table（防御性检查）
+        let lastBlockName: string | undefined
+        try {
+          lastBlockName = editorRef.current.blocks.getBlockByIndex(currentCount - 1)?.name
+        } catch {
+          /* ignore */
+        }
+        if (lastBlockName === 'table') {
+          trailingInsertingRef.current = true
+          try {
+            editorRef.current.blocks.insert(
+              'paragraph',
+              { text: '' },
+              {},
+              currentCount,
+              true
+            )
+          } catch {
+            /* ignore */
+          } finally {
+            // 延迟释放，等待插入产生的 onChange 被跳过
+            setTimeout(() => {
+              trailingInsertingRef.current = false
+            }, 100)
+          }
+        }
+      }
+
+      onChangeRef.current(saved)
+    },
+    []
+  )
 
   useEffect(() => {
     if (!containerRef.current || editorRef.current) return

@@ -29,9 +29,44 @@
 }
 
 /* Hide the left-side "+" button since we have a top toolbar */
-.editorjs-wrapper .codex-editor .ce-toolbar__plus,
-.editorjs-wrapper .codex-editor .ce-toolbar__settings-btn {
+.editorjs-wrapper .codex-editor .ce-toolbar__plus {
   display: none;
+}
+
+/* Block Tunes menu (settings button) - restore visibility for block operations */
+.editorjs-wrapper .codex-editor .ce-toolbar__settings-btn {
+  color: hsl(var(--muted-foreground));
+}
+
+.editorjs-wrapper .codex-editor .ce-toolbar__settings-btn:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
+}
+
+/* Block Tunes dropdown menu (ce-settings) */
+.editorjs-wrapper .codex-editor .ce-settings {
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--editorjs-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.editorjs-wrapper .codex-editor .ce-settings .ce-settings__button {
+  color: hsl(var(--muted-foreground));
+}
+
+.editorjs-wrapper .codex-editor .ce-settings .ce-settings__button:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
+}
+
+.editorjs-wrapper .codex-editor .ce-settings .ce-settings__button--delete {
+  color: hsl(var(--destructive, 0 84.2% 60.2%));
+}
+
+.editorjs-wrapper .codex-editor .ce-settings .ce-settings__button--delete:hover {
+  color: hsl(var(--destructive-foreground, 0 0% 98%));
+  background: hsl(var(--destructive, 0 84.2% 60.2%));
 }
 
 .editorjs-wrapper .codex-editor .ce-inline-toolbar {
@@ -69,13 +104,6 @@
 .editorjs-wrapper .codex-editor .ce-conversion-tool:hover {
   color: hsl(var(--foreground));
   background: hsl(var(--accent));
-}
-
-.editorjs-wrapper .codex-editor .ce-settings {
-  background: hsl(var(--popover));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--editorjs-radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .editorjs-wrapper .codex-editor .cdx-settings-button {
@@ -152,6 +180,7 @@
 /* Table */
 .editorjs-wrapper .codex-editor .tc-table {
   border-color: hsl(var(--border));
+  margin-bottom: 0.5rem;
 }
 
 .editorjs-wrapper .codex-editor .tc-table__cell {

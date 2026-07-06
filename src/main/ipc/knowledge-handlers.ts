@@ -499,6 +499,36 @@ export function registerKnowledgeHandlers(): void {
     }
   )
 
+  ipcMain.handle(
+    'knowledge:personal:rename-collection',
+    async (_event, args: { datasetId: string; collectionId: string; name: string }) => {
+      const serverUrl = getServerUrl()
+      const token = getApiToken()
+      if (!token) return { success: false, error: '未登录' }
+
+      try {
+        const response = await fetch(
+          `${serverUrl}/api/knowledge/public/collections/${args.collectionId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ datasetId: args.datasetId, name: args.name })
+          }
+        )
+        const body = await response.json()
+        if (!response.ok) {
+          return { success: false, error: body.error || body.message || `HTTP ${response.status}` }
+        }
+        return { success: true, message: body.message }
+      } catch (err: unknown) {
+        return apiError(err)
+      }
+    }
+  )
+
   ipcMain.handle('knowledge:personal:delete-dataset', async (_event, args: { id: string }) => {
     const serverUrl = getServerUrl()
     const token = getApiToken()
@@ -855,6 +885,23 @@ export function registerKnowledgeHandlers(): void {
         const message = err instanceof Error ? err.message : '下载失败'
         console.error('[知识库] 下载文件失败:', message)
         return { success: false, error: message }
+      }
+    }
+  )
+
+  // Read stored file content - returns the original text content of a locally stored file
+  ipcMain.handle(
+    'knowledge:personal:read-file',
+    async (
+      _event,
+      args: { datasetId: string; collectionId: string; fileName: string }
+    ) => {
+      try {
+        const filePath = path.join(KNOWLEDGE_FILES_DIR, args.datasetId, args.collectionId, args.fileName)
+        const content = await fs.readFile(filePath, 'utf-8')
+        return { success: true, data: { content } }
+      } catch {
+        return { success: false, error: '文件不存在或无法读取' }
       }
     }
   )

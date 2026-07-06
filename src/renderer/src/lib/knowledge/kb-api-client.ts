@@ -229,6 +229,18 @@ export async function deleteCollections(
   return result
 }
 
+export async function renameCollection(
+  ipc: IPCClient,
+  params: { datasetId: string; collectionId: string; name: string }
+): Promise<ApiResponse<void>> {
+  const result = (await ipc.invoke(
+    IPC.KNOWLEDGE_PERSONAL_RENAME_COLLECTION,
+    params
+  )) as ApiResponse<void>
+  checkAuthError(result)
+  return result
+}
+
 export async function listCollections(
   ipc: IPCClient,
   datasetId: string,
@@ -254,6 +266,21 @@ export async function downloadFile(
   const result = (await ipc.invoke(IPC.KNOWLEDGE_PERSONAL_DOWNLOAD_FILE, params)) as ApiResponse<{
     path: string
   }>
+  return result
+}
+
+export interface ReadFileResult {
+  content: string
+}
+
+export async function readStoredFile(
+  ipc: IPCClient,
+  params: { datasetId: string; collectionId: string; fileName: string }
+): Promise<ApiResponse<ReadFileResult>> {
+  const result = (await ipc.invoke(
+    IPC.KNOWLEDGE_PERSONAL_READ_FILE,
+    params
+  )) as ApiResponse<ReadFileResult>
   return result
 }
 

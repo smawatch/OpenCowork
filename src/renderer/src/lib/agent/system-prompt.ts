@@ -209,7 +209,24 @@ function buildModePromptBody(
 }
 
 function buildKnowledgeBaseReminder(): string | null {
-  return null
+  const hasKbSaveTool = toolRegistry.has('save_chat_to_kb')
+  if (!hasKbSaveTool) return null
+
+  return [
+    '<system-reminder>',
+    '## 知识库保存规则',
+    '当用户表达以下意图时，必须调用知识库相关 Tool（get_my_kb_list, get_kb_tree, save_chat_to_kb）自动完成，不要告诉用户手动操作：',
+    '"保存到知识库"、"加入知识库"、"存到知识库"、"记录到知识库"、"帮我记下来"、"保存这段内容"、"保存刚才的回答"、"保存整个会话"',
+    '',
+    '流程：',
+    '1. 如果用户未指定知识库：调用 get_my_kb_list 获取列表，让用户选择',
+    '2. 如果用户未指定目录：调用 get_kb_tree 获取目录树，让用户选择',
+    '3. 用户指定了知识库和目录（或已确认），直接调用 save_chat_to_kb',
+    '4. 缺少参数时优先调用工具查询，再向用户询问，不要凭空猜测知识库名称或目录名称',
+    '',
+    '权限：仅允许保存到个人知识库。如果用户指定企业知识库，告知"企业知识库为只读知识库，不允许保存 AI 对话内容，请选择个人知识库"。',
+    '</system-reminder>'
+  ].join('\n')
 }
 
 function buildSkillsReminder(): string | null {

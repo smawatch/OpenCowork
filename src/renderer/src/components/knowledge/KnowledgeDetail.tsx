@@ -9,15 +9,11 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
-  Edit3,
   FileText,
   FolderClosed,
   FolderOpen,
-  FolderPlus,
   Loader2,
   Pencil,
-  Plus,
-  RefreshCw,
   Search,
   Trash2
 } from 'lucide-react'
@@ -46,6 +42,9 @@ import {
   createFolder,
   downloadFile,
   listStoredFiles,
+  readStoredFile,
+  renameCollection,
+  updateDataset,
   type DatasetItem,
   type CollectionItem,
   type ChunkItem,
@@ -86,12 +85,14 @@ function typeLabel(type: string): string {
 
 // Draft storage key prefix
 const DRAFT_STORAGE_PREFIX = 'kb-draft-'
+const EDIT_DRAFT_STORAGE_PREFIX = 'kb-edit-draft-'
 
 interface DraftState {
   title: string
   content: string
   editorData: OutputData
   parentId?: string
+  collectionId?: string
 }
 
 // --------------- Tree ---------------
@@ -105,6 +106,8 @@ interface TreeNodeProps {
   selectedId: string | null
   onDelete?: (item: CollectionItem) => void
   onRename?: (item: CollectionItem) => void
+  onContextMenu?: (e: React.MouseEvent, item: CollectionItem) => void
+  onDoubleClick?: (item: CollectionItem) => void
 }
 
 function TreeNode({
@@ -115,7 +118,9 @@ function TreeNode({
   onSelect,
   selectedId,
   onDelete,
-  onRename
+  onRename,
+  onContextMenu,
+  onDoubleClick
 }: TreeNodeProps): React.JSX.Element {
   const isFolder = item.type === 'folder'
   const isExpanded = expanded.has(item.id)
@@ -140,6 +145,11 @@ function TreeNode({
           }
           if (isFolder) onToggle(item.id)
           onSelect(item)
+        }}
+        onContextMenu={(e) => onContextMenu?.(e, item)}
+        onDoubleClick={(e) => {
+          e.preventDefault()
+          onDoubleClick?.(item)
         }}
       >
         {isFolder ? (
@@ -223,6 +233,8 @@ function TreeNode({
               selectedId={selectedId}
               onDelete={onDelete}
               onRename={onRename}
+              onContextMenu={onContextMenu}
+              onDoubleClick={onDoubleClick}
             />
           ))}
         </div>
@@ -269,6 +281,59 @@ interface KnowledgeDetailProps {
   kbId: string
 }
 
+function DraftBanner({
+  kbId,
+  draftVersion,
+  onResume,
+  onDelete
+}: {
+  kbId: string
+  draftVersion: number
+  onResume: (draft: DraftState) => void
+  onDelete: () => void
+}): React.JSX.Element | null {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const saved = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(`${DRAFT_STORAGE_PREFIX}${kbId}`)
+      if (!raw) return null
+      const d = JSON.parse(raw) as DraftState
+      if (d.title || d.content) return d
+    } catch { /* ignore */ }
+    return null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kbId, draftVersion])
+
+  if (!saved) return null
+
+  return (
+    <div className="mb-6 p-4 rounded-lg border border-amber-200 bg-amber-50 flex items-center gap-3">
+      <FileText className="size-5 text-amber-500 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-amber-800 truncate">
+          未完成的草稿：{saved.title || '未命名文档'}
+        </div>
+        <div className="text-xs text-amber-600 mt-0.5">上次编辑的内容已自动保存</div>
+      </div>
+      <Button
+        size="sm"
+        className="text-xs h-7 bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+        onClick={() => onResume(saved)}
+      >
+        恢复草稿
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-xs h-7 text-amber-700 hover:text-amber-800 shrink-0"
+        onClick={onDelete}
+      >
+        删除
+      </Button>
+    </div>
+  )
+}
+
 export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Element {
   const token = useAuthStore((s) => s.token)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -297,12 +362,18 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
   const [folderName, setFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
 
+  // Context menu
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number; y: number; item?: CollectionItem; isRoot?: boolean
+  } | null>(null)
+
   // Import dialog
   const [showImport, setShowImport] = useState(false)
   const [importTrainingType, setImportTrainingType] = useState('chunk')
   const [importFileBuffer, setImportFileBuffer] = useState<ArrayBuffer | null>(null)
   const [importFileName, setImportFileName] = useState('')
   const [importing, setImporting] = useState(false)
+  const [draftVersion, setDraftVersion] = useState(0)
 
   // Draft mode state
   const [draftMode, setDraftMode] = useState(false)
@@ -322,13 +393,30 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
   const [editContent, setEditContent] = useState('')
   const [editEditorData, setEditEditorData] = useState<OutputData>({ blocks: [], time: Date.now() })
   const [editDirty, setEditDirty] = useState(false)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editSaveError, setEditSaveError] = useState(false)
 
   // Delete confirmation dialog
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<CollectionItem | null>(null)
 
-  // Leave confirmation dialog
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
+  // Rename dialog (文件/目录)
+  const [renameItem, setRenameItem] = useState<CollectionItem | null>(null)
+  const [renameName, setRenameName] = useState('')
+  const [renaming, setRenaming] = useState(false)
+
+  // Rename KB (知识库名称)
+  const [editingKbName, setEditingKbName] = useState(false)
+  const [kbNameInput, setKbNameInput] = useState('')
+  const [savingKbName, setSavingKbName] = useState(false)
+  const kbNameInputRef = useRef<HTMLInputElement>(null)
+
+  // Refs for keyboard shortcut handler (avoid stale closures)
+  const draftStateRef = useRef({ draftMode, draftDirty, draftTitle, draftContent, draftEditorData })
+  draftStateRef.current = { draftMode, draftDirty, draftTitle, draftContent, draftEditorData }
+  // 草稿创建时的 parentId，创建后冻结不变
+  const draftParentIdRef = useRef<string | undefined>(undefined)
+  const editStateRef = useRef({ editMode, editDirty })
+  editStateRef.current = { editMode, editDirty }
 
   // ==================== data fetching ====================
 
@@ -338,7 +426,14 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
     setLoading(true)
     try {
       const r = await listCollections(ipcClient, datasetId)
-      if (r.success) setCollections(r.data ?? [])
+      if (r.success) {
+        const fresh = r.data ?? []
+        setCollections((prev) => {
+          // 保留已加载的子目录节点，只替换根级节点
+          const nonRoot = prev.filter((c) => c.parentId && c.parentId.trim())
+          return [...nonRoot, ...fresh]
+        })
+      }
     } catch {
       /* silent */
     }
@@ -556,30 +651,45 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       }
     }
 
-    // Add draft item if in draft mode
-    if (draftMode && draftId) {
+    // Add draft item if saved draft exists in localStorage
+    const savedDraft = (() => {
+      try {
+        const raw = localStorage.getItem(`${DRAFT_STORAGE_PREFIX}${kbId}`)
+        if (!raw) return null
+        const d = JSON.parse(raw) as DraftState
+        if (d.title || d.content) return d
+      } catch { /* ignore */ }
+      return null
+    })()
+
+    if (savedDraft || draftMode) {
+      const treeDraftId = draftMode ? draftId : `draft-${Date.now()}`
+      const treeDraftName = draftMode
+        ? (draftTitle || '未命名文档')
+        : (savedDraft?.title || '未命名文档')
+      // parentId 优先级: localStorage 已保存 > 创建时冻结 > 当前目录
+      const treeDraftParentId = savedDraft?.parentId ?? draftParentIdRef.current
+
       const draftItem: CollectionItem = {
-        id: draftId,
-        name: draftTitle || '未命名文档',
+        id: treeDraftId || `draft-${Date.now()}`,
+        name: treeDraftName,
         type: 'virtual',
         trainingType: 'chunk',
         dataAmount: 0,
         tags: [],
         updateTime: new Date().toISOString(),
-        parentId: currentFolderId || undefined
+        parentId: treeDraftParentId
       }
 
-      if (currentFolderId) {
-        // Add to parent folder
+      if (draftItem.parentId) {
         for (const c of nodeMap.values()) {
-          if (c.id === currentFolderId) {
+          if (c.id === draftItem.parentId) {
             c.children = c.children || []
             c.children.push(draftItem)
             break
           }
         }
       } else {
-        // Add to root
         roots.push(draftItem)
       }
     }
@@ -615,7 +725,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       return result
     }
     return filterTree(roots)
-  }, [collections, searchTree, draftMode, draftId, draftTitle, currentFolderId])
+  }, [collections, searchTree, draftMode, draftId, draftTitle, currentFolderId, draftVersion, kbId])
 
   // Keep selectedItem in sync when tree changes (e.g. after lazy-load)
   useEffect(() => {
@@ -637,43 +747,140 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
   // ==================== actions ====================
 
   const handleSelectDoc = useCallback(async (item: CollectionItem) => {
-    // Check if we have unsaved changes
-    if (draftDirty || editDirty) {
-      setPendingAction(() => () => {
+    // Block while publish is in progress
+    if (editSaving) return
+
+    // 点击草稿节点 → 恢复草稿编辑模式
+    if (item.type === 'virtual') {
+      const saved = (() => {
+        try {
+          const raw = localStorage.getItem(`${DRAFT_STORAGE_PREFIX}${kbId}`)
+          if (!raw) return null
+          return JSON.parse(raw) as DraftState
+        } catch { return null }
+      })()
+      if (saved) {
+        draftParentIdRef.current = saved.parentId
+        setDraftTitle(saved.title || '未命名文档')
+        setDraftContent(saved.content || '')
+        setDraftEditorData(saved.editorData || { blocks: [], time: Date.now() })
+        setDraftDirty(false)
+        setDraftMode(true)
+        setDraftId(item.id)
         setSelectedId(item.id)
         setSelectedItem(item)
-        if (item.type === 'folder') {
-          setCurrentFolderId(item.id)
-          setChunks([])
-          return
-        }
-        setChunksLoading(true)
-        listChunks(ipcClient, item.id).then((r) => {
-          if (r.success) setChunks(r.data ?? [])
-          setChunksLoading(false)
-        }).catch(() => setChunksLoading(false))
-      })
-      setShowLeaveConfirm(true)
+        lastSavedRef.current = JSON.stringify({ title: saved.title || '', content: saved.content || '', editorData: saved.editorData || { blocks: [], time: Date.now() } })
+      } else if (draftMode) {
+        // 草稿从未保存过（localStorage 为空但 draftMode 是 true），不做任何事
+        return
+      }
       return
+    }
+
+    // Auto-save unsaved draft to localStorage before switching
+    if (draftDirty) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      const data: DraftState = {
+        title: draftTitle,
+        content: draftContent,
+        editorData: draftEditorData,
+        parentId: draftParentIdRef.current
+      }
+      localStorage.setItem(`${DRAFT_STORAGE_PREFIX}${kbId}`, JSON.stringify(data))
+      lastSavedRef.current = JSON.stringify({ title: draftTitle, content: draftContent, editorData: draftEditorData })
+      setDraftVersion((v) => v + 1)
+    }
+    if (editDirty && selectedItem) {
+      if (editAutoSaveTimerRef.current) clearTimeout(editAutoSaveTimerRef.current)
+      const key = `${EDIT_DRAFT_STORAGE_PREFIX}${kbId}-${selectedItem.id}`
+      const data: DraftState = {
+        title: editTitle,
+        content: editContent,
+        editorData: editEditorData,
+        collectionId: selectedItem.id
+      }
+      localStorage.setItem(key, JSON.stringify(data))
+      lastAutoSavedEditSnapshotRef.current = JSON.stringify({ title: editTitle, content: editContent, editorData: editEditorData })
+    }
+
+    // Clear current mode
+    if (draftMode) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      setDraftMode(false)
+      setDraftDirty(false)
+    }
+    if (editMode) {
+      if (editAutoSaveTimerRef.current) clearTimeout(editAutoSaveTimerRef.current)
+      setEditMode(false)
+      setEditDirty(false)
     }
 
     setSelectedId(item.id)
     setSelectedItem(item)
     if (item.type === 'folder') {
-      // Select this folder as the current folder for uploads
       setCurrentFolderId(item.id)
       setChunks([])
       return
     }
+
+    // .md 文件：优先读取本地编辑草稿，否则从服务端读取
+    const storedFile = storedFiles.find((f) => f.collectionId === item.id)
+    if (item.name.endsWith('.md') && storedFile) {
+      // 检查是否有本地编辑草稿
+      const editDraftKey = `${EDIT_DRAFT_STORAGE_PREFIX}${kbId}-${item.id}`
+      const savedEditDraft = (() => {
+        try {
+          const raw = localStorage.getItem(editDraftKey)
+          if (!raw) return null
+          return JSON.parse(raw) as DraftState
+        } catch { return null }
+      })()
+
+      if (savedEditDraft?.content) {
+        setEditTitle(item.name.replace(/\.md$/i, ''))
+        setEditContent(savedEditDraft.content)
+        setEditEditorData(savedEditDraft.editorData || { blocks: [], time: Date.now() })
+        setEditMode(true)
+        setEditDirty(false)
+        setEditSaveError(false)
+        lastAutoSavedEditSnapshotRef.current = JSON.stringify({
+          title: savedEditDraft.title || '',
+          content: savedEditDraft.content,
+          editorData: savedEditDraft.editorData || { blocks: [], time: Date.now() }
+        })
+        setChunks([])
+        return
+      }
+
+      try {
+        const r = await readStoredFile(ipcClient, {
+          datasetId: kbId,
+          collectionId: item.id,
+          fileName: storedFile.fileName
+        })
+        if (r.success && r.data?.content) {
+          setEditTitle(item.name.replace(/\.md$/i, ''))
+          setEditContent(r.data.content)
+          setEditEditorData(markdownToEditorData(r.data.content))
+          setEditMode(true)
+          setEditDirty(false)
+          setEditSaveError(false)
+          lastAutoSavedEditSnapshotRef.current = ''
+          setChunks([])
+          return
+        }
+      } catch { /* fallback */ }
+    }
+
+    // 非 .md 文件：显示切片内容（只读）
+    setEditMode(false)
     setChunksLoading(true)
     try {
       const r = await listChunks(ipcClient, item.id)
       if (r.success) setChunks(r.data ?? [])
-    } catch {
-      /* silent */
-    }
+    } catch { /* silent */ }
     setChunksLoading(false)
-  }, [draftDirty, editDirty])
+  }, [kbId, storedFiles, draftDirty, editDirty, editMode, draftMode, editSaving, draftTitle, draftContent, draftEditorData, editTitle, editContent, editEditorData, selectedItem, currentFolderId])
 
   const handleDeleteItem = useCallback(async (item: CollectionItem) => {
     // 计算子项数量
@@ -827,9 +1034,13 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
     return `${baseName}(${counter})`
   }, [collections])
 
-  const handleCreateDraft = useCallback(() => {
+  const handleCreateDraft = useCallback((parentId?: string | null) => {
     const draftName = generateUniqueName('未命名文档')
     const newDraftId = `draft-${Date.now()}`
+
+    // 使用传入的 parentId，否则用 currentFolderId
+    const resolvedParentId = parentId !== undefined ? (parentId || undefined) : (currentFolderId || undefined)
+    draftParentIdRef.current = resolvedParentId
 
     setDraftId(newDraftId)
     setDraftTitle(draftName)
@@ -846,7 +1057,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       dataAmount: 0,
       tags: [],
       updateTime: new Date().toISOString(),
-      parentId: currentFolderId || undefined
+      parentId: resolvedParentId
     })
 
     // Focus title input after render
@@ -873,7 +1084,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         fileName: `${draftTitle.trim()}.md`,
         fileBuffer: buffer,
         trainingType: 'chunk',
-        parentId: currentFolderId || undefined
+        parentId: draftParentIdRef.current
       })
 
       if (!importResult.success) {
@@ -895,16 +1106,18 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       const newDocId = importResult.data?.collectionId
 
       // Refresh collections and select the new document
+      // 用草稿的实际 parentId（创建时冻结），不是 currentFolderId
+      const draftParentId = draftParentIdRef.current
       let newCollections: CollectionItem[] = []
-      if (currentFolderId) {
-        loadedRef.current.delete(currentFolderId)
-        const cr = await listCollections(ipcClient, kbId, currentFolderId)
+      if (draftParentId) {
+        loadedRef.current.delete(draftParentId)
+        const cr = await listCollections(ipcClient, kbId, draftParentId)
         if (cr.success) {
           newCollections = (cr.data ?? []).map((c) =>
-            c.id === newDocId ? { ...c, name: draftTitle.trim() } : c
+            c.id === newDocId ? { ...c, name: `${draftTitle.trim()}.md` } : c
           )
           setCollections((prev) => {
-            const withoutOld = prev.filter((c) => c.parentId !== currentFolderId)
+            const withoutOld = prev.filter((c) => c.parentId !== draftParentId)
             return [...withoutOld, ...newCollections]
           })
         }
@@ -912,16 +1125,20 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         const cr = await listCollections(ipcClient, kbId)
         if (cr.success) {
           newCollections = (cr.data ?? []).map((c) =>
-            c.id === newDocId ? { ...c, name: draftTitle.trim() } : c
+            c.id === newDocId ? { ...c, name: `${draftTitle.trim()}.md` } : c
           )
-          setCollections(newCollections)
+          // 函数式更新：保留已加载子目录节点，只替换根级
+          setCollections((prev) => {
+            const nonRoot = prev.filter((c) => c.parentId && c.parentId.trim())
+            return [...nonRoot, ...newCollections]
+          })
         }
       }
 
       // Select the newly created document
       const newDoc = newCollections.find((c) => c.id === newDocId)
       if (newDoc) {
-        newDoc.name = draftTitle.trim()
+        newDoc.name = `${draftTitle.trim()}.md`
         setSelectedId(newDoc.id)
         setSelectedItem(newDoc)
         setChunksLoading(true)
@@ -948,35 +1165,56 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
 
     // 清理 localStorage 中的草稿数据
     localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${kbId}`)
+    setDraftVersion((v) => v + 1)
 
     toast.success('草稿已放弃')
   }, [kbId])
 
-  // Auto-save draft — 纯静默，零 setState，不触发任何渲染
+  // Auto-save draft to localStorage with 3s debounce
   const lastSavedRef = useRef('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Hold latest values for the debounced save callback (avoid stale closure)
+  const autoSaveDataRef = useRef<{ title: string; content: string; editorData: OutputData }>({ title: '', content: '', editorData: { blocks: [], time: Date.now() } })
+  autoSaveDataRef.current = { title: draftTitle, content: draftContent, editorData: draftEditorData }
 
   useEffect(() => {
     if (!draftMode) return
 
-    const snapshot = JSON.stringify({ title: draftTitle, content: draftContent, editorData: draftEditorData })
+    const snapshot = JSON.stringify(autoSaveDataRef.current)
     if (snapshot === lastSavedRef.current) return
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       console.log('[KnowledgeDetail] auto-save to localStorage')
+      const { title, content, editorData } = autoSaveDataRef.current
       const data: DraftState = {
-        title: draftTitle,
-        content: draftContent,
-        editorData: draftEditorData,
-        parentId: currentFolderId || undefined
+        title,
+        content,
+        editorData,
+        parentId: draftParentIdRef.current
       }
       localStorage.setItem(`${DRAFT_STORAGE_PREFIX}${kbId}`, JSON.stringify(data))
-      lastSavedRef.current = snapshot
-    }, 2000)
+      lastSavedRef.current = JSON.stringify(autoSaveDataRef.current)
+      setDraftDirty(false)
+      setDraftVersion((v) => v + 1)
+    }, 3000)
 
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      // 卸载时立即保存草稿（页面切换/关闭）
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        const { title, content, editorData } = autoSaveDataRef.current
+        if (title || content) {
+          const data: DraftState = {
+            title,
+            content,
+            editorData,
+            parentId: draftParentIdRef.current
+          }
+          localStorage.setItem(`${DRAFT_STORAGE_PREFIX}${kbId}`, JSON.stringify(data))
+          lastSavedRef.current = JSON.stringify(autoSaveDataRef.current)
+        }
+      }
     }
   }, [draftMode, draftTitle, draftContent, draftEditorData])
 
@@ -987,6 +1225,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       try {
         const data: DraftState = JSON.parse(saved)
         if (data.title && data.content) {
+          draftParentIdRef.current = data.parentId
           setDraftTitle(data.title)
           setDraftContent(data.content)
           setDraftEditorData(data.editorData || { blocks: [], time: Date.now() })
@@ -1001,41 +1240,34 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
     }
   }, [kbId])
 
-  // ==================== edit mode actions ====================
-
-  const handleEnterEditMode = useCallback(() => {
-    if (!selectedItem || selectedItem.type === 'folder') return
-
-    // Load current content and convert markdown to EditorJS format
-    const currentChunk = chunks[0]
-    const content = currentChunk?.content || ''
-    setEditTitle(selectedItem.name.replace(/\.md$/i, ''))
-    setEditContent(content)
-    setEditEditorData(markdownToEditorData(content))
-    setEditMode(true)
-  }, [selectedItem, chunks])
-
   const handleExitEditMode = useCallback(() => {
-    if (editDirty) {
-      setPendingAction(() => () => {
-        setEditMode(false)
-        setEditDirty(false)
-      })
-      setShowLeaveConfirm(true)
-      return
+    if (editSaving) return
+    // 自动保存草稿后退出
+    if (editDirty && selectedItem) {
+      if (editAutoSaveTimerRef.current) clearTimeout(editAutoSaveTimerRef.current)
+      const key = `${EDIT_DRAFT_STORAGE_PREFIX}${kbId}-${selectedItem.id}`
+      const data: DraftState = {
+        title: editTitle,
+        content: editContent,
+        editorData: editEditorData,
+        collectionId: selectedItem.id
+      }
+      localStorage.setItem(key, JSON.stringify(data))
+      lastAutoSavedEditSnapshotRef.current = JSON.stringify({ title: editTitle, content: editContent, editorData: editEditorData })
     }
     setEditMode(false)
     setEditDirty(false)
-  }, [editDirty])
+  }, [editDirty, editSaving, selectedItem, editTitle, editContent, editEditorData, kbId])
 
-  const handleSaveEdit = useCallback(async () => {
-    if (!selectedItem || !editTitle.trim() || !editContent.trim()) {
-      toast.error('请填写标题和内容')
-      return
-    }
+  const lastAutoSavedEditSnapshotRef = useRef('')
 
+  // Core save logic — used by both manual save and auto-save
+  const doSaveEdit = useCallback(async (silent: boolean): Promise<boolean> => {
+    if (!selectedItem || !editTitle.trim() || !editContent.trim()) return false
+
+    setEditSaving(true)
+    setEditSaveError(false)
     try {
-      // 将 Markdown 内容转为文件，通过导入接口上传
       const encoder = new TextEncoder()
       const buffer = encoder.encode(editContent).buffer as ArrayBuffer
 
@@ -1048,24 +1280,23 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       })
 
       if (!importResult.success) {
-        toast.error(importResult.error || '保存失败')
-        return
+        setEditSaving(false)
+        if (!silent) toast.error(importResult.error || '保存失败')
+        else setEditSaveError(true)
+        return false
       }
 
       const newCollectionId = importResult.data?.collectionId
+      const oldCollectionId = selectedItem.id
       const oldParentId = selectedItem.parentId
 
       // 删除旧文档
       await deleteCollections(ipcClient, {
         datasetId: kbId,
-        collectionIds: [selectedItem.id]
+        collectionIds: [oldCollectionId]
       })
 
-      toast.success('保存成功')
-      setEditMode(false)
-      setEditDirty(false)
-
-      // 刷新列表并选中新文档
+      // 刷新列表并更新选中项
       let refreshed: CollectionItem[] = []
       if (oldParentId) {
         loadedRef.current.delete(oldParentId)
@@ -1075,7 +1306,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
             c.id === newCollectionId ? { ...c, name: `${editTitle.trim().replace(/\.md$/i, '')}.md` } : c
           )
           setCollections((prev) => {
-            const withoutOld = prev.filter((c) => c.parentId !== oldParentId && c.id !== selectedItem.id)
+            const withoutOld = prev.filter((c) => c.parentId !== oldParentId && c.id !== oldCollectionId)
             return [...withoutOld, ...refreshed]
           })
         }
@@ -1089,7 +1320,6 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         }
       }
 
-      // 选中新文档
       const newDoc = refreshed.find((c) => c.id === newCollectionId)
       if (newDoc) {
         setSelectedId(newDoc.id)
@@ -1104,10 +1334,122 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         setSelectedItem(null)
         setChunks([])
       }
+
+      setEditSaving(false)
+      // 发布成功，清除本地编辑草稿
+      localStorage.removeItem(`${EDIT_DRAFT_STORAGE_PREFIX}${kbId}-${oldCollectionId}`)
+      lastAutoSavedEditSnapshotRef.current = ''
+      if (!silent) toast.success('发布成功')
+      return true
     } catch {
-      toast.error('保存失败')
+      setEditSaving(false)
+      if (!silent) toast.error('保存失败')
+      else setEditSaveError(true)
+      return false
     }
-  }, [kbId, selectedItem, editTitle, editContent, fetchCollections, fetchChildren])
+  }, [kbId, selectedItem, editTitle, editContent])
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!editTitle.trim() || !editContent.trim()) {
+      toast.error('请填写标题和内容')
+      return
+    }
+    const ok = await doSaveEdit(false)
+    if (ok) {
+      // .md 文件保存后保持在编辑模式
+      setEditDirty(false)
+    }
+  }, [editTitle, editContent, doSaveEdit])
+
+  // Auto-save edit draft to localStorage with 3s debounce
+  const editAutoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const editAutoSaveDataRef = useRef({ title: '', content: '', editorData: { blocks: [], time: Date.now() } as OutputData })
+  editAutoSaveDataRef.current = { title: editTitle, content: editContent, editorData: editEditorData }
+
+  const getEditDraftKey = useCallback(() => {
+    return selectedItem ? `${EDIT_DRAFT_STORAGE_PREFIX}${kbId}-${selectedItem.id}` : ''
+  }, [kbId, selectedItem])
+
+  useEffect(() => {
+    if (!editMode || !editDirty) return
+
+    const snapshot = JSON.stringify(editAutoSaveDataRef.current)
+    if (snapshot === lastAutoSavedEditSnapshotRef.current) return
+
+    if (editAutoSaveTimerRef.current) clearTimeout(editAutoSaveTimerRef.current)
+    editAutoSaveTimerRef.current = setTimeout(() => {
+      if (!editTitle.trim() || !editContent.trim()) return
+      const key = getEditDraftKey()
+      if (!key) return
+      const data: DraftState = {
+        title: editAutoSaveDataRef.current.title,
+        content: editAutoSaveDataRef.current.content,
+        editorData: editAutoSaveDataRef.current.editorData,
+        collectionId: selectedItem?.id
+      }
+      localStorage.setItem(key, JSON.stringify(data))
+      lastAutoSavedEditSnapshotRef.current = JSON.stringify(editAutoSaveDataRef.current)
+      setEditDirty(false)
+      setEditSaveError(false)
+    }, 3000)
+
+    return () => {
+      if (editAutoSaveTimerRef.current) clearTimeout(editAutoSaveTimerRef.current)
+    }
+  }, [editMode, editDirty, editTitle, editContent, editEditorData, getEditDraftKey])
+
+  // Ctrl+S / Cmd+S — 立即保存草稿到本地 localStorage（跳过 debounce）
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        const draft = draftStateRef.current
+        const edit = editStateRef.current
+
+        // 草稿模式
+        if (draft.draftMode && draft.draftDirty) {
+          e.preventDefault()
+          if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+          const data: DraftState = {
+            title: draft.draftTitle,
+            content: draft.draftContent,
+            editorData: draft.draftEditorData,
+            parentId: draftParentIdRef.current
+          }
+          localStorage.setItem(`${DRAFT_STORAGE_PREFIX}${kbId}`, JSON.stringify(data))
+          lastSavedRef.current = JSON.stringify({
+            title: draft.draftTitle,
+            content: draft.draftContent,
+            editorData: draft.draftEditorData
+          })
+          setDraftDirty(false)
+          setDraftVersion((v) => v + 1)
+          toast.success('草稿已保存')
+          return
+        }
+
+        // 编辑模式 — 保存到本地草稿
+        if (edit.editMode && edit.editDirty && selectedItem) {
+          e.preventDefault()
+          if (editAutoSaveTimerRef.current) clearTimeout(editAutoSaveTimerRef.current)
+          const key = `${EDIT_DRAFT_STORAGE_PREFIX}${kbId}-${selectedItem.id}`
+          const data: DraftState = {
+            title: editTitle,
+            content: editContent,
+            editorData: editEditorData,
+            collectionId: selectedItem.id
+          }
+          localStorage.setItem(key, JSON.stringify(data))
+          lastAutoSavedEditSnapshotRef.current = JSON.stringify({ title: editTitle, content: editContent, editorData: editEditorData })
+          setEditDirty(false)
+          setEditSaveError(false)
+          toast.success('草稿已保存')
+          return
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [kbId, currentFolderId, selectedItem, editTitle, editContent, editEditorData])
 
   // ==================== stats ====================
 
@@ -1115,25 +1457,218 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
 
   // ==================== leave protection ====================
 
-  const handleConfirmLeave = useCallback(() => {
-    setShowLeaveConfirm(false)
-    if (pendingAction) {
-      pendingAction()
-      setPendingAction(null)
+  // beforeunload — 自动保存草稿后允许关闭，不弹窗阻止
+  useEffect(() => {
+    const handler = () => {
+      // 同步保存草稿到 localStorage
+      const draft = autoSaveDataRef.current
+      if (draftMode && draft.title && draft.content) {
+        const data: DraftState = {
+          title: draft.title,
+          content: draft.content,
+          editorData: draft.editorData,
+          parentId: draftParentIdRef.current
+        }
+        localStorage.setItem(`${DRAFT_STORAGE_PREFIX}${kbId}`, JSON.stringify(data))
+      }
+      const editData = editAutoSaveDataRef.current
+      if (editMode && editData.title && editData.content && selectedItem) {
+        const key = `${EDIT_DRAFT_STORAGE_PREFIX}${kbId}-${selectedItem.id}`
+        const data: DraftState = {
+          title: editData.title,
+          content: editData.content,
+          editorData: editData.editorData,
+          collectionId: selectedItem.id
+        }
+        localStorage.setItem(key, JSON.stringify(data))
+      }
     }
-  }, [pendingAction])
-
-  const handleCancelLeave = useCallback(() => {
-    setShowLeaveConfirm(false)
-    setPendingAction(null)
-  }, [])
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [kbId, draftMode, editMode, currentFolderId, selectedItem])
 
   const handleGoToRoot = useCallback(() => {
+    if (draftMode) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      setDraftMode(false)
+      setDraftDirty(false)
+    }
+    if (editMode) {
+      if (editAutoSaveTimerRef.current) clearTimeout(editAutoSaveTimerRef.current)
+      setEditMode(false)
+      setEditDirty(false)
+    }
     setCurrentFolderId(null)
     setSelectedId(null)
     setSelectedItem(null)
     setChunks([])
+  }, [draftMode, editMode])
+
+  // Context menu handlers
+  const handleTreeContextMenu = useCallback(
+    (e: React.MouseEvent, item?: CollectionItem, isRoot?: boolean) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setCtxMenu({ x: e.clientX, y: e.clientY, item, isRoot })
+    }, [])
+
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), [])
+
+  const ctxMenuCreateDoc = useCallback(() => {
+    closeCtxMenu()
+    // 右键文件夹 → 在该文件夹内创建；右键空白 → 在根目录创建
+    if (ctxMenu?.item?.type === 'folder') {
+      setCurrentFolderId(ctxMenu.item.id)
+      handleCreateDraft(ctxMenu.item.id)
+    } else {
+      setCurrentFolderId(null)
+      handleCreateDraft(null)
+    }
+  }, [closeCtxMenu, handleCreateDraft, ctxMenu?.item])
+  const ctxMenuCreateFolder = useCallback(() => {
+    closeCtxMenu()
+    if (ctxMenu?.item?.type === 'folder') {
+      setCurrentFolderId(ctxMenu.item.id)
+    } else if (!ctxMenu?.item) {
+      setCurrentFolderId(null)
+    }
+    setFolderName('')
+    setShowCreateFolder(true)
+  }, [closeCtxMenu, ctxMenu?.item])
+  const ctxMenuImport = useCallback(() => {
+    closeCtxMenu()
+    setImportFileBuffer(null)
+    setImportFileName('')
+    setShowImport(true)
+  }, [closeCtxMenu])
+  const ctxMenuDelete = useCallback(() => {
+    if (!ctxMenu?.item) return
+    closeCtxMenu()
+    handleDeleteItem(ctxMenu.item)
+  }, [closeCtxMenu, ctxMenu?.item, handleDeleteItem])
+  const ctxMenuDownload = useCallback(async () => {
+    if (!ctxMenu?.item) return
+    closeCtxMenu()
+    const sf = storedFiles.find((f) => f.collectionId === ctxMenu.item?.id)
+    if (sf) {
+      try {
+        const r = await downloadFile(ipcClient, { datasetId: kbId, collectionId: ctxMenu.item.id, fileName: sf.fileName })
+        if (r.success) toast.success('文件已保存')
+        else toast.error(r.error || '下载失败')
+      } catch { toast.error('下载失败') }
+    }
+  }, [closeCtxMenu, ctxMenu?.item, kbId, storedFiles])
+  const ctxMenuEdit = useCallback(() => {
+    if (!ctxMenu?.item) return
+    closeCtxMenu()
+    handleSelectDoc(ctxMenu.item)
+  }, [closeCtxMenu, ctxMenu?.item, handleSelectDoc])
+
+  const ctxMenuRename = useCallback(() => {
+    if (!ctxMenu?.item) return
+    closeCtxMenu()
+    setRenameItem(ctxMenu.item)
+    setRenameName(ctxMenu.item.name)
+    setRenaming(false)
+  }, [closeCtxMenu, ctxMenu?.item])
+
+  const handleConfirmRename = useCallback(async () => {
+    if (!renameItem || !renameName.trim()) return
+    setRenaming(true)
+    try {
+      const r = await renameCollection(ipcClient, {
+        datasetId: kbId,
+        collectionId: renameItem.id,
+        name: renameName.trim()
+      })
+      if (!r.success) {
+        toast.error(r.error || '重命名失败')
+        return
+      }
+      toast.success('重命名成功')
+      // 更新列表中该项的 name
+      setCollections((prev) =>
+        prev.map((c) => (c.id === renameItem.id ? { ...c, name: renameName.trim() } : c))
+      )
+      if (selectedId === renameItem.id) {
+        setSelectedItem((prev) => (prev ? { ...prev, name: renameName.trim() } : prev))
+      }
+      // 如果是文件夹且已加载过子节点，刷新
+      if (renameItem.type === 'folder') {
+        loadedRef.current.delete(renameItem.id)
+      }
+      setRenameItem(null)
+    } catch {
+      toast.error('重命名失败')
+    }
+    setRenaming(false)
+  }, [renameItem, renameName, kbId, selectedId])
+
+  const startEditKbName = useCallback(() => {
+    if (isReadOnly) return
+    setKbNameInput(kbInfo?.name || '')
+    setEditingKbName(true)
+    setTimeout(() => {
+      kbNameInputRef.current?.focus()
+      kbNameInputRef.current?.select()
+    }, 50)
+  }, [kbInfo?.name, isReadOnly])
+
+  const handleSaveKbName = useCallback(async () => {
+    if (!kbNameInput.trim() || kbNameInput.trim() === kbInfo?.name) {
+      setEditingKbName(false)
+      return
+    }
+    setSavingKbName(true)
+    try {
+      const r = await updateDataset(ipcClient, {
+        id: kbId,
+        name: kbNameInput.trim()
+      })
+      if (!r.success) {
+        toast.error(r.error || '重命名失败')
+        return
+      }
+      toast.success('知识库已重命名')
+      // 立即更新本地状态
+      setKbInfo((prev) => (prev ? { ...prev, name: kbNameInput.trim() } : prev))
+      setEditingKbName(false)
+    } catch {
+      toast.error('重命名失败')
+    }
+    setSavingKbName(false)
+  }, [kbNameInput, kbInfo?.name, kbId])
+
+  const handleCancelKbName = useCallback(() => {
+    setEditingKbName(false)
   }, [])
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!ctxMenu) return
+    const close = () => setCtxMenu(null)
+    const timer = setTimeout(() => document.addEventListener('click', close, { once: true }), 0)
+    return () => { clearTimeout(timer); document.removeEventListener('click', close) }
+  }, [ctxMenu])
+
+  // Double-click handler for tree nodes
+  const handleTreeDoubleClick = useCallback((item: CollectionItem) => {
+    if (item.type === 'folder') {
+      // Toggle expand/collapse
+      const isOpening = !expanded.has(item.id)
+      setExpanded((prev) => {
+        const next = new Set(prev)
+        if (isOpening) next.add(item.id)
+        else next.delete(item.id)
+        return next
+      })
+      if (isOpening && !loadedRef.current.has(item.id)) {
+        fetchChildren(kbId, item.id)
+      }
+    } else {
+      handleSelectDoc(item)
+    }
+  }, [expanded, kbId, fetchChildren, handleSelectDoc])
 
   const handleDocToolbar = useCallback((action: (typeof TOOLBAR_ACTIONS)[number]) => {
     const editor = docRef.current
@@ -1176,13 +1711,51 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <button
-                className="text-base font-semibold truncate hover:text-primary transition-colors cursor-pointer"
-                onClick={handleGoToRoot}
-                title="点击回到根目录"
-              >
-                {kbInfo?.name || kbId}
-              </button>
+              {editingKbName ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    ref={kbNameInputRef}
+                    className="text-base font-semibold border-b-2 border-primary outline-none bg-transparent px-1 py-0.5 max-w-[300px]"
+                    value={kbNameInput}
+                    onChange={(e) => setKbNameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveKbName()
+                      if (e.key === 'Escape') handleCancelKbName()
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    className="text-xs h-6 px-2"
+                    onClick={handleSaveKbName}
+                    disabled={savingKbName || !kbNameInput.trim()}
+                  >
+                    {savingKbName && <Loader2 className="size-3 mr-1 animate-spin" />}
+                    保存
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={handleCancelKbName}>
+                    取消
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    className="text-base font-semibold truncate hover:text-primary transition-colors cursor-pointer"
+                    onClick={handleGoToRoot}
+                    title="点击回到根目录"
+                  >
+                    {kbInfo?.name || kbId}
+                  </button>
+                  {!isReadOnly && (
+                    <button
+                      className="inline-flex items-center justify-center size-6 rounded hover:bg-accent shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={startEditKbName}
+                      title="重命名知识库"
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                  )}
+                </>
+              )}
               {sysCfg && (
                 <span
                   className="inline-flex items-center shrink-0 rounded-full px-2 h-[22px] text-[11px] font-medium leading-none"
@@ -1195,53 +1768,6 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
             {kbInfo?.intro && (
               <p className="text-xs text-muted-foreground mt-0.5 truncate">{kbInfo.intro}</p>
             )}
-          </div>
-          <div className="flex items-center gap-1.5">
-            {!isReadOnly && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => {
-                    setImportFileBuffer(null)
-                    setImportFileName('')
-                    setShowImport(true)
-                  }}
-                >
-                  <FileText className="size-3 mr-1" />
-                  导入
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => {
-                    setFolderName('')
-                    setShowCreateFolder(true)
-                  }}
-                >
-                  <FolderPlus className="size-3 mr-1" />
-                  新建目录
-                </Button>
-                <Button
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={handleCreateDraft}
-                >
-                  <Plus className="size-3 mr-1" />
-                  新建文档
-                </Button>
-              </>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={() => fetchCollections(kbId)}
-            >
-              <RefreshCw className="size-3.5" />
-            </Button>
           </div>
         </div>
       </div>
@@ -1263,7 +1789,10 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
             </div>
           </div>
           {/* Tree */}
-          <div className="flex-1 min-h-0 overflow-y-auto py-1">
+          <div
+            className="flex-1 min-h-0 overflow-y-auto py-1"
+            onContextMenu={(e) => handleTreeContextMenu(e)}
+          >
             {/* 根目录入口 */}
             {!isReadOnly && (
               <button
@@ -1272,6 +1801,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                   !currentFolderId && !selectedId && 'bg-accent text-accent-foreground font-medium'
                 )}
                 onClick={handleGoToRoot}
+                onContextMenu={(e) => handleTreeContextMenu(e, undefined, true)}
               >
                 <span className="size-4 shrink-0 flex items-center justify-center text-amber-500">
                   <BookOpen className="size-3.5" />
@@ -1313,6 +1843,8 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                     onSelect={handleSelectDoc}
                     selectedId={selectedId}
                     onDelete={isReadOnly ? undefined : handleDeleteItem}
+                    onContextMenu={(e, item) => handleTreeContextMenu(e, item)}
+                    onDoubleClick={handleTreeDoubleClick}
                   />
                 </div>
               ))
@@ -1332,10 +1864,17 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                     <DocToolbar onAction={handleDocToolbar} />
                     <div className="flex-1" />
                     <div className="flex items-center gap-2.5">
-                      {!draftDirty && (
+                      {draftSaving ? (
+                        <span className="flex items-center gap-1 text-xs text-blue-500">
+                          <Loader2 className="size-3 animate-spin" />
+                          发布中...
+                        </span>
+                      ) : draftDirty ? (
+                        <span className="text-xs text-amber-500">草稿未保存</span>
+                      ) : (
                         <span className="flex items-center gap-1 text-xs text-slate-400">
                           <Check className="size-3" />
-                          已保存
+                          草稿已保存
                         </span>
                       )}
                       <Button
@@ -1363,11 +1902,11 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                     {/* Document info */}
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs text-slate-400">📄 草稿</span>
-                      {!draftDirty && (
-                        <>
-                          <span className="text-slate-200">·</span>
-                          <span className="text-xs text-slate-400">已自动保存</span>
-                        </>
+                      <span className="text-slate-200">·</span>
+                      {draftDirty ? (
+                        <span className="text-xs text-amber-500">草稿未保存</span>
+                      ) : (
+                        <span className="text-xs text-slate-400">草稿已自动保存</span>
                       )}
                     </div>
 
@@ -1402,6 +1941,42 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
             /* ---- Root overview ---- */
             <div className="flex-1 overflow-y-auto">
               <div className="max-w-[900px] mx-auto p-8">
+                {/* 恢复草稿入口 */}
+                <DraftBanner
+                  kbId={kbId}
+                  draftVersion={draftVersion}
+                  onResume={(d) => {
+                    draftParentIdRef.current = d.parentId
+                    setDraftTitle(d.title || '未命名文档')
+                    setDraftContent(d.content || '')
+                    setDraftEditorData(d.editorData || { blocks: [], time: Date.now() })
+                    setDraftDirty(false)
+                    setDraftMode(true)
+                    setDraftId(`draft-${Date.now()}`)
+                    setSelectedId(`draft-${Date.now()}`)
+                    const item: CollectionItem = {
+                      id: `draft-${Date.now()}`,
+                      name: d.title || '未命名文档',
+                      type: 'virtual',
+                      trainingType: 'chunk',
+                      dataAmount: 0,
+                      tags: [],
+                      updateTime: new Date().toISOString(),
+                      parentId: d.parentId || undefined
+                    }
+                    setSelectedItem(item)
+                    lastSavedRef.current = JSON.stringify({
+                      title: d.title || '未命名文档',
+                      content: d.content || '',
+                      editorData: d.editorData || { blocks: [], time: Date.now() }
+                    })
+                  }}
+                  onDelete={() => {
+                    localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${kbId}`)
+                    setDraftVersion((v) => v + 1)
+                  }}
+                />
+
                 <div className="flex items-center gap-2 mb-6">
                   <BookOpen className="size-4 text-slate-400" />
                   <span className="text-xs text-slate-400">
@@ -1471,10 +2046,19 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                         <DocToolbar onAction={handleDocToolbar} />
                         <div className="flex-1" />
                         <div className="flex items-center gap-2.5">
-                          {!editDirty && (
+                          {editSaving ? (
+                            <span className="flex items-center gap-1 text-xs text-blue-500">
+                              <Loader2 className="size-3 animate-spin" />
+                              发布中...
+                            </span>
+                          ) : editSaveError ? (
+                            <span className="text-xs text-red-500">发布失败</span>
+                          ) : editDirty ? (
+                            <span className="text-xs text-amber-500">草稿未保存</span>
+                          ) : (
                             <span className="flex items-center gap-1 text-xs text-slate-400">
                               <Check className="size-3" />
-                              已保存
+                              草稿已保存
                             </span>
                           )}
                           <Button
@@ -1489,9 +2073,10 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                             size="sm"
                             className="text-xs h-7 bg-slate-800 hover:bg-slate-700 text-white"
                             onClick={handleSaveEdit}
-                            disabled={!editTitle.trim() || !editContent.trim()}
+                            disabled={editSaving || !editTitle.trim() || !editContent.trim()}
                           >
-                            保存
+                            {editSaving && <Loader2 className="size-3 mr-1 animate-spin" />}
+                            发布
                           </Button>
                         </div>
                       </div>
@@ -1541,21 +2126,6 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>下载原始文件</TooltipContent>
-                      </Tooltip>
-                    )}
-                    {!isReadOnly && selectedItem.type !== 'folder' && selectedItem.name.endsWith('.md') && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="size-7 text-slate-500 hover:text-slate-700"
-                            onClick={handleEnterEditMode}
-                          >
-                            <Edit3 className="size-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>编辑文档</TooltipContent>
                       </Tooltip>
                     )}
                   </div>
@@ -1638,6 +2208,45 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
           )}
         </div>
       </div>
+
+      {/* ==================== Context Menu ==================== */}
+      {ctxMenu && (
+        <div
+          className="fixed z-50 min-w-[160px] bg-popover border rounded-md shadow-md py-1"
+          style={{ left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 200) }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {ctxMenu.item ? (
+            ctxMenu.item.type === 'folder' ? (
+              <>
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuCreateDoc}>新建文档</button>
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuCreateFolder}>新建目录</button>
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuImport}>导入文件</button>
+                <div className="border-t my-1" />
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuRename}>重命名</button>
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-destructive" onClick={ctxMenuDelete}>删除</button>
+              </>
+            ) : (
+              <>
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={() => { closeCtxMenu(); handleSelectDoc(ctxMenu.item!) }}>打开</button>
+                {ctxMenu.item.name.endsWith('.md') && (
+                  <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuEdit}>编辑</button>
+                )}
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuDownload}>下载</button>
+                <div className="border-t my-1" />
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuRename}>重命名</button>
+                <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent text-destructive" onClick={ctxMenuDelete}>删除</button>
+              </>
+            )
+          ) : (
+            <>
+              <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuCreateDoc}>新建文档</button>
+              <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuCreateFolder}>新建目录</button>
+              <button className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent" onClick={ctxMenuImport}>导入文件</button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ==================== Create Folder Dialog ==================== */}
       <Dialog
@@ -1757,6 +2366,34 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         </DialogContent>
       </Dialog>
 
+      {/* ==================== Rename Dialog ==================== */}
+      <Dialog open={!!renameItem} onOpenChange={(open) => { if (!open) setRenameItem(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">重命名</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <Input
+              value={renameName}
+              onChange={(e) => setRenameName(e.target.value)}
+              placeholder="输入新名称"
+              className="text-sm"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmRename() }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRenameItem(null)}>
+              取消
+            </Button>
+            <Button size="sm" onClick={handleConfirmRename} disabled={renaming || !renameName.trim()}>
+              {renaming && <Loader2 className="size-3 mr-1 animate-spin" />}
+              确认
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ==================== Delete Confirmation Dialog ==================== */}
       <Dialog
         open={deleteConfirmItem !== null}
@@ -1801,25 +2438,6 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         </DialogContent>
       </Dialog>
 
-      {/* ==================== Leave Confirmation Dialog ==================== */}
-      <Dialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>未保存的更改</DialogTitle>
-            <DialogDescription>
-              当前文档存在未发布内容，是否离开？
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelLeave}>
-              继续编辑
-            </Button>
-            <Button onClick={handleConfirmLeave}>
-              离开
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

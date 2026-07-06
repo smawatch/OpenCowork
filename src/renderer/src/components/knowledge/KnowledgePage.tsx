@@ -50,7 +50,6 @@ import {
   type DatasetItem,
   type CollectionItem,
   type ChunkItem,
-  type SystemTag
 } from '@renderer/lib/knowledge/kb-api-client'
 import { KnowledgeToolbar, type SortField, type SortDir } from './KnowledgeToolbar'
 import { KnowledgeRow } from './KnowledgeRow'
@@ -82,7 +81,6 @@ function augmentDataset(ds: DatasetItem, index: number, isPersonal: boolean): Da
     systemTag: ds.systemTag || (isPersonal ? '个人' : '企业'),
     tags: ds.tags || tagPools[index % tagPools.length],
     creator: ds.creator || `创建人${String.fromCharCode(65 + (index % 26))}`,
-    docCount: ds.docCount ?? Math.floor(Math.random() * 500) + 5,
     updateTime: ds.updateTime || new Date(Date.now() - index * 86400000 * 3).toISOString()
   }
 }
@@ -168,7 +166,6 @@ export function KnowledgePage(): React.JSX.Element {
   const [activeTags, setActiveTags] = useState<string[]>([])
   const [sortField, setSortField] = useState<SortField>('updateTime')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [systemTagFilter, setSystemTagFilter] = useState<SystemTag | '全部'>('全部')
 
   // ---- create KB dialog ----
   const [showCreate, setShowCreate] = useState(false)
@@ -184,8 +181,11 @@ export function KnowledgePage(): React.JSX.Element {
   const [editKbTags, setEditKbTags] = useState<string[]>([])
   const [editing, setEditing] = useState(false)
 
+  const [editKbName, setEditKbName] = useState('')
+
   const openEditKb = useCallback((kb: DatasetItem) => {
     setEditingKb(kb)
+    setEditKbName(kb.name)
     setEditKbTags(kb.tags || [])
     setShowEditKb(true)
   }, [])
@@ -195,22 +195,27 @@ export function KnowledgePage(): React.JSX.Element {
   }, [])
 
   const handleEditKb = useCallback(async () => {
-    if (!editingKb) return
+    if (!editingKb || !editKbName.trim()) return
     setEditing(true)
     try {
       const r = await updateDataset(ipcClient, {
         id: editingKb.id,
+        name: editKbName.trim() !== editingKb.name ? editKbName.trim() : undefined,
         tags: editKbTags
       })
       if (!r.success) { toast.error(r.error || '更新失败'); return }
-      toast.success('标签已更新')
+      toast.success('已更新')
       setShowEditKb(false)
-      // 更新本地列表中的标签
-      setAllKbs((prev) => prev.map((k) => k.id === editingKb.id ? { ...k, tags: editKbTags } : k))
+      // 更新本地列表
+      setAllKbs((prev) =>
+        prev.map((k) =>
+          k.id === editingKb.id ? { ...k, name: editKbName.trim(), tags: editKbTags } : k
+        )
+      )
       setEditingKb(null)
     } catch { toast.error('更新失败') }
     finally { setEditing(false) }
-  }, [editingKb, editKbTags])
+  }, [editingKb, editKbName, editKbTags])
 
   const DEFAULT_TAG_OPTIONS = ['运营', '测试', '技术', '产品', '需求', '开发', '后端', '前端', 'AI', '文档']
 
@@ -318,6 +323,15 @@ export function KnowledgePage(): React.JSX.Element {
     fetchAll()
   }, [fetchAll])
 
+  // 从详情页返回列表时重新拉取数据
+  const prevRouteKindRef = useRef(route.kind)
+  useEffect(() => {
+    if (prevRouteKindRef.current === 'detail' && route.kind === 'list') {
+      fetchAll()
+    }
+    prevRouteKindRef.current = route.kind
+  }, [route.kind, fetchAll])
+
   // ==================== filtered & sorted ====================
 
   const allTags = useMemo(() => {
@@ -331,9 +345,6 @@ export function KnowledgePage(): React.JSX.Element {
   const filterSort = useCallback(
     <T extends DatasetItem>(list: T[]): T[] => {
       let filtered = list
-      if (systemTagFilter !== '全部') {
-        filtered = filtered.filter((kb) => kb.systemTag === systemTagFilter)
-      }
       if (search.trim()) {
         const q = search.trim().toLowerCase()
         filtered = filtered.filter((kb) => kb.name.toLowerCase().includes(q))
@@ -349,8 +360,6 @@ export function KnowledgePage(): React.JSX.Element {
         switch (sortField) {
           case 'name':
             return dir * a.name.localeCompare(b.name, 'zh-Hans')
-          case 'docCount':
-            return dir * ((a.docCount ?? 0) - (b.docCount ?? 0))
           case 'updateTime':
           default:
             return (
@@ -359,7 +368,7 @@ export function KnowledgePage(): React.JSX.Element {
         }
       })
     },
-    [search, activeTags, sortField, sortDir, systemTagFilter]
+    [search, activeTags, sortField, sortDir]
   )
 
   const filteredKbs = useMemo(() => filterSort(allKbs), [allKbs, filterSort])
@@ -617,8 +626,8 @@ export function KnowledgePage(): React.JSX.Element {
       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInputChange} />
 
       {/* Page Header */}
-      <div className="border-b px-6 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">
+      <div className="border-b px-6 py-5 flex items-center justify-between" style={{ borderColor: '#f1f3f5' }}>
+        <h1 className="text-xl font-bold" style={{ color: '#1f2329' }}>
           {t('knowledgePage.title', { defaultValue: '知识库' })}
         </h1>
       </div>
@@ -641,8 +650,6 @@ export function KnowledgePage(): React.JSX.Element {
           setNewIntro('')
           setShowCreate(true)
         }}
-        systemTagFilter={systemTagFilter}
-        onSystemTagFilterChange={setSystemTagFilter}
       />
 
       <div className="flex-1 overflow-y-auto">
@@ -659,31 +666,26 @@ export function KnowledgePage(): React.JSX.Element {
         {!loading && filteredKbs.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <BookOpen className="mb-3 size-10 opacity-30" />
-            <p className="text-sm">
-              {systemTagFilter === '全部' ? '暂无知识库' : `暂无"${systemTagFilter}"类型的知识库`}
-            </p>
+            <p className="text-sm">暂无知识库</p>
           </div>
         )}
         {!loading && filteredKbs.length > 0 && (
           <table className="w-full">
             <thead>
-              <tr className="border-b">
-                <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              <tr className="border-b" style={{ borderColor: '#f1f3f5' }}>
+                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
                   名称
                 </th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
                   标签
                 </th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
                   创建人
                 </th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                  文档
-                </th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
                   更新时间
                 </th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-medium text-muted-foreground uppercase tracking-wider w-[120px]">
+                <th className="px-6 py-2.5 text-right text-[13px] font-medium w-16" style={{ color: '#999' }}>
                   操作
                 </th>
               </tr>
@@ -1253,14 +1255,27 @@ export function KnowledgePage(): React.JSX.Element {
         </DialogContent>
       </Dialog>
 
-      {/* ==================== Edit KB Tags Dialog ==================== */}
+      {/* ==================== Edit KB Dialog (名称 + 标签) ==================== */}
       <Dialog open={showEditKb} onOpenChange={(o) => { if (!o) { setShowEditKb(false); setEditingKb(null) } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base">修改标签 - {editingKb?.name}</DialogTitle>
+            <DialogTitle className="text-base">编辑知识库</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-4">
+            {/* 名称 */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">名称</label>
+              <Input
+                value={editKbName}
+                onChange={(e) => setEditKbName(e.target.value)}
+                placeholder="知识库名称"
+                className="text-sm"
+              />
+            </div>
+            {/* 标签 */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">标签</label>
+              <div className="flex flex-wrap gap-1.5">
               {DEFAULT_TAG_OPTIONS.map((tag) => (
                 <button
                   key={tag}
@@ -1287,6 +1302,7 @@ export function KnowledgePage(): React.JSX.Element {
                 ))}
               </div>
             )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => { setShowEditKb(false); setEditingKb(null) }}>取消</Button>

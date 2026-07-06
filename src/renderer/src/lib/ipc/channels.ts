@@ -441,6 +441,8 @@ export const IPC = {
   KNOWLEDGE_PERSONAL_CREATE_FOLDER: 'knowledge:personal:create-folder',
   KNOWLEDGE_PERSONAL_DOWNLOAD_FILE: 'knowledge:personal:download-file',
   KNOWLEDGE_PERSONAL_LIST_FILES: 'knowledge:personal:list-files',
+  KNOWLEDGE_PERSONAL_READ_FILE: 'knowledge:personal:read-file',
+  KNOWLEDGE_PERSONAL_RENAME_COLLECTION: 'knowledge:personal:rename-collection',
 
   // Local Knowledge Base
   KNOWLEDGE_LOCAL_CREATE: 'knowledge:local:create',
