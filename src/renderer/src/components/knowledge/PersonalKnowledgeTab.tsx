@@ -27,6 +27,13 @@ import {
   DialogFooter
 } from '@renderer/components/ui/dialog'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/components/ui/select'
+import {
   MARKDOWN_REMARK_PLUGINS,
   MARKDOWN_REHYPE_PLUGINS,
   createMarkdownComponents
@@ -105,7 +112,20 @@ function formatDate(iso: string): string {
 export function PersonalKnowledgeTab(): React.JSX.Element {
   const token = useAuthStore((s) => s.token)
   const logout = useAuthStore((s) => s.logout)
+  const user = useAuthStore((s) => s.user)
+  const isManager = user?.roles?.includes('manager') ?? false
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const canEditKb = useCallback(
+    (kb: DatasetItem) => {
+      if (kb.source === 'department') {
+        if (!user) return false
+        return !!kb.creator && (kb.creator === user.username || kb.creator === user.displayName)
+      }
+      return true
+    },
+    [user]
+  )
   const markdownComponents = useMemo(() => createMarkdownComponents(), [])
 
   const [datasets, setDatasets] = useState<DatasetItem[]>([])
@@ -117,6 +137,7 @@ export function PersonalKnowledgeTab(): React.JSX.Element {
   const [newIntro, setNewIntro] = useState('')
   const [newTags, setNewTags] = useState<string[]>([])
   const [customTagInput, setCustomTagInput] = useState('')
+  const [newSource, setNewSource] = useState<'personal' | 'department'>('personal')
   const [creating, setCreating] = useState(false)
 
   // ---- edit KB dialog ----
@@ -255,7 +276,8 @@ export function PersonalKnowledgeTab(): React.JSX.Element {
       const result = await createDataset(ipcClient, {
         name: newName.trim(),
         intro: newIntro.trim() || undefined,
-        tags: newTags.length > 0 ? newTags : undefined
+        tags: newTags.length > 0 ? newTags : undefined,
+        source: isManager ? newSource : undefined
       })
       if (!result.success) {
         toast.error(result.error || result.message || '创建失败')
@@ -267,6 +289,7 @@ export function PersonalKnowledgeTab(): React.JSX.Element {
       setNewIntro('')
       setNewTags([])
       setCustomTagInput('')
+      setNewSource('personal')
       fetchDatasets()
     } catch (err: unknown) {
       if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') {
@@ -520,25 +543,29 @@ export function PersonalKnowledgeTab(): React.JSX.Element {
                   {ds.type || 'dataset'}
                 </Badge>
                 <div className="flex-1" />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openEditDialog(ds)
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 text-muted-foreground hover:text-red-500"
-                  onClick={(e) => handleDeleteDataset(e, ds)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+                {canEditKb(ds) && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openEditDialog(ds)
+                      }}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 text-muted-foreground hover:text-red-500"
+                      onClick={(e) => handleDeleteDataset(e, ds)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
               <h3 className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
                 {ds.name}
@@ -573,6 +600,7 @@ export function PersonalKnowledgeTab(): React.JSX.Element {
             setNewIntro('')
             setNewTags([])
             setCustomTagInput('')
+            setNewSource('personal')
           }
         }}
       >
@@ -592,6 +620,23 @@ export function PersonalKnowledgeTab(): React.JSX.Element {
                 onChange={(e) => setNewName(e.target.value)}
               />
             </div>
+            {isManager && (
+              <div>
+                <label className="text-xs text-muted-foreground">来源</label>
+                <Select
+                  value={newSource}
+                  onValueChange={(v) => setNewSource(v as 'personal' | 'department')}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">个人</SelectItem>
+                    <SelectItem value="department">部门</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground">简介</label>
               <Textarea

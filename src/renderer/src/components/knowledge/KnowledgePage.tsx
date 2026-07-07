@@ -26,6 +26,13 @@ import {
   DialogDescription,
   DialogFooter
 } from '@renderer/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/components/ui/select'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { IPC } from '@renderer/lib/ipc/channels'
 import { useAuthStore } from '@renderer/stores/auth-store'
@@ -78,9 +85,9 @@ function augmentDataset(ds: DatasetItem, index: number, isPersonal: boolean): Da
   ]
   return {
     ...ds,
-    systemTag: ds.systemTag || (isPersonal ? '个人' : '企业'),
+    systemTag: ds.systemTag || (ds.source === 'department' ? '部门' : (isPersonal ? '个人' : '企业')),
     tags: ds.tags || tagPools[index % tagPools.length],
-    creator: ds.creator || `创建人${String.fromCharCode(65 + (index % 26))}`,
+    creator: ds.creator,
     updateTime: ds.updateTime || new Date(Date.now() - index * 86400000 * 3).toISOString()
   }
 }
@@ -139,7 +146,24 @@ export function KnowledgePage(): React.JSX.Element {
   const { t } = useTranslation('layout')
   const token = useAuthStore((s) => s.token)
   const logout = useAuthStore((s) => s.logout)
+  const user = useAuthStore((s) => s.user)
+  const isManager = user?.roles?.includes('manager') ?? false
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const canEditKb = useCallback(
+    (kb: PageKb) => {
+      // Enterprise KB: no edit allowed
+      if (kb.systemTag === '企业') return false
+      // Department KB: only the creator can edit
+      if (kb.source === 'department' || kb.systemTag === '部门') {
+        if (!user) return false
+        return !!kb.creator && (kb.creator === user.username || kb.creator === user.displayName)
+      }
+      // Personal KB: edit allowed
+      return true
+    },
+    [user]
+  )
 
   // ---- data ----
   const [allKbs, setAllKbs] = useState<PageKb[]>([])
@@ -173,6 +197,7 @@ export function KnowledgePage(): React.JSX.Element {
   const [newIntro, setNewIntro] = useState('')
   const [newTags, setNewTags] = useState<string[]>([])
   const [customTagInput, setCustomTagInput] = useState('')
+  const [newSource, setNewSource] = useState<'personal' | 'department'>('personal')
   const [creating, setCreating] = useState(false)
 
   // ---- edit KB ----
@@ -382,7 +407,8 @@ export function KnowledgePage(): React.JSX.Element {
       const r = await createDataset(ipcClient, {
         name: newName.trim(),
         intro: newIntro.trim() || undefined,
-        tags: newTags.length > 0 ? newTags : undefined
+        tags: newTags.length > 0 ? newTags : undefined,
+        source: isManager ? newSource : undefined
       })
       if (!r.success) {
         toast.error(r.error || r.message || '创建失败')
@@ -696,8 +722,8 @@ export function KnowledgePage(): React.JSX.Element {
                   key={kb.id}
                   kb={kb}
                   onEnter={() => goToKnowledgeDetail(kb.id)}
-                  onEdit={kb.kind === 'personal' ? () => openEditKb(kb) : undefined}
-                  onDelete={kb.kind === 'personal' ? () => handleDeleteKb(kb) : undefined}
+                  onEdit={canEditKb(kb) ? () => openEditKb(kb) : undefined}
+                  onDelete={canEditKb(kb) ? () => handleDeleteKb(kb) : undefined}
                 />
               ))}
             </tbody>
@@ -715,6 +741,7 @@ export function KnowledgePage(): React.JSX.Element {
             setNewIntro('')
             setNewTags([])
             setCustomTagInput('')
+            setNewSource('personal')
           }
         }}
       >
@@ -734,6 +761,23 @@ export function KnowledgePage(): React.JSX.Element {
                 onChange={(e) => setNewName(e.target.value)}
               />
             </div>
+            {isManager && (
+              <div>
+                <label className="text-xs text-muted-foreground">来源</label>
+                <Select
+                  value={newSource}
+                  onValueChange={(v) => setNewSource(v as 'personal' | 'department')}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">个人</SelectItem>
+                    <SelectItem value="department">部门</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground">简介</label>
               <Textarea

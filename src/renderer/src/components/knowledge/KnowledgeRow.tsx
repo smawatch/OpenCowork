@@ -78,7 +78,7 @@ export function KnowledgeRow({
 }: KnowledgeRowProps): React.JSX.Element {
   const user = useAuthStore((s) => s.user)
   const isEnterprise = kb.systemTag === '企业'
-  const displayCreator = isEnterprise ? 'admin' : (user?.displayName || user?.username || '-')
+  const displayCreator = kb.creator || (isEnterprise ? 'admin' : (user?.displayName || user?.username || '-'))
   const tags = kb.tags || []
   const visibleTags = tags.slice(0, 3)
   const extraCount = tags.length - visibleTags.length
@@ -103,8 +103,10 @@ export function KnowledgeRow({
               <span
                 className="inline-flex items-center shrink-0 rounded-full px-2 py-0.5 text-xs font-medium leading-none"
                 style={{
-                  backgroundColor: kb.systemTag === '企业' ? '#eef4ff' : '#eefbf3',
-                  color: kb.systemTag === '企业' ? '#2563eb' : '#16a34a'
+                  backgroundColor:
+                    kb.systemTag === '企业' ? '#eef4ff' : kb.systemTag === '部门' ? '#fef3e2' : '#eefbf3',
+                  color:
+                    kb.systemTag === '企业' ? '#2563eb' : kb.systemTag === '部门' ? '#d97706' : '#16a34a'
                 }}
               >
                 {kb.systemTag}

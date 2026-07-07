@@ -336,6 +336,7 @@ function DraftBanner({
 
 export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Element {
   const token = useAuthStore((s) => s.token)
+  const user = useAuthStore((s) => s.user)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // KB info (derive from allKbs or fetch)
@@ -482,11 +483,22 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         const r = await listCollections(ipcClient, kbId)
         if (cancelled || !r.success) return
 
+        // 检查当前选中的文档是否刚完成解析
+        let parsingCompleted = false
+        let completedItem: CollectionItem | null = null
+
         // 只更新训练状态，不替换整个列表
         setCollections((prev) =>
           prev.map((c) => {
             const fresh = r.data?.find((f) => f.id === c.id)
             if (!fresh) return c
+            // 检查是否从解析中变为解析完成
+            const wasParsing = (c.trainingAmount ?? 0) > 0 && (c.dataAmount ?? 0) === 0
+            const isNowParsed = (fresh.dataAmount ?? 0) > 0
+            if (wasParsing && isNowParsed) {
+              parsingCompleted = true
+              completedItem = { ...c, trainingAmount: fresh.trainingAmount, dataAmount: fresh.dataAmount }
+            }
             return {
               ...c,
               trainingAmount: fresh.trainingAmount,
@@ -494,6 +506,33 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
             }
           })
         )
+
+        // 同步更新 selectedItem 的状态
+        setSelectedItem((prev) => {
+          if (!prev) return prev
+          const fresh = r.data?.find((f) => f.id === prev.id)
+          if (!fresh) return prev
+          // 检查当前选中的文档是否刚完成解析
+          const wasParsing = (prev.trainingAmount ?? 0) > 0 && (prev.dataAmount ?? 0) === 0
+          const isNowParsed = (fresh.dataAmount ?? 0) > 0
+          if (wasParsing && isNowParsed) {
+            parsingCompleted = true
+            completedItem = { ...prev, trainingAmount: fresh.trainingAmount, dataAmount: fresh.dataAmount }
+          }
+          return {
+            ...prev,
+            trainingAmount: fresh.trainingAmount,
+            dataAmount: fresh.dataAmount
+          }
+        })
+
+        // 如果当前选中的文档刚完成解析，重新选中以进入编辑模式
+        if (parsingCompleted && completedItem) {
+          // 延迟一点让状态更新完成
+          setTimeout(() => {
+            handleSelectDoc(completedItem!)
+          }, 100)
+        }
 
         // 更新已展开文件夹的子项
         for (const parentId of loadedRef.current) {
@@ -537,6 +576,12 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
     if (!selectedItem || selectedItem.type === 'folder') return null
     return storedFiles.find((f) => f.collectionId === selectedItem.id) || null
   }, [selectedItem, storedFiles])
+
+  // Check if current selected item is parsing
+  const isCurrentItemParsing = useMemo(() => {
+    if (!selectedItem || selectedItem.type === 'folder') return false
+    return (selectedItem.trainingAmount ?? 0) > 0 && (selectedItem.dataAmount ?? 0) === 0
+  }, [selectedItem])
 
   // Download handler — works for both uploaded files and new documents
   const handleDownloadFile = useCallback(async () => {
@@ -591,8 +636,11 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
             if (r.success) {
               const found = (r.data ?? []).find((d) => d.id === kbId)
               if (found) {
-                // Ensure systemTag is set (API may not return it)
-                setKbInfo({ ...found, systemTag: found.systemTag || '个人' })
+                // Resolve systemTag: prefer source field (department), then API's systemTag, then default '个人'
+                const sysTag = found.source === 'department'
+                  ? '部门'
+                  : (found.systemTag || '个人')
+                setKbInfo({ ...found, systemTag: sysTag })
                 return
               }
             }
@@ -609,8 +657,11 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
           if (r.success) {
             const found = (r.data ?? []).find((d) => d.id === kbId)
             if (found) {
-              // Enterprise datasets are read-only
-              setKbInfo({ ...found, systemTag: found.systemTag || '企业' })
+              // Resolve systemTag: prefer source field (department), then API's systemTag, then default '企业'
+              const sysTag = found.source === 'department'
+                ? '部门'
+                : (found.systemTag || '企业')
+              setKbInfo({ ...found, systemTag: sysTag })
             }
           }
         } catch {
@@ -623,11 +674,20 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
     fetchInfo()
   }, [kbId, token])
 
-  // Determine if this KB is read-only (enterprise or explicitly marked as read-only)
+  // Determine if this KB is read-only (enterprise, read-only, or department KB not created by current user)
   const isReadOnly = useMemo(() => {
     if (!kbInfo?.systemTag) return false
-    return kbInfo.systemTag === '企业' || kbInfo.systemTag === '只读'
-  }, [kbInfo])
+    if (kbInfo.systemTag === '企业' || kbInfo.systemTag === '只读') return true
+    // Department KB: only the creator can edit; everyone else is read-only
+    if (kbInfo.systemTag === '部门') {
+      if (!user) return true
+      const isCreator =
+        !!kbInfo.creator &&
+        (kbInfo.creator === user.username || kbInfo.creator === user.displayName)
+      return !isCreator
+    }
+    return false
+  }, [kbInfo, user])
 
   // ==================== tree structure ====================
 
@@ -819,6 +879,14 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
     setSelectedItem(item)
     if (item.type === 'folder') {
       setCurrentFolderId(item.id)
+      setChunks([])
+      return
+    }
+
+    // 文档正在解析中：不进入编辑模式，直接显示解析中状态
+    const isParsing = (item.trainingAmount ?? 0) > 0 && (item.dataAmount ?? 0) === 0
+    if (isParsing) {
+      setEditMode(false)
       setChunks([])
       return
     }
@@ -1139,13 +1207,12 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       const newDoc = newCollections.find((c) => c.id === newDocId)
       if (newDoc) {
         newDoc.name = `${draftTitle.trim()}.md`
+        // 新文档发布后处于解析中，标记为正在解析
+        newDoc.trainingAmount = 1
+        newDoc.dataAmount = 0
         setSelectedId(newDoc.id)
         setSelectedItem(newDoc)
-        setChunksLoading(true)
-        listChunks(ipcClient, newDoc.id).then((r) => {
-          if (r.success) setChunks(r.data ?? [])
-          setChunksLoading(false)
-        }).catch(() => setChunksLoading(false))
+        setChunks([])
       }
     } catch {
       toast.error('发布失败')
@@ -1322,13 +1389,13 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
 
       const newDoc = refreshed.find((c) => c.id === newCollectionId)
       if (newDoc) {
+        // 保存后标记为解析中状态
+        newDoc.trainingAmount = 1
+        newDoc.dataAmount = 0
         setSelectedId(newDoc.id)
         setSelectedItem(newDoc)
-        setChunksLoading(true)
-        listChunks(ipcClient, newDoc.id).then((r) => {
-          if (r.success) setChunks(r.data ?? [])
-          setChunksLoading(false)
-        }).catch(() => setChunksLoading(false))
+        setEditMode(false)
+        setChunks([])
       } else {
         setSelectedId(null)
         setSelectedItem(null)
@@ -2166,6 +2233,12 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                     <div className="flex justify-center py-16">
                       <Loader2 className="size-5 animate-spin text-muted-foreground" />
                     </div>
+                  ) : isCurrentItemParsing ? (
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <Loader2 className="size-8 animate-spin text-blue-500 mb-4" />
+                      <div className="text-sm text-muted-foreground">文档正在切片解析中...</div>
+                      <div className="text-xs text-muted-foreground/60 mt-2">解析完成后可编辑</div>
+                    </div>
                   ) : chunks.length === 0 ? (
                     <div className="text-sm text-muted-foreground py-16 text-center">暂无内容</div>
                   ) : (
@@ -2210,7 +2283,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       </div>
 
       {/* ==================== Context Menu ==================== */}
-      {ctxMenu && (
+      {!isReadOnly && ctxMenu && (
         <div
           className="fixed z-50 min-w-[160px] bg-popover border rounded-md shadow-md py-1"
           style={{ left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 200) }}

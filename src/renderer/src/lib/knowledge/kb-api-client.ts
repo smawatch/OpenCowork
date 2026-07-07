@@ -1,11 +1,12 @@
 import type { IPCClient } from '@renderer/lib/tools/tool-types'
 import { IPC } from '@renderer/lib/ipc/channels'
 
-export type SystemTag = '企业' | '个人' | '外部' | '共享' | '公开' | '官方' | '只读'
+export type SystemTag = '企业' | '个人' | '部门' | '外部' | '共享' | '公开' | '官方' | '只读'
 
 export const SYSTEM_TAG_CONFIG: Record<SystemTag, { bg: string; color: string }> = {
   企业: { bg: '#EEF6FF', color: '#2563EB' },
   个人: { bg: '#F0FDF4', color: '#16A34A' },
+  部门: { bg: '#FEF3E2', color: '#D97706' },
   外部: { bg: '#FFF4E5', color: '#D97706' },
   共享: { bg: '#ECFDF5', color: '#059669' },
   公开: { bg: '#F5F3FF', color: '#7C3AED' },
@@ -32,6 +33,8 @@ export interface DatasetItem {
   docCount?: number
   /** 最后更新时间 ISO string */
   updateTime?: string
+  /** 来源：personal（个人）/ department（部门） */
+  source?: string
 }
 
 export interface CollectionItem {
@@ -94,7 +97,7 @@ function checkAuthError(result: ApiResponse<unknown>): void {
 
 export async function createDataset(
   ipc: IPCClient,
-  params: { name: string; intro?: string; tags?: string[] }
+  params: { name: string; intro?: string; tags?: string[]; source?: 'personal' | 'department' }
 ): Promise<ApiResponse<CreateDatasetResult>> {
   const result = (await ipc.invoke(
     IPC.KNOWLEDGE_PERSONAL_CREATE_DATASET,

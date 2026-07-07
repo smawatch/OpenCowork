@@ -75,12 +75,13 @@ export function registerKnowledgeHandlers(): void {
       if (!response.ok) {
         return { success: false, error: body.error || body.message || `HTTP ${response.status}` }
       }
-      // 将 API 返回的 tags 字符串转为数组
+      // 将 API 返回的 tags 字符串转为数组，映射 createdBy -> creator
       const data = (body.data || []).map((item: any) => ({
         ...item,
         tags: typeof item.tags === 'string' && item.tags
           ? item.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
-          : item.tags || []
+          : item.tags || [],
+        creator: item.createdBy || item.creator
       }))
       return { success: true, data }
     } catch (err: any) {
@@ -600,12 +601,13 @@ export function registerKnowledgeHandlers(): void {
       if (!response.ok) {
         return { success: false, error: body.error || body.message || `HTTP ${response.status}` }
       }
-      // 将 API 返回的 tags 字符串转为数组
+      // 将 API 返回的 tags 字符串转为数组，映射 createdBy -> creator
       const data = (body.data || []).map((item: any) => ({
         ...item,
         tags: typeof item.tags === 'string' && item.tags
           ? item.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
-          : item.tags || []
+          : item.tags || [],
+        creator: item.createdBy || item.creator
       }))
       return { success: true, data }
     } catch (err: unknown) {
@@ -615,13 +617,14 @@ export function registerKnowledgeHandlers(): void {
 
   ipcMain.handle(
     'knowledge:personal:create-dataset',
-    async (_event, args: { name: string; intro?: string; tags?: string[] }) => {
+    async (_event, args: { name: string; intro?: string; tags?: string[]; source?: string }) => {
       const serverUrl = getServerUrl()
       const token = getApiToken()
       if (!token) return { success: false, error: '未登录' }
 
       const reqBody: Record<string, unknown> = { name: args.name, intro: args.intro }
       if (args.tags && args.tags.length > 0) reqBody.tags = args.tags.join(',')
+      if (args.source) reqBody.source = args.source
       console.log('[知识库] 创建知识库 请求体:', JSON.stringify(reqBody))
 
       try {

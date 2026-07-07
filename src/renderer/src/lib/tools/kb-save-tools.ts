@@ -100,7 +100,7 @@ const saveChatToKbHandler: ToolHandler = {
   definition: {
     name: 'save_chat_to_kb',
     description:
-      '保存聊天内容到个人知识库。将指定的内容生成为 Markdown 文档并上传到知识库指定目录。仅支持个人知识库，不支持企业知识库。调用此工具前，如果用户未指定知识库或目录，请先调用 get_my_kb_list 和 get_kb_tree 获取列表让用户选择。parentId 为可选参数，不传表示保存到根目录。',
+      '保存聊天内容到个人知识库。将指定的内容生成为 Markdown 文档并上传到知识库指定目录。仅支持个人知识库，不支持企业知识库。调用此工具前，必须先调用 get_my_kb_list 让用户选择知识库，再调用 get_kb_tree 让用户选择目录，不可跳过目录选择步骤。parentId 必须传值，不可省略。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -110,7 +110,7 @@ const saveChatToKbHandler: ToolHandler = {
         },
         parentId: {
           type: 'string',
-          description: '目标目录 ID，为空则保存到根目录'
+          description: '目标目录 ID（由 get_kb_tree 返回）。必须先调用 get_kb_tree 让用户选择目录，然后将所选目录 ID 传入。如果用户选择根目录，传空字符串。'
         },
         title: {
           type: 'string',
@@ -121,7 +121,7 @@ const saveChatToKbHandler: ToolHandler = {
           description: '要保存的 Markdown 内容。应包含用户问题和 AI 回答'
         }
       },
-      required: ['kbId', 'title', 'content']
+      required: ['kbId', 'parentId', 'title', 'content']
     }
   },
 
