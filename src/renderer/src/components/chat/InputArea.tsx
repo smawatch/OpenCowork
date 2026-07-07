@@ -24,9 +24,11 @@ import {
   Clock,
   ImageIcon,
   RefreshCcw,
+  Check,
   ShieldAlert,
   Users,
   Wrench,
+  Square,
   type LucideIcon
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -39,6 +41,7 @@ import {
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { useProviderStore, modelSupportsVision } from '@renderer/stores/provider-store'
 import type {
   AIModelConfig,
@@ -326,6 +329,7 @@ function ActiveMcpsBadge({ projectId }: { projectId?: string | null }): React.JS
   const servers = useMcpStore((s) => s.servers)
   const serverStatuses = useMcpStore((s) => s.serverStatuses)
   const serverTools = useMcpStore((s) => s.serverTools)
+  const toggleActiveMcp = useMcpStore((s) => s.toggleActiveMcp)
   const activeMcpIds = React.useMemo(
     () =>
       resolveEffectiveActiveMcpIds({
@@ -336,32 +340,70 @@ function ActiveMcpsBadge({ projectId }: { projectId?: string | null }): React.JS
       }),
     [activeMcpIdsByProject, projectId, serverStatuses, servers]
   )
-  if (activeMcpIds.length === 0) return null
-  const activeServers = servers.filter((s) => activeMcpIds.includes(s.id))
+  const connectedServers = React.useMemo(
+    () =>
+      servers.filter(
+        (s) =>
+          s.enabled &&
+          serverStatuses[s.id] === 'connected' &&
+          (!projectId ? true : !s.projectId || s.projectId === projectId)
+      ),
+    [servers, serverStatuses, projectId]
+  )
+  if (connectedServers.length === 0) return null
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="composer-status-pill flex cursor-default items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px]">
+    <Popover>
+      <PopoverTrigger asChild>
+        <div className="composer-status-pill flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] hover:bg-muted/50 transition-colors">
           <span className="size-1.5 rounded-full bg-current animate-pulse opacity-80" />
           <span>{t('skills.mcpCount', { count: activeMcpIds.length })}</span>
         </div>
-      </TooltipTrigger>
-      <TooltipContent side="top">
-        <p className="text-xs font-medium">{t('skills.activeMcpServers')}</p>
-        {activeServers.map((s) => (
-          <p key={s.id} className="text-xs text-muted-foreground">
-            {s.name} ({t('skills.mcpToolCount', { count: serverTools[s.id]?.length ?? 0 })})
-          </p>
-        ))}
-      </TooltipContent>
-    </Tooltip>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="w-64 max-w-72">
+        <p className="text-xs font-medium mb-2">{t('skills.activeMcpServers')}</p>
+        {connectedServers.map((s) => {
+          const isActive = activeMcpIds.includes(s.id)
+          const toolCount = serverTools[s.id]?.length ?? 0
+          return (
+            <div
+              key={s.id}
+              onClick={() => toggleActiveMcp(s.id, projectId)}
+              className="flex cursor-pointer items-start gap-2 py-1.5 mb-0.5 last:mb-0"
+            >
+              <span
+                className={`mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded border ${
+                  isActive
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-muted-foreground/30'
+                }`}
+              >
+                {isActive && <Check className="size-2.5" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium truncate">{s.name}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    ({t('skills.mcpToolCount', { count: toolCount })})
+                  </span>
+                </div>
+                {s.description && (
+                  <p className="text-[10px] text-muted-foreground/70 leading-tight mt-0.5">
+                    {s.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </PopoverContent>
+    </Popover>
   )
 }
 
 const placeholderKeys: Record<AppMode, string> = {
   chat: 'input.placeholder',
   clarify: 'input.placeholderClarify',
-  cowork: 'input.placeholderCoWork',
+  cowork: 'input.placeholderCowork',
   code: 'input.placeholderCode',
   acp: 'input.placeholderAcp'
 }
@@ -369,7 +411,7 @@ const placeholderKeys: Record<AppMode, string> = {
 const defaultRecommendationKeys: Record<AppMode, string> = {
   chat: 'input.recommendationDefaultChat',
   clarify: 'input.recommendationDefaultClarify',
-  cowork: 'input.recommendationDefaultCoWork',
+  cowork: 'input.recommendationDefaultCowork',
   code: 'input.recommendationDefaultCode',
   acp: 'input.recommendationDefaultAcp'
 }
@@ -2779,7 +2821,7 @@ export function InputArea({
     async (e: React.ClipboardEvent<HTMLDivElement>): Promise<void> => {
       console.log('[Paste] Clipboard types:', e.clipboardData?.types)
       console.log('[Paste] Files count:', e.clipboardData?.files?.length)
-      
+
       const imageFiles = getPastedImageFiles(e.clipboardData)
 
       if (imageFiles.length > 0) {
@@ -2806,7 +2848,7 @@ export function InputArea({
           console.log('[Paste] Attempting to read file paths via IPC')
           const systemFilePaths = await window.api.readClipboardFilePaths()
           console.log('[Paste] System clipboard file paths:', systemFilePaths)
-          
+
           if (systemFilePaths.length > 0) {
             e.preventDefault()
             console.log('[Paste] Adding files from system clipboard:', systemFilePaths)
@@ -3159,23 +3201,6 @@ export function InputArea({
     </Tooltip>
   )
 
-  const stopControl = isStreaming && (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className={composerIconControlClass}
-          data-tone="warning"
-          onClick={onStop}
-        >
-          <Spinner className="size-4" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{t('input.stopTooltip')}</TooltipContent>
-    </Tooltip>
-  )
-
   const optimizeControl = !isStreaming && (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -3195,7 +3220,28 @@ export function InputArea({
     </Tooltip>
   )
 
-  const sendControl = (
+  const sendControl = isStreaming ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="default"
+          className="composer-send rounded-xl px-3.5 transition-[filter,box-shadow] duration-200"
+          data-composer-variant={composerVariant}
+          data-tone="warning"
+          onMouseDown={(event) => {
+            event.preventDefault()
+          }}
+          onClick={onStop}
+        >
+          <>
+            <span>{t('action.stop', { ns: 'common' })}</span>
+            <Square className="ml-1.5 size-3.5" />
+          </>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{t('input.stopTooltip')}</TooltipContent>
+    </Tooltip>
+  ) : (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
@@ -3220,11 +3266,7 @@ export function InputArea({
           </>
         </Button>
       </TooltipTrigger>
-      <TooltipContent>
-        {isStreaming
-          ? t('input.sendTooltipWhileRunning', { defaultValue: 'Send after current run' })
-          : t('input.sendTooltip')}
-      </TooltipContent>
+      <TooltipContent>{t('input.sendTooltip')}</TooltipContent>
     </Tooltip>
   )
 
@@ -4062,7 +4104,6 @@ export function InputArea({
                   </AlertDialog>
                 )}
 
-                {stopControl}
                 {optimizeControl}
                 {sendControl}
               </div>

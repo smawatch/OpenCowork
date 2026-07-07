@@ -207,6 +207,11 @@ export const IPC = {
   MCP_GET_PROMPT: 'mcp:get-prompt',
   MCP_REFRESH_CAPABILITIES: 'mcp:refresh-capabilities',
 
+  // Figma Plugin installation
+  FIGMA_PLUGIN_STATUS: 'figma-plugin:status',
+  FIGMA_PLUGIN_INSTALL: 'figma-plugin:install',
+  FIGMA_PLUGIN_OPEN_DEV_DIR: 'figma-plugin:open-dev-dir',
+
   // Cron Scheduler (v2)
   CRON_ADD: 'cron:add',
   CRON_UPDATE: 'cron:update',

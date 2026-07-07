@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import {
   BOTTOM_TERMINAL_DOCK_DEFAULT_HEIGHT,
   LEFT_SIDEBAR_DEFAULT_WIDTH,
+  RIGHT_PANEL_DEFAULT_WIDTH,
   WORKING_FOLDER_PANEL_DEFAULT_WIDTH,
   clampBottomTerminalDockHeight,
   clampLeftSidebarWidth,
@@ -1238,7 +1239,7 @@ export const useUIStore = create<UIStore>()(
               : {})
           }
         }),
-      rightPanelWidth: 384,
+      rightPanelWidth: RIGHT_PANEL_DEFAULT_WIDTH,
       setRightPanelWidth: (width) => set({ rightPanelWidth: clampRightPanelWidth(width) }),
       agentFilesActiveTabBySurface: {},
       agentFilesSelectedChangeKey: null,

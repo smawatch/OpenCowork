@@ -75,7 +75,8 @@ const api = {
   permissionList: () => ipcRenderer.invoke('permission:list'),
   importDownloadTemplate: () => ipcRenderer.invoke('import:downloadTemplate'),
   importUsers: (fileBuffer: Buffer) => ipcRenderer.invoke('import:users', fileBuffer),
-  authSaveToken: (token: string) => ipcRenderer.invoke('auth:saveToken', token),
+  authSaveToken: (args: { token: string; refreshToken?: string }) =>
+    ipcRenderer.invoke('auth:saveToken', args),
   authClear: () => ipcRenderer.invoke('auth:clear'),
   authCheck: () => ipcRenderer.invoke('auth:check'),
 }

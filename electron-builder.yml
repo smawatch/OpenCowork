@@ -1,5 +1,5 @@
 appId: com.smawatch.opencowork.app
-productName: CoCoWork
+productName: CoWork
 directories:
   buildResources: build
 afterPack: build/after-sign-mac.cjs
@@ -107,10 +107,11 @@ asarUnpack:
   - node_modules/@jitsi/robotjs/**
   - node_modules/node-gyp-build/**
   - node_modules/sharp/**
+  - node_modules/@youware-labs/figma-pilot-mcp/**
 win:
-  executableName: CoCoWork
+  executableName: CoWork
   icon: build/icon.ico
-  legalTrademarks: CoCoWork
+  legalTrademarks: CoWork
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -127,7 +128,7 @@ mac:
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-    - NSLocalNetworkUsageDescription: CoCoWork needs local network access to connect to SSH hosts and local services on your network.
+    - NSLocalNetworkUsageDescription: CoWork needs local network access to connect to SSH hosts and local services on your network.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}

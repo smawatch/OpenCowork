@@ -3758,4 +3758,13 @@ export function registerFsHandlers(): void {
       return { error: String(err) }
     }
   })
+
+  ipcMain.handle('fs:select-directory', async () => {
+    const win = BrowserWindow.getFocusedWindow()
+    if (!win) return { canceled: true }
+    return dialog.showOpenDialog(win, {
+      properties: ['openDirectory'],
+      title: '选择技能目录'
+    })
+  })
 }

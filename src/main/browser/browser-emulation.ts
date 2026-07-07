@@ -268,20 +268,22 @@ export function getBuiltInBrowserSession(): Session {
     : session.fromPartition(BUILTIN_BROWSER_PARTITION)
 
   // 配置浏览器会话以允许不安全的内容
-  if (!browserSession._configuredForInsecureContent) {
-    browserSession._configuredForInsecureContent = true
+  const bs = browserSession as unknown as Record<string, unknown>
+  if (!bs._configuredForInsecureContent) {
+    bs._configuredForInsecureContent = true
 
     // 设置权限请求处理
-    browserSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    browserSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
       callback(true)
     })
 
     // 处理证书验证，自动接受本地地址的自签名证书
     browserSession.setCertificateVerifyProc((request, callback) => {
-      const { hostname, url } = request
+      const r = request as unknown as { hostname?: string; url?: string }
+      const hostname = r.hostname ?? r.url ?? ''
 
       if (isLocalOrPrivateHost(hostname)) {
-        console.log('[Browser] Auto-accepting certificate for local address:', url)
+        console.log('[Browser] Auto-accepting certificate for local address:', r.url)
         // 0 表示接受证书
         callback(0)
         return
@@ -429,7 +431,7 @@ export function configureBuiltInBrowserSession(): BrowserEmulationStatus {
   const acceptLanguages = getAcceptLanguages()
 
   // 设置权限请求处理
-  browserSession.setPermissionRequestHandler((webContents, permission, callback) => {
+  browserSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(true)
   })
   

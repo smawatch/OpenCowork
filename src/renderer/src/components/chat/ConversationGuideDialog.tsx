@@ -52,10 +52,10 @@ export function ConversationGuideDialog({
         description: t('guide.steps.modeClarify.description')
       },
       {
-        key: 'modeCoWork',
+        key: 'modeCowork',
         selector: '[data-tour="mode-cowork"]',
-        title: t('guide.steps.modeCoWork.title'),
-        description: t('guide.steps.modeCoWork.description')
+        title: t('guide.steps.modeCowork.title'),
+        description: t('guide.steps.modeCowork.description')
       },
       {
         key: 'modeCode',

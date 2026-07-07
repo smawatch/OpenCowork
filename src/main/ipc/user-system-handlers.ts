@@ -60,6 +60,19 @@ export function registerUserSystemHandlers(): void {
     });
   });
 
+  // 刷新 token（不需要认证，用 refreshToken 换新 accessToken）
+  ipcMain.handle('user:refreshToken', async () => {
+    const settings = readSettings();
+    const refreshToken = settings.refreshToken;
+    if (!refreshToken) {
+      return { success: false, error: 'No refresh token available' };
+    }
+    return apiRequest('/api/auth/refresh-token', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken })
+    });
+  });
+
   // 注册申请（仅邮箱+用户名，提交后待管理员激活）
   ipcMain.handle('user:register', async (_event, data: {
     username: string;
@@ -268,15 +281,24 @@ export function registerUserSystemHandlers(): void {
     }
   });
 
-  // 保存认证信息
-  ipcMain.handle('auth:saveToken', async (_event, token: string) => {
+  // 保存认证信息（兼容旧签名：直接传 string 也能用）
+  ipcMain.handle('auth:saveToken', async (_event, args: string | { token: string; refreshToken?: string }) => {
     const settings = readSettings();
-    settings.authToken = token;
-    
+
+    if (typeof args === 'string') {
+      // Old signature: just a token string
+      settings.authToken = args;
+    } else {
+      settings.authToken = args.token;
+      if (args.refreshToken) {
+        settings.refreshToken = args.refreshToken;
+      }
+    }
+
     // 立即写入磁盘，避免应用关闭时丢失
     const { flushSettingsSync } = await import('./settings-handlers');
     flushSettingsSync();
-    
+
     return { success: true };
   });
 
@@ -284,12 +306,13 @@ export function registerUserSystemHandlers(): void {
   ipcMain.handle('auth:clear', async () => {
     const settings = readSettings();
     delete settings.authToken;
+    delete settings.refreshToken;
     delete settings.currentUser;
-    
+
     // 立即写入磁盘
     const { flushSettingsSync } = await import('./settings-handlers');
     flushSettingsSync();
-    
+
     return { success: true };
   });
 

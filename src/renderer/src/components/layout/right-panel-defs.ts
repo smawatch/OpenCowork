@@ -4,14 +4,14 @@ export const LEFT_SIDEBAR_DEFAULT_WIDTH = 292
 export const LEFT_SIDEBAR_MIN_WIDTH = 272
 export const LEFT_SIDEBAR_MAX_WIDTH = 420
 
-export const RIGHT_PANEL_DEFAULT_WIDTH = 384
+export const RIGHT_PANEL_DEFAULT_WIDTH = 320
 export const RIGHT_PANEL_MIN_WIDTH = 280
 export const RIGHT_PANEL_MAX_WIDTH = Number.POSITIVE_INFINITY
 // The right panel must never occupy more than 80% of the viewport width.
 export const RIGHT_PANEL_MAX_WIDTH_RATIO = 0.8
 export const RIGHT_PANEL_RAIL_WIDTH = 48
 export const RIGHT_PANEL_RAIL_SLIM_WIDTH = 12
-export const WORKING_FOLDER_PANEL_DEFAULT_WIDTH = 420
+export const WORKING_FOLDER_PANEL_DEFAULT_WIDTH = 340
 export const WORKING_FOLDER_PANEL_MIN_WIDTH = 280
 export const WORKING_FOLDER_PANEL_MAX_WIDTH = 560
 export const BOTTOM_TERMINAL_DOCK_DEFAULT_HEIGHT = 220

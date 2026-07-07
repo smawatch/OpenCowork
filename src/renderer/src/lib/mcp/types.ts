@@ -21,6 +21,8 @@ export interface McpServerConfig {
   autoFallback?: boolean
   createdAt: number
   description?: string
+  /** Built-in server — always shown, cannot be modified or removed */
+  builtin?: boolean
 }
 
 /** MCP server runtime status */

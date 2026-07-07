@@ -206,8 +206,13 @@ export function TitleBar({
   const showInspectorToggle = chatSurfaceActive && chatView === 'session'
   const showRuntimeStatusToggle = chatSurfaceActive && chatView === 'session'
   const showFileManagerToggle =
-    chatSurfaceActive && chatView === 'session' && Boolean(sessionContext.sessionProjectId)
-  const canOpenFileManager = Boolean(sessionContext.sessionWorkingFolder)
+    chatSurfaceActive &&
+    (chatView === 'session' || chatView === 'project') &&
+    Boolean(sessionContext.terminalProjectId)
+  const canOpenFileManager =
+    chatView === 'session'
+      ? Boolean(sessionContext.sessionWorkingFolder)
+      : Boolean(sessionContext.terminalWorkingFolder)
   const showProjectTerminalToggle =
     chatSurfaceActive &&
     Boolean(sessionContext.terminalProjectId) &&

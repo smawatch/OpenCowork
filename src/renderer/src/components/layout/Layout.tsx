@@ -213,7 +213,7 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
       openRightSidePanelCount > 0 &&
       widthLeftForMainWorkspace < MIN_MAIN_WORKSPACE_WIDTH_WITH_SIDEBAR
     const shouldCollapseSidebar =
-      chatView === 'session' &&
+      (chatView === 'session' || chatView === 'project') &&
       leftSidebarOpen &&
       (rightSidePanelsNeedSpace || mainWorkspaceTooNarrow)
 

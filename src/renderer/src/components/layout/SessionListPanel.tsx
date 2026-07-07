@@ -132,11 +132,15 @@ const WEEK_MS = 7 * DAY_MS
 const TWO_WEEKS_MS = 14 * DAY_MS
 const MONTH_MS = 30 * DAY_MS
 
+function getNewProjectDefaultName(): string {
+  return 'New Project'
+}
+
 function deriveProjectNameFromFolder(folderPath?: string | null): string {
   const normalized = folderPath?.trim().replace(/[\\/]+$/, '')
-  if (!normalized) return 'New Project'
+  if (!normalized) return getNewProjectDefaultName()
   const parts = normalized.split(/[\\/]/).filter(Boolean)
-  return parts[parts.length - 1] || 'New Project'
+  return parts[parts.length - 1] || getNewProjectDefaultName()
 }
 
 export function SessionListPanel(): React.JSX.Element {
@@ -1320,7 +1324,17 @@ export function SessionListPanel(): React.JSX.Element {
                 'relative mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-colors',
                 isActiveProject ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
-              onClick={() => setActiveProject(group.project.id)}
+              onClick={() => {
+                setActiveProject(group.project.id)
+                useChatStore.getState().setActiveSession(null)
+                const ui = useUIStore.getState()
+                if (ui.mode === 'chat') ui.setMode('cowork')
+                ui.navigateToProject(group.project.id)
+              }}
+              onDoubleClick={(e) => {
+                e.preventDefault()
+                toggleProjectCollapsed(group.project.id)
+              }}
               title={group.project.name}
             >
               {isActiveProject && (
@@ -1331,6 +1345,11 @@ export function SessionListPanel(): React.JSX.Element {
                 onClick={(event) => {
                   event.stopPropagation()
                   toggleProjectCollapsed(group.project.id)
+                  setActiveProject(group.project.id)
+                  useChatStore.getState().setActiveSession(null)
+                  const ui = useUIStore.getState()
+                  if (ui.mode === 'chat') ui.setMode('cowork')
+                  ui.navigateToProject(group.project.id)
                 }}
               >
                 <ChevronRight

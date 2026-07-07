@@ -1,0 +1,6 @@
+{
+  "slug": "app-log-analyzer",
+  "version": "1.2.0",
+  "autoInstall": false,
+  "description": "App 日志分析 — 下载解压 OSS 日志压缩包，优先检索 BleLog 目录，自动选取最新日期日志，从文件末尾向前检索分析，快速定位设备蓝牙和固件问题"
+}

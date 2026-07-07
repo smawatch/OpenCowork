@@ -92,6 +92,7 @@ import { registerTeamRuntimeHandlers } from './ipc/team-runtime-handlers'
 import { registerTeamWorkerHandlers, stopAllIsolatedTeamWorkers } from './ipc/team-worker-handlers'
 import { registerSessionReportHandlers } from './ipc/session-report-handlers'
 import { registerKnowledgeHandlers } from './ipc/knowledge-handlers'
+import { registerFigmaPluginHandlers } from './ipc/figma-plugin-handlers'
 import { loadPersistedJobs, cancelAllJobs } from './cron/cron-scheduler'
 import { McpManager } from './mcp/mcp-manager'
 import { closeDb } from './db/database'
@@ -916,7 +917,7 @@ function configureAppWindow(
 
   window.webContents.setWindowOpenHandler((details) => {
     const url = details.url || ''
-    if (/^https?:\/\//i.test(url)) {
+    if (/^https?:\/\//i.test(url) || /^file:\/\//i.test(url)) {
       void shell.openExternal(url).catch((error) => {
         console.error('[Main] Failed to open external URL:', url, error)
       })
@@ -1104,27 +1105,27 @@ if (gotSingleInstanceLock) {
     await syncMacOSShellEnvironment()
     await configureSystemProxy()
     const browserEmulationStatus = configureBuiltInBrowserSession()
-    
+
     // 🔑 关键修复：在 app ready 后为默认 session 配置证书验证处理
     session.defaultSession.setCertificateVerifyProc((request, callback) => {
       console.log('[App] Default session certificate verify request:', request)
       const { hostname } = request
-      
+
       // 检测本地地址
-      const isLocalAddress = 
+      const isLocalAddress =
         hostname === 'localhost' ||
         hostname === '127.0.0.1' ||
         /^10\./.test(hostname) ||
         /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) ||
         /^192\.168\./.test(hostname)
-      
+
       if (isLocalAddress) {
         console.log('[App] Default session auto-accepting certificate for local address:', hostname)
         // 0 表示接受证书
         callback(0)
         return
       }
-      
+
       // 使用默认验证
       callback(-3)
     })
@@ -1153,19 +1154,19 @@ if (gotSingleInstanceLock) {
     })
 
     // 处理证书错误，允许访问自签名证书
-    app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+    app.on('certificate-error', (event, _webContents, url, error, _certificate, callback) => {
       console.log('[App] Certificate error:', { url, error })
       // 检查是否是本地地址
       try {
         const parsedUrl = new URL(url)
         const hostname = parsedUrl.hostname
-        const isLocalAddress = 
-          hostname === 'localhost' || 
+        const isLocalAddress =
+          hostname === 'localhost' ||
           hostname === '127.0.0.1' ||
           hostname.startsWith('10.') ||
           (hostname.startsWith('172.') && parseInt(hostname.split('.')[1]) >= 16 && parseInt(hostname.split('.')[1]) <= 31) ||
           hostname.startsWith('192.168.')
-        
+
         // 如果是本地地址，忽略证书错误
         if (isLocalAddress) {
           console.log('[App] Auto-accepting certificate for local address:', url)
@@ -1174,45 +1175,45 @@ if (gotSingleInstanceLock) {
           return
         }
       } catch {}
-      
+
       // 非本地地址，使用默认行为
       callback(false)
     })
-    
+
     // 配置所有 webContents 的安全设置
     app.on('web-contents-created', (_, webContents) => {
       console.log('[App] WebContents created, type:', webContents.getType())
-      
+
       // 🔑 关键修复：为所有 webContents 配置证书验证处理
       webContents.session.setCertificateVerifyProc((request, callback) => {
         console.log('[App] Certificate verify request for', webContents.getType(), ':', request)
         const { hostname } = request
-        
+
         // 检测本地地址
-        const isLocalAddress = 
+        const isLocalAddress =
           hostname === 'localhost' ||
           hostname === '127.0.0.1' ||
           /^10\./.test(hostname) ||
           /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) ||
           /^192\.168\./.test(hostname)
-        
+
         if (isLocalAddress) {
           console.log('[App] Auto-accepting certificate for local address:', hostname)
           // 0 表示接受证书
           callback(0)
           return
         }
-        
+
         // 使用默认验证
         callback(-3)
       })
-      
+
       // 检查是否是 webview
       if (webContents.getType() === 'webview') {
         console.log('[App] Webview created, configuring security settings')
-        
+
         // 为 webview 设置安全选项
-        webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+        webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
           // 允许所有权限
           callback(true)
         })
@@ -1262,6 +1263,7 @@ if (gotSingleInstanceLock) {
     registerSshHandlers()
     registerChannelHandlers(channelManager)
     registerMcpHandlers(mcpManager)
+    registerFigmaPluginHandlers()
     registerCronHandlers()
     registerScreenshotHandlers()
     registerInputHandlers()

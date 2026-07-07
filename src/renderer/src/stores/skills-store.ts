@@ -5,6 +5,8 @@ import { refreshDynamicToolCatalog } from '@renderer/lib/tools/dynamic-tool-cata
 export interface SkillInfo {
   name: string
   description: string
+  version?: string
+  builtin?: boolean
 }
 
 export interface ScanFileInfo {
@@ -30,7 +32,7 @@ export interface ScanResult {
   scriptContents: { file: string; content: string }[]
 }
 
-export type SkillsTab = 'market' | 'installed'
+export type SkillsTab = 'market' | 'enterprise' | 'installed'
 
 export interface MarketSkillInfo {
   id: string
@@ -61,8 +63,23 @@ export interface MarketSkillInfo {
   summary?: string
 }
 
+export interface EnterpriseRemoteSkill {
+  name: string
+  description: string
+  version: string
+  author?: string
+  downloadUrl: string
+  protected?: boolean
+  visibility?: 'all' | 'department'
+  departmentId?: string
+}
+
 interface SkillsStore {
   skills: SkillInfo[]
+  builtinSkills: SkillInfo[]
+  remoteEnterpriseSkills: EnterpriseRemoteSkill[]
+  remoteEnterpriseLoading: boolean
+  remoteEnterpriseError: string | null
   loading: boolean
   selectedSkill: string | null
   skillContent: string | null
@@ -97,6 +114,10 @@ interface SkillsStore {
 
   // Actions
   loadSkills: () => Promise<void>
+  loadBuiltinSkills: () => Promise<void>
+  loadRemoteEnterpriseSkills: () => Promise<void>
+  downloadRemoteEnterpriseSkill: (name: string, downloadUrl: string) => Promise<boolean>
+  removeRemoteEnterpriseSkill: (name: string, author: string, isAdmin?: boolean) => Promise<boolean>
   setSearchQuery: (query: string) => void
   setActiveTab: (tab: SkillsTab) => void
   selectSkill: (name: string | null) => void
@@ -129,6 +150,10 @@ interface SkillsStore {
 
 export const useSkillsStore = create<SkillsStore>((set, get) => ({
   skills: [],
+  builtinSkills: [],
+  remoteEnterpriseSkills: [],
+  remoteEnterpriseLoading: false,
+  remoteEnterpriseError: null,
   loading: false,
   selectedSkill: null,
   skillContent: null,
@@ -170,6 +195,71 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       set({ skills: [] })
     } finally {
       set({ loading: false })
+    }
+  },
+
+  loadBuiltinSkills: async () => {
+    try {
+      const result = (await ipcClient.invoke('skills:list-builtin')) as SkillInfo[]
+      const sorted = (Array.isArray(result) ? result : []).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )
+      set({ builtinSkills: sorted })
+    } catch {
+      set({ builtinSkills: [] })
+    }
+  },
+
+  loadRemoteEnterpriseSkills: async () => {
+    set({ remoteEnterpriseLoading: true, remoteEnterpriseError: null })
+    try {
+      const result = (await ipcClient.invoke('skills:enterprise-remote-list')) as {
+        success: boolean
+        skills?: EnterpriseRemoteSkill[]
+        error?: string
+      }
+      if (result.success && result.skills) {
+        set({ remoteEnterpriseSkills: result.skills })
+      } else {
+        set({ remoteEnterpriseSkills: [], remoteEnterpriseError: result.error || 'Failed to load' })
+      }
+    } catch (err) {
+      set({ remoteEnterpriseSkills: [], remoteEnterpriseError: String(err) })
+    } finally {
+      set({ remoteEnterpriseLoading: false })
+    }
+  },
+
+  downloadRemoteEnterpriseSkill: async (name: string, downloadUrl: string) => {
+    try {
+      const result = (await ipcClient.invoke('skills:enterprise-remote-download', {
+        name,
+        downloadUrl
+      })) as { success: boolean; error?: string }
+      if (result.success) {
+        await get().loadSkills()
+        return true
+      }
+      console.error('[Skills] Remote download failed:', result.error)
+      return false
+    } catch (err) {
+      console.error('[Skills] Remote download error:', err)
+      return false
+    }
+  },
+
+  removeRemoteEnterpriseSkill: async (name: string, author: string, isAdmin?: boolean) => {
+    try {
+      const result = (await ipcClient.invoke('skills:enterprise-remove', { name, author, isAdmin })) as { success: boolean; error?: string }
+      if (result.success) {
+        await get().loadRemoteEnterpriseSkills()
+        return true
+      }
+      console.error('[Skills] Remove failed:', result.error)
+      return false
+    } catch (err) {
+      console.error('[Skills] Remove error:', err)
+      return false
     }
   },
 

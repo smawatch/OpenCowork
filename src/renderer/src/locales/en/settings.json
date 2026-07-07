@@ -1359,6 +1359,8 @@
     "serverAdded": "MCP server \"{{name}}\" added",
     "serverRemoved": "MCP server removed",
     "noServers": "No MCP servers configured",
+    "builtin": "Built-in",
+    "noDescription": "No description",
     "selectToConfig": "Select a server to configure",
     "enabled": "Enabled",
     "disabled": "Disabled",
@@ -1397,7 +1399,17 @@
     "deleteConfirm": "Delete MCP server \"{{name}}\"?",
     "noTools": "No tools available",
     "noResources": "No resources available",
-    "noPrompts": "No prompts available"
+    "noPrompts": "No prompts available",
+    "figmaPlugin": {
+      "title": "Figma Desktop Plugin Required",
+      "installed": "✅ Plugin installed — open Figma Desktop → Plugins → Development → Figma Pilot",
+      "notInstalled": "The Figma Pilot plugin must be installed in Figma Desktop for the MCP bridge to work.",
+      "install": "Install Plugin",
+      "installing": "Installing...",
+      "openFolder": "Open Plugin Folder",
+      "installSuccess": "Plugin installed! Restart Figma and run Plugins → Development → Figma Pilot",
+      "installFailed": "Installation failed"
+    }
   },
   "skillsmarket": {
     "title": "Skills Market",

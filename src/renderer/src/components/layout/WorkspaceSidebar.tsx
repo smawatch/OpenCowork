@@ -1290,6 +1290,12 @@ export function WorkspaceSidebar(): React.JSX.Element {
                   <span>{t('sidebar.pluginsLabel')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  onSelect={() => useUIStore.getState().openSettingsPage('mcp')}
+                >
+                  <Server className="size-4" />
+                  <span>{t('navRail.mcp')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   onSelect={() => useUIStore.getState().openDrawPage()}
                   className={cn(drawPageOpen && 'bg-accent text-accent-foreground')}
                 >

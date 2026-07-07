@@ -37,6 +37,8 @@ import {
 } from '@renderer/components/ui/dialog'
 import { useMcpStore } from '@renderer/stores/mcp-store'
 import type { McpServerConfig, McpTransportType } from '@renderer/lib/mcp/types'
+import { IPC } from '@renderer/lib/ipc/channels'
+import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 
 type McpJsonImportEntry = {
   command?: string
@@ -151,6 +153,43 @@ function ServerConfigPanel({
   )
   const [capTab, setCapTab] = useState<'tools' | 'resources' | 'prompts'>('tools')
   const [connecting, setConnecting] = useState(false)
+  const [pluginInstalled, setPluginInstalled] = useState<boolean | null>(null)
+  const [pluginDir, setPluginDir] = useState<string | null>(null)
+  const [installingPlugin, setInstallingPlugin] = useState(false)
+
+  // Check Figma plugin status for figma-pilot server
+  const isFigmaPilot = server.id === 'builtin-figma-pilot'
+  useEffect(() => {
+    if (!isFigmaPilot) return
+    ipcClient.invoke(IPC.FIGMA_PLUGIN_STATUS).then((r) => {
+      const res = r as { installed: boolean; pluginDir: string }
+      setPluginInstalled(res.installed)
+      if (res.pluginDir) setPluginDir(res.pluginDir)
+    }).catch(() => setPluginInstalled(null))
+  }, [isFigmaPilot])
+
+  const handleInstallPlugin = async (): Promise<void> => {
+    setInstallingPlugin(true)
+    try {
+      const res = await ipcClient.invoke(IPC.FIGMA_PLUGIN_INSTALL) as { success: boolean; message: string; pluginDir?: string }
+      if (res.success) {
+        const dir = res.pluginDir ?? pluginDir
+        toast.success(t('mcp.figmaPlugin.installSuccess'))
+        if (dir) setPluginDir(dir)
+        setPluginInstalled(true)
+      } else {
+        toast.error(res.message)
+      }
+    } catch (err) {
+      toast.error(t('mcp.figmaPlugin.installFailed'))
+    } finally {
+      setInstallingPlugin(false)
+    }
+  }
+
+  const handleOpenPluginDir = (): void => {
+    void ipcClient.invoke(IPC.FIGMA_PLUGIN_OPEN_DEV_DIR)
+  }
 
   // Reset local state when selected server changes
   useEffect(() => {
@@ -297,6 +336,235 @@ function ServerConfigPanel({
   }
 
   const isHttp = server.transport === 'sse' || server.transport === 'streamable-http'
+  const isBuiltin = server.builtin === true
+
+  // ── Built-in server: simplified read-only view ──
+  if (isBuiltin) {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden px-4 py-3">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4 gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold truncate">{server.name}</h3>
+            <p className="text-xs text-muted-foreground">{TRANSPORT_LABELS[server.transport]}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+              {t('mcp.builtin')}
+            </span>
+          </div>
+        </div>
+
+        <Separator className="mb-4" />
+
+        {/* Name (read-only) */}
+        <section className="space-y-1.5 mb-4">
+          <label className="text-xs font-medium">{t('mcp.name')}</label>
+          <Input value={server.name} disabled className="h-8 text-xs opacity-70" />
+        </section>
+
+        {/* Description (read-only) */}
+        <section className="space-y-1.5 mb-4">
+          <label className="text-xs font-medium">{t('mcp.description')}</label>
+          <Input
+            value={server.description ?? ''}
+            disabled
+            className="h-8 text-xs opacity-70"
+            placeholder={t('mcp.noDescription')}
+          />
+        </section>
+
+        <Separator className="mb-4" />
+
+        {/* Connection control */}
+        <section className="flex items-center gap-2 mb-4">
+          {status === 'connected' ? (
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleDisconnect}>
+              <Square className="size-3 mr-1" />
+              {t('mcp.disconnect')}
+            </Button>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={handleConnect}
+              disabled={connecting || status === 'connecting'}
+            >
+              <Play className="size-3 mr-1" />
+              {connecting || status === 'connecting' ? t('mcp.connecting') : t('mcp.connect')}
+            </Button>
+          )}
+          {status === 'connected' && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleRefresh}>
+              <RefreshCw className="size-3 mr-1" />
+              {t('mcp.refresh')}
+            </Button>
+          )}
+          <span
+            className={`inline-flex items-center gap-1 text-[10px] ${
+              status === 'connected'
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : status === 'error'
+                  ? 'text-destructive'
+                  : status === 'connecting'
+                    ? 'text-yellow-600 dark:text-yellow-400'
+                    : 'text-muted-foreground'
+            }`}
+          >
+            <span
+              className={`size-1.5 rounded-full ${
+                status === 'connected'
+                  ? 'bg-emerald-500'
+                  : status === 'error'
+                    ? 'bg-destructive'
+                    : status === 'connecting'
+                      ? 'bg-yellow-500 animate-pulse'
+                      : 'bg-muted-foreground/30'
+              }`}
+            />
+            {status}
+          </span>
+        </section>
+
+        {/* Error display */}
+        {error && (
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 mb-4">
+            <p className="text-xs text-destructive">{error}</p>
+          </div>
+        )}
+
+        {/* Figma Pilot plugin install prompt */}
+        {isFigmaPilot && (
+          <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-3 mb-4">
+            <p className="text-xs font-medium mb-2">{t('mcp.figmaPlugin.title')}</p>
+            {pluginInstalled ? (
+              <>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                  {t('mcp.figmaPlugin.installed')}
+                </p>
+                {pluginDir && (
+                  <p className="text-xs text-muted-foreground mt-1 break-all font-mono">
+                    {pluginDir}
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs mt-2"
+                  onClick={handleOpenPluginDir}
+                >
+                  {t('mcp.figmaPlugin.openFolder')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t('mcp.figmaPlugin.notInstalled')}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={handleInstallPlugin}
+                    disabled={installingPlugin}
+                  >
+                    {installingPlugin ? t('mcp.figmaPlugin.installing') : t('mcp.figmaPlugin.install')}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Capabilities tabs */}
+        {status === 'connected' && (
+          <>
+            <Separator className="mb-3" />
+            <div className="flex items-center gap-1 mb-3">
+              {(['tools', 'resources', 'prompts'] as const).map((tab) => {
+                const count =
+                  tab === 'tools' ? tools.length : tab === 'resources' ? resources.length : prompts.length
+                const Icon = tab === 'tools' ? Wrench : tab === 'resources' ? FileText : MessageSquare
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setCapTab(tab)}
+                    className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors ${
+                      capTab === tab
+                        ? 'bg-accent text-accent-foreground font-medium'
+                        : 'text-muted-foreground hover:bg-muted/60'
+                    }`}
+                  >
+                    <Icon className="size-3" />
+                    {tab} ({count})
+                  </button>
+                )
+              })}
+            </div>
+            {capTab === 'tools' && (
+              <div className="space-y-1">
+                {tools.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">{t('mcp.noTools')}</p>
+                ) : (
+                  tools.map((tool) => (
+                    <div key={tool.name} className="rounded-md border px-2.5 py-2">
+                      <p className="text-xs font-medium font-mono">{tool.name}</p>
+                      {tool.description && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">
+                          {tool.description}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            {capTab === 'resources' && (
+              <div className="space-y-1">
+                {resources.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">{t('mcp.noResources')}</p>
+                ) : (
+                  resources.map((r) => (
+                    <div key={r.uri} className="rounded-md border px-2.5 py-2">
+                      <p className="text-xs font-medium">{r.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{r.uri}</p>
+                      {r.description && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{r.description}</p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            {capTab === 'prompts' && (
+              <div className="space-y-1">
+                {prompts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">{t('mcp.noPrompts')}</p>
+                ) : (
+                  prompts.map((p) => (
+                    <div key={p.name} className="rounded-md border px-2.5 py-2">
+                      <p className="text-xs font-medium">{p.name}</p>
+                      {p.description && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{p.description}</p>
+                      )}
+                      {p.arguments && p.arguments.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                          Args: {p.arguments.map((a) => a.name).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="flex-1" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden px-4 py-3">

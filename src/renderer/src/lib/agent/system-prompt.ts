@@ -7,6 +7,7 @@ import type { ActiveTeam } from '../../stores/team-store'
 import { resolveLanguageName } from '../i18n-language'
 import { buildParallelToolCallsPrompt } from './parallel-tool-calls-prompt'
 import { useKnowledgeStore } from '../../stores/knowledge-store'
+import { useMcpStore } from '../../stores/mcp-store'
 
 export type PromptEnvironmentContext = {
   target: 'local' | 'ssh'
@@ -230,6 +231,98 @@ function buildKnowledgeBaseReminder(): string | null {
   }
   parts.push('</system-reminder>')
   return parts.join('\n')
+}
+
+function buildMcpReminder(): string | null {
+  try {
+    const mcpState = useMcpStore.getState()
+    const servers = mcpState.servers
+    const statuses = mcpState.serverStatuses
+
+    // All configured servers (builtin + user)
+    if (servers.length === 0) return null
+
+    // Split into builtin and user-configured
+    const builtinServers = servers.filter((s) => s.builtin === true)
+    const userServers = servers.filter((s) => !s.builtin)
+
+    // Connected servers
+    const connectedBuiltin = builtinServers.filter((s) => statuses[s.id] === 'connected')
+    const connectedUser = userServers.filter((s) => statuses[s.id] === 'connected')
+    const allConnected = [...connectedBuiltin, ...connectedUser]
+
+    if (allConnected.length === 0) return null
+
+    const lines: string[] = [
+      '<system-reminder>',
+      '## Available MCP Services',
+      ''
+    ]
+
+    // Enterprise built-in services (OSS Log, etc.)
+    if (connectedBuiltin.length > 0) {
+      lines.push(
+        '### Enterprise Services',
+        '**OSS Log Service** — Base URL: `https://dev-oss.iot-solution.net/`',
+        'When the user asks about app logs, paste a screenshot containing file paths, or mentions log analysis:',
+        '1. Extract file paths from the screenshot (vision) or user input',
+        '2. Construct the full URL by appending the path to the base URL above',
+        '3. Call WebFetch to retrieve the log content',
+        '4. Analyze the log for errors, timeline, root cause, and suggest fixes',
+        ''
+      )
+    }
+
+    // All MCP servers and their tools
+    lines.push(
+      '### Connected MCP Servers',
+      allConnected.map((s) => {
+        const desc = s.description ? ` — ${s.description}` : ''
+        return `- **${s.name}**${desc}`
+      }).join('\n'),
+      '',
+      'All MCP tools are prefixed with `mcp__`. Use `ToolSearch` to discover available MCP tools.',
+      'When the user asks about a task that could benefit from external service integration (Figma, APIs, databases, etc.), check the available MCP tools first.',
+      ''
+    )
+
+    // Figma Pilot plugin reminder
+    const hasFigmaPilot = allConnected.some((s) => s.id === 'builtin-figma-pilot')
+    if (hasFigmaPilot) {
+      lines.push(
+        '> ⚠️ **Figma Pilot**: Requires the Figma Desktop plugin to be installed.',
+        '> If the user mentions Figma but the tools return errors, ask them to open Settings → MCP → Figma Pilot → Install Plugin.',
+        '> After installation: Figma Desktop → Plugins → Development → Figma Pilot.',
+        ''
+      )
+    }
+
+    // Check which are active in current project
+    const activeMcpStore = mcpState.activeMcpIdsByProject
+    const activeIds = new Set<string>()
+    for (const ids of Object.values(activeMcpStore)) {
+      for (const id of ids) activeIds.add(id)
+    }
+
+    const inactive = allConnected.filter((s) => !activeIds.has(s.id))
+    if (inactive.length > 0) {
+      lines.push(
+        `**IMPORTANT**: Some MCP servers are connected but NOT active in this project: ${inactive.map((s) => s.name).join(', ')}.`,
+        `If the task needs these services, tell the user:`,
+        `"⚠️ 需要调用服务端接口辅助分析。请在输入框底部点击 MCP 数量标签，勾选 ${inactive.map((s) => s.name).join(' 和 ')} 后让我重试。"`,
+        `Do NOT attempt tasks requiring MCP tools without asking the user to activate them first.`
+      )
+    } else {
+      lines.push(
+        'All connected MCP servers are active in this project. Use their tools freely when needed.'
+      )
+    }
+
+    lines.push('</system-reminder>')
+    return lines.join('\n')
+  } catch {
+    return null
+  }
 }
 
 function buildSkillsReminder(): string | null {
@@ -523,6 +616,11 @@ export function buildSystemPrompt(options: {
     const knowledgeReminder = buildKnowledgeBaseReminder()
     if (knowledgeReminder) {
       parts.push(`\n${knowledgeReminder}`)
+    }
+
+    const mcpReminder = buildMcpReminder()
+    if (mcpReminder) {
+      parts.push(`\n${mcpReminder}`)
     }
 
     // User-Defined Rules

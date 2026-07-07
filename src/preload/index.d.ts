@@ -67,7 +67,7 @@ interface OpenCoworkAPI {
   permissionList: () => Promise<any>
   importDownloadTemplate: () => Promise<any>
   importUsers: (fileBuffer: Buffer) => Promise<any>
-  authSaveToken: (token: string) => Promise<any>
+  authSaveToken: (args: { token: string; refreshToken?: string }) => Promise<any>
   authClear: () => Promise<any>
   authCheck: () => Promise<any>
 }

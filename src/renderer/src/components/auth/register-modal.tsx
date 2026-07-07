@@ -77,7 +77,10 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onSwitchToLogin })
       const { user, tokens } = result.data;
       localStorage.setItem('authToken', tokens.accessToken);
       localStorage.setItem('refreshToken', tokens.refreshToken);
-      await window.api.authSaveToken(tokens.accessToken);
+      await window.api.authSaveToken({
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken
+      });
 
       // 临时保存用户信息用于显示
       window._pendingUser = user;

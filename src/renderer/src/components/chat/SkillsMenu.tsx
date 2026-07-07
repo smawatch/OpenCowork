@@ -558,7 +558,7 @@ export function SkillsMenu({
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent
-                className={cn('w-56 max-h-80 overflow-y-auto', menuClassName)}
+                className={cn('w-64 max-w-72 max-h-80 overflow-y-auto', menuClassName)}
               >
                 <DropdownMenuLabel>{t('skills.availableMcps')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -589,8 +589,15 @@ export function SkillsMenu({
                         >
                           {isActive && <Check className="size-3" />}
                         </span>
-                        <span className="flex-1 truncate text-xs">{server.name}</span>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="flex-1 min-w-0">
+                          <span className="block truncate text-xs">{server.name}</span>
+                          {server.description && (
+                            <span className="block text-[10px] text-muted-foreground leading-tight">
+                              {server.description}
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
                           {t('skills.mcpToolCount', { count: toolCount })}
                         </span>
                       </DropdownMenuItem>

@@ -58,6 +58,11 @@ function domainMatches(hostname: string, domain: string): boolean {
 }
 
 export function getBrowserAccessDecision(url: string): BrowserAccessDecision {
+  // Allow file:// URLs (local files) — they have no remote hostname to check
+  if (/^file:\/\//i.test(url)) {
+    return { allowed: true }
+  }
+
   const hostname = getHostname(url)
   if (!hostname) {
     return { allowed: false, reason: `Invalid browser URL: ${url}` }

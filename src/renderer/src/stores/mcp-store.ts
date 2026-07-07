@@ -69,15 +69,8 @@ function resolveStoredOrDefaultMcpIds(params: {
     return params.activeMcpIdsByProject[projectKey] ?? []
   }
 
-  // Treat connected servers as active by default until the user makes an explicit selection.
-  return params.servers
-    .filter(
-      (server) =>
-        server.enabled &&
-        params.serverStatuses[server.id] === 'connected' &&
-        matchesProject(server, params.projectId)
-    )
-    .map((server) => server.id)
+  // Default to none active — user must explicitly enable each MCP server.
+  return []
 }
 
 export function resolveEffectiveActiveMcpIds(params: {
@@ -202,6 +195,8 @@ export const useMcpStore = create<McpStore>((set, get) => ({
 
   refreshServerInfo: async (id) => {
     try {
+      // Re-fetch capabilities from the MCP server first, then read the updated cache
+      await ipcClient.invoke(IPC.MCP_REFRESH_CAPABILITIES, id)
       const info = (await ipcClient.invoke(IPC.MCP_SERVER_INFO, id)) as McpServerInfo | undefined
       if (info) {
         set((s) => ({

@@ -529,7 +529,7 @@ export function registerShellHandlers(): void {
   )
 
   ipcMain.handle('shell:openExternal', async (_event, url: string) => {
-    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://'))) {
       return shell.openExternal(url)
     }
   })

@@ -23,7 +23,10 @@ export class McpManager {
       await client.connect()
       console.log(`[McpManager] Connected: ${config.name} (${config.id})`)
     } catch (err) {
+      // Clean up on failure to stop transport retries
       console.error(`[McpManager] Failed to connect ${config.name}:`, err)
+      await client.disconnect()
+      this.clients.delete(config.id)
       throw err
     }
   }

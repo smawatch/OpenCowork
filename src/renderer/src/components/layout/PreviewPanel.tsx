@@ -286,6 +286,19 @@ export function PreviewPanel({
     await saveTab(activeTab)
   }
 
+  // Ctrl+S / Cmd+S shortcut for save in preview panel
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault()
+        e.stopPropagation()
+        void handleSave()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [activeTab, saveTab])
+
   const handleSaveDialogOpenChange = (open: boolean): void => {
     setShowSaveDialog(open)
     if (!open) setPendingCloseTabId(null)

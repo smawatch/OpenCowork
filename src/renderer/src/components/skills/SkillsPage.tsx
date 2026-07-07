@@ -28,6 +28,12 @@ import {
   ChevronRight,
   AlertTriangle,
   Heart,
+  RefreshCw,
+  CloudSync,
+  Globe,
+  Upload,
+  ShieldAlert,
+  User,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
@@ -37,6 +43,7 @@ import {
   type MarketSkillInfo
 } from '@renderer/stores/skills-store'
 import { useUIStore } from '@renderer/stores/ui-store'
+import { useAuthStore } from '@renderer/stores/auth-store'
 import { confirm } from '@renderer/components/ui/confirm-dialog'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
@@ -45,6 +52,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui
 import { toast } from 'sonner'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { SkillInstallDialog } from './SkillInstallDialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@renderer/components/ui/dialog'
 
 const MARKET_TABS: { key: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'overall', label: '综合', icon: Flame },
@@ -601,6 +614,12 @@ export function SkillsPage(): React.JSX.Element {
   const marketPageSize = useSkillsStore((s) => s.marketPageSize)
   const marketTab = useSkillsStore((s) => s.marketTab)
   const loadSkills = useSkillsStore((s) => s.loadSkills)
+  const remoteEnterpriseSkills = useSkillsStore((s) => s.remoteEnterpriseSkills)
+  const remoteEnterpriseLoading = useSkillsStore((s) => s.remoteEnterpriseLoading)
+  const remoteEnterpriseError = useSkillsStore((s) => s.remoteEnterpriseError)
+  const loadRemoteEnterpriseSkills = useSkillsStore((s) => s.loadRemoteEnterpriseSkills)
+  const downloadRemoteEnterpriseSkill = useSkillsStore((s) => s.downloadRemoteEnterpriseSkill)
+  const removeRemoteEnterpriseSkill = useSkillsStore((s) => s.removeRemoteEnterpriseSkill)
   const loadMarketSkills = useSkillsStore((s) => s.loadMarketSkills)
   const goToPage = useSkillsStore((s) => s.goToPage)
   const selectSkill = useSkillsStore((s) => s.selectSkill)
@@ -636,8 +655,34 @@ export function SkillsPage(): React.JSX.Element {
   // Skill detail dialog state
   const [detailSkill, setDetailSkill] = useState<MarketSkillInfo | null>(null)
 
-  // Installed tab search
+  // Upload dialog
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [showMySkills, setShowMySkills] = useState(false)
+
+  const currentUser = useAuthStore((s) => s.user)
+  const currentUserName = currentUser?.displayName || currentUser?.username || ''
+  const isAdmin = currentUser?.roles?.includes('admin') || false
+  const [uploadForm, setUploadForm] = useState({ name: '', description: '', version: '1.0.0', author: '', protected: true })
+  const [uploadSourceDir, setUploadSourceDir] = useState('')
+  const [uploading, setUploading] = useState(false)
+
+  const openUploadDialog = () => {
+    const user = useAuthStore.getState().user
+    setUploadForm(f => ({ ...f, author: user?.displayName || user?.username || '' }))
+    setUploadDialogOpen(true)
+  }
+
+  // Search
   const [installedQuery, setInstalledQuery] = useState('')
+  const [enterpriseQuery, setEnterpriseQuery] = useState('')
+
+  // Load enterprise skills when tab is active
+  useEffect(() => {
+    if (activeTab === 'enterprise') {
+      loadRemoteEnterpriseSkills()
+    }
+    setEnterpriseQuery('')
+  }, [activeTab, loadRemoteEnterpriseSkills])
 
   useEffect(() => {
     void loadSkills()
@@ -706,7 +751,7 @@ export function SkillsPage(): React.JSX.Element {
 
       {/* Tab switcher */}
       <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5">
-        {(['market', 'installed'] as const).map((tab) => (
+        {(['market', 'enterprise', 'installed'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -883,6 +928,213 @@ export function SkillsPage(): React.JSX.Element {
           onClose={() => setDetailSkill(null)}
           onInstall={() => detailSkill && handleInstallMarket(detailSkill)}
         />
+      </div>
+    )
+  }
+
+  // ── ENTERPRISE TAB — built-in skills catalog ──────────────────────────────────
+  if (activeTab === 'enterprise') {
+    return (
+      <div className="flex h-full flex-col">
+        {TopBar}
+        {/* Toolbar: search + refresh + upload */}
+        <div className="flex items-center gap-2 px-8 pt-4 pb-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              className="pl-8 h-8 text-sm"
+              placeholder={t('skillsPage.searchPlaceholder')}
+              value={enterpriseQuery}
+              onChange={(e) => setEnterpriseQuery(e.target.value)}
+            />
+          </div>
+          <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={loadRemoteEnterpriseSkills}>
+            <RefreshCw className="size-3.5" />
+          </Button>
+          <Button variant={showMySkills ? 'default' : 'outline'} size="icon" className="h-8 w-8 shrink-0" onClick={() => setShowMySkills(v => !v)} title={t('skillsPage.mySkills')}>
+            <User className="size-3.5" />
+          </Button>
+          <Button size="sm" className="h-8 gap-1 text-xs shrink-0" onClick={openUploadDialog}>
+            <Upload className="size-3" />
+            {t('skillsPage.upload')}
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-8 py-4">
+          {remoteEnterpriseLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : remoteEnterpriseError ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <AlertTriangle className="size-12 mb-3 opacity-30" />
+              <p className="text-sm text-destructive mb-2">{t('skillsPage.remoteLoadFailed')}</p>
+              <p className="text-xs text-muted-foreground mb-3">{remoteEnterpriseError}</p>
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={loadRemoteEnterpriseSkills}>
+                <RefreshCw className="size-3 mr-1" /> {t('mcp.refresh')}
+              </Button>
+            </div>
+          ) : remoteEnterpriseSkills.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <CloudSync className="size-12 mb-3 opacity-30" />
+              <p className="text-sm">{enterpriseQuery.trim() ? t('skillsPage.noResults') : t('skillsPage.noRemoteSkills')}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {remoteEnterpriseSkills.filter(s => {
+                const q = enterpriseQuery.toLowerCase()
+                const matchSearch = !enterpriseQuery.trim() || s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q)
+                const matchMine = !showMySkills || s.author === currentUserName
+                return matchSearch && matchMine
+              }).map((skill) => {
+                const isInstalled = installedNames.has(skill.name.toLowerCase())
+                const isMine = skill.author === currentUserName
+                const canDelete = isMine || isAdmin
+                return (
+                  <div key={skill.name} className="rounded-lg border bg-card p-4 hover:shadow-sm transition-shadow">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-sm">{skill.name}</h3>
+                      <div className="flex items-center gap-1">
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={async () => {
+                            const confirmed = await confirm({
+                              title: t('skillsPage.removeConfirmTitle', { name: skill.name }),
+                              description: t('skillsPage.removeConfirmDesc'),
+                              variant: 'destructive'
+                            })
+                            if (!confirmed) return
+                            const ok = await removeRemoteEnterpriseSkill(skill.name, currentUserName, isAdmin)
+                            if (ok) toast.success(t('skillsPage.removed'))
+                            else toast.error(t('skillsPage.removeFailed'))
+                          }}>
+                            <Trash2 className="size-3" />
+                          </Button>
+                        )}
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">v{skill.version || '—'}</Badge>
+                      </div>
+                    </div>
+                    {skill.author && <p className="text-[10px] text-muted-foreground mb-1">{skill.author}</p>}
+                    <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{skill.description || t('skillsPage.noDescription')}</p>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="text-[10px]">
+                        {skill.protected ? <ShieldAlert className="size-3 mr-1" /> : <Globe className="size-3 mr-1" />}
+                        {skill.protected ? t('skillsPage.protected') : t('skillsPage.enterprise')}
+                      </Badge>
+                      {isInstalled ? (
+                        <Badge variant="secondary" className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                          <CheckCircle2 className="size-3 mr-1" />{t('skillsPage.alreadyInstalled')}
+                        </Badge>
+                      ) : (
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async () => {
+                          const ok = await downloadRemoteEnterpriseSkill(skill.name, skill.downloadUrl)
+                          if (ok) { toast.success(t('skillsPage.installed')); loadSkills() }
+                          else { toast.error(t('skillsPage.installFailed')) }
+                        }}>
+                          <Download className="size-3 mr-1" />{t('skillsPage.install')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('skillsPage.uploadTitle')}</DialogTitle>
+            <p className="text-xs text-muted-foreground">{t('skillsPage.uploadHint')}</p>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-2">
+            <div>
+              <label className="text-xs font-medium">{t('skillsPage.uploadSourceDir')}</label>
+              <div className="flex gap-2 mt-1">
+                <Input className="h-8 text-xs flex-1" value={uploadSourceDir} placeholder={t('skillsPage.uploadSourceDirHint')} readOnly />
+                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={async () => {
+                  try {
+                    const r = await ipcClient.invoke('fs:select-directory') as { canceled?: boolean; filePaths?: string[] }
+                    if (!r.canceled && r.filePaths?.[0]) {
+                      setUploadSourceDir(r.filePaths[0])
+                      // Auto-fill name from directory
+                      const dirName = r.filePaths[0].split(/[\\/]/).pop() || ''
+                      setUploadForm(f => ({ ...f, name: dirName }))
+                    }
+                  } catch { /* ignore */ }
+                }}>
+                  <FolderOpen className="size-3" />
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('skillsPage.uploadSourceDirReq')}</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium">{t('skillsPage.uploadName')}</label>
+              <Input className="h-8 text-xs mt-1" value={uploadForm.name} placeholder={t('skillsPage.uploadNameHint')} onChange={(e) => setUploadForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs font-medium">{t('skillsPage.uploadDesc')}</label>
+              <Input className="h-8 text-xs mt-1" value={uploadForm.description} placeholder={t('skillsPage.uploadDescHint')}
+                onChange={(e) => setUploadForm(f => ({ ...f, description: e.target.value }))} />
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('skillsPage.uploadDescReq')}</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium">{t('skillsPage.uploadVersion')}</label>
+              <Input className="h-8 text-xs mt-1" value={uploadForm.version} placeholder="1.0.0" onChange={(e) => setUploadForm(f => ({ ...f, version: e.target.value }))} />
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('skillsPage.uploadVersionHint')}</p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="size-3.5 rounded"
+                checked={uploadForm.protected}
+                onChange={(e) => setUploadForm(f => ({ ...f, protected: e.target.checked }))}
+              />
+              <span className="text-xs">{t('skillsPage.uploadProtected')}</span>
+            </label>
+            <p className="text-[10px] text-muted-foreground -mt-2 ml-5.5">{t('skillsPage.uploadProtectedHint')}</p>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t mt-3">
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setUploadDialogOpen(false)}>
+              {t('skillsPage.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              disabled={!uploadSourceDir || !uploadForm.name || uploadForm.description.length < 10 || !/^\d+\.\d+\.\d+$/.test(uploadForm.version) || uploading}
+              onClick={async () => {
+                setUploading(true)
+                try {
+                  const r = await ipcClient.invoke('skills:enterprise-upload', {
+                    sourceDir: uploadSourceDir,
+                    skillName: uploadForm.name,
+                    description: uploadForm.description,
+                    version: uploadForm.version,
+                    author: uploadForm.author,
+                    isProtected: uploadForm.protected,
+                    isAdmin
+                  }) as { success: boolean; downloadUrl?: string; error?: string }
+                  if (r.success) {
+                    toast.success(t('skillsPage.uploadSuccess'), {
+                      description: r.downloadUrl
+                    })
+                    setUploadDialogOpen(false)
+                    loadRemoteEnterpriseSkills()
+                  } else {
+                    toast.error(r.error || t('skillsPage.uploadFailed'))
+                  }
+                } catch (err) {
+                  toast.error(String(err))
+                } finally {
+                  setUploading(false)
+                }
+              }}
+            >
+              {uploading ? t('skillsPage.uploading') : t('skillsPage.upload')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     )
   }

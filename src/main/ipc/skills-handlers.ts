@@ -3,8 +3,10 @@ import { ipcMain, shell, app } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import * as crypto from 'crypto'
 import { promisify } from 'util'
 import { getDefaultApiUserAgent } from '../lib/api-user-agent'
+import { readSettings } from './settings-handlers'
 
 const execFileAsync = promisify(execFile)
 
@@ -113,9 +115,50 @@ function getBundledSkillsDir(): string {
 }
 
 /**
- * Copy built-in skills from resources/skills/ to ~/.agents/skills/.
- * Only copies a skill if it does not already exist in the target,
- * so user modifications are preserved.
+ * Read version from a skill directory's _meta.json.
+ * Returns a comparable array [major, minor, patch] or null if unavailable.
+ */
+function readSkillMeta(dir: string): Record<string, unknown> | null {
+  try {
+    const metaPath = path.join(dir, '_meta.json')
+    if (!fs.existsSync(metaPath)) return null
+    return JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
+function readSkillVersion(dir: string): number[] | null {
+  try {
+    const meta = readSkillMeta(dir)
+    if (!meta) return null
+    const v = meta.version as string | undefined
+    if (!v) return null
+    return v.split('.').map(Number)
+  } catch {
+    return null
+  }
+}
+
+/** Compare two version arrays. Returns positive if a > b, negative if a < b, 0 if equal. */
+function compareVersions(a: number[] | null, b: number[] | null): number {
+  if (!a && !b) return 0
+  if (!a) return -1
+  if (!b) return 1
+  const len = Math.max(a.length, b.length)
+  for (let i = 0; i < len; i++) {
+    const va = a[i] ?? 0
+    const vb = b[i] ?? 0
+    if (va !== vb) return va - vb
+  }
+  return 0
+}
+
+/**
+ * Sync built-in skills from resources/skills/ → ~/.agents/skills/.
+ * - Skills with `autoInstall: true` in _meta.json → auto-install on first launch.
+ * - Previously-installed skills → version-check and auto-update if newer.
+ * - Other enterprise skills → skip (user installs manually from the Enterprise tab).
  */
 function ensureBuiltinSkills(): void {
   try {
@@ -130,13 +173,46 @@ function ensureBuiltinSkills(): void {
     }
 
     const entries = fs.readdirSync(bundledDir, { withFileTypes: true })
+    let updated = 0
+    let skipped = 0
+    let created = 0
+
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const sourceDir = path.join(bundledDir, entry.name)
       const targetDir = path.join(SKILLS_DIR, entry.name)
-      if (fs.existsSync(targetDir)) continue
 
-      copyDirRecursive(sourceDir, targetDir)
+      if (fs.existsSync(targetDir)) {
+        // Already installed → version check for updates
+        const sourceVersion = readSkillVersion(sourceDir)
+        const targetVersion = readSkillVersion(targetDir)
+
+        if (compareVersions(sourceVersion, targetVersion) <= 0) {
+          skipped++
+          continue
+        }
+
+        fs.rmSync(targetDir, { recursive: true, force: true })
+        copyDirRecursive(sourceDir, targetDir)
+        updated++
+        console.log(
+          `[Skills] Updated builtin skill "${entry.name}" to v${sourceVersion?.join('.') ?? '?'}`
+        )
+      } else {
+        // Not installed → only auto-install if _meta.json has autoInstall: true
+        const meta = readSkillMeta(sourceDir)
+        if (meta?.autoInstall === true) {
+          copyDirRecursive(sourceDir, targetDir)
+          created++
+          console.log(`[Skills] Auto-installed enterprise skill "${entry.name}"`)
+        }
+      }
+    }
+
+    if (created > 0 || updated > 0) {
+      console.log(
+        `[Skills] Builtin skills: ${created} auto-installed, ${updated} updated, ${skipped} skipped`
+      )
     }
   } catch (err) {
     console.error('[Skills] Failed to initialize builtin skills:', err)
@@ -163,12 +239,20 @@ function ensureBuiltinSkill(name: string): { success: boolean; name?: string; er
 
     const targetDir = path.join(SKILLS_DIR, normalizedName)
     const targetManifest = path.join(targetDir, SKILLS_FILENAME)
-    if (!fs.existsSync(targetManifest)) {
-      if (fs.existsSync(targetDir)) {
-        fs.rmSync(targetDir, { recursive: true, force: true })
+
+    if (fs.existsSync(targetManifest)) {
+      // Version check: only update if bundled version is newer
+      const sourceVersion = readSkillVersion(sourceDir)
+      const targetVersion = readSkillVersion(targetDir)
+      if (compareVersions(sourceVersion, targetVersion) <= 0) {
+        return { success: true, name: normalizedName }
       }
-      copyDirRecursive(sourceDir, targetDir)
     }
+
+    if (fs.existsSync(targetDir)) {
+      fs.rmSync(targetDir, { recursive: true, force: true })
+    }
+    copyDirRecursive(sourceDir, targetDir)
 
     return { success: true, name: normalizedName }
   } catch (err) {
@@ -179,6 +263,17 @@ function ensureBuiltinSkill(name: string): { success: boolean; name?: string; er
 export interface SkillInfo {
   name: string
   description: string
+  version?: string
+  builtin?: boolean
+}
+
+export interface EnterpriseRemoteSkill {
+  name: string
+  description: string
+  version: string
+  author?: string
+  downloadUrl: string
+  protected?: boolean  // built-in enterprise skills, not overwritable by upload
 }
 
 export interface ScanFileInfo {
@@ -330,6 +425,56 @@ async function extractZipArchive(zipPath: string, destinationDir: string): Promi
   }
 }
 
+/**
+ * Fallback: extract zip using only local file headers (ignores central directory).
+ * Works even when the central directory is corrupted, as long as files are stored (no compression).
+ */
+function extractZipFromBuffer(zipBuf: Buffer, destDir: string): void {
+  let offset = 0
+  while (offset < zipBuf.length - 30) {
+    const sig = zipBuf.readUInt32LE(offset)
+    if (sig !== 0x04034b50) {
+      // Not a local file header — done with files
+      if (offset > 0) break
+      offset++
+      continue
+    }
+
+    const compressionMethod = zipBuf.readUInt16LE(offset + 8)
+    const compressedSize = zipBuf.readUInt32LE(offset + 18)
+    const uncompressedSize = zipBuf.readUInt32LE(offset + 22)
+    const nameLen = zipBuf.readUInt16LE(offset + 26)
+    const extraLen = zipBuf.readUInt16LE(offset + 28)
+
+    const nameBytes = zipBuf.subarray(offset + 30, offset + 30 + nameLen)
+    const fileName = new TextDecoder().decode(nameBytes)
+    const dataStart = offset + 30 + nameLen + extraLen
+    const data = zipBuf.subarray(dataStart, dataStart + compressedSize)
+
+    // Only handle stored (no compression) files
+    if (compressionMethod !== 0) {
+      offset = dataStart + compressedSize
+      continue
+    }
+
+    // Sanity check: skip implausibly large files (max 50MB)
+    if (uncompressedSize > 50 * 1024 * 1024) {
+      offset = dataStart + compressedSize
+      continue
+    }
+
+    const outPath = path.join(destDir, fileName)
+    try {
+      fs.mkdirSync(path.dirname(outPath), { recursive: true })
+      fs.writeFileSync(outPath, data)
+    } catch {
+      // Skip files that can't be written (e.g. invalid paths)
+    }
+
+    offset = dataStart + compressedSize
+  }
+}
+
 export function registerSkillsHandlers(): void {
   // Initialize builtin skills on startup
   ensureBuiltinSkills()
@@ -359,9 +504,13 @@ export function registerSkillsHandlers(): void {
         if (!fs.existsSync(mdPath)) continue
         try {
           const content = fs.readFileSync(mdPath, 'utf-8')
+          const ver = readSkillVersion(path.join(SKILLS_DIR, entry.name))
+          const isBuiltin = ver !== null || fs.existsSync(path.join(SKILLS_DIR, entry.name, '_meta.json'))
           skills.push({
             name: entry.name,
-            description: extractDescription(content, entry.name)
+            description: extractDescription(content, entry.name),
+            version: ver ? ver.join('.') : undefined,
+            builtin: isBuiltin
           })
         } catch {
           // Skip unreadable files
@@ -374,7 +523,71 @@ export function registerSkillsHandlers(): void {
   })
 
   /**
-   * skills:load 鈥?read the SKILL.md content for a given skill name (strips frontmatter for AI use).
+   * skills:list-builtin — scan resources/skills/ (bundled source) for all enterprise skills.
+   * These are NOT auto-installed; shown in the Enterprise tab as available for installation.
+   * Returns SkillInfo with version (from _meta.json if present, otherwise undefined).
+   */
+  ipcMain.handle('skills:list-builtin', async (): Promise<SkillInfo[]> => {
+    try {
+      const bundledDir = getBundledSkillsDir()
+      if (!fs.existsSync(bundledDir)) return []
+
+      const entries = fs.readdirSync(bundledDir, { withFileTypes: true })
+      const skills: SkillInfo[] = []
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue
+        const mdPath = path.join(bundledDir, entry.name, SKILLS_FILENAME)
+        if (!fs.existsSync(mdPath)) continue
+
+        try {
+          const content = fs.readFileSync(mdPath, 'utf-8')
+          const ver = readSkillVersion(path.join(bundledDir, entry.name))
+          // Description: _meta.json > SKILL.md frontmatter > fallback
+          const meta = readSkillMeta(path.join(bundledDir, entry.name))
+          const desc =
+            (meta?.description as string) ||
+            extractDescription(content, entry.name)
+          skills.push({
+            name: entry.name,
+            description: desc,
+            version: ver ? ver.join('.') : undefined,
+            builtin: true
+          })
+        } catch {
+          // Skip unreadable files
+        }
+      }
+
+      return skills
+    } catch {
+      return []
+    }
+  })
+
+  /**
+   * skills:load-builtin — read the SKILL.md content from the bundled resources/skills/ directory.
+   */
+  ipcMain.handle(
+    'skills:load-builtin',
+    async (_event, args: { name: string }): Promise<{ content: string } | { error: string }> => {
+      try {
+        const bundledDir = getBundledSkillsDir()
+        const mdPath = path.join(bundledDir, args.name, SKILLS_FILENAME)
+        if (!fs.existsSync(mdPath)) {
+          return { error: `Built-in skill "${args.name}" not found` }
+        }
+        const raw = fs.readFileSync(mdPath, 'utf-8')
+        const content = raw.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n)?/, '')
+        return { content: content.trimStart() }
+      } catch (err) {
+        return { error: String(err) }
+      }
+    }
+  )
+
+  /**
+   * skills:load — read the SKILL.md content for a given skill name (strips frontmatter for AI use).
    */
   ipcMain.handle(
     'skills:load',
@@ -1021,14 +1234,25 @@ export function registerSkillsHandlers(): void {
       await extractZipArchive(archivePath, extractDir)
 
       const manifestPath = findSkillManifestPath(extractDir)
-      if (!manifestPath) {
+      let finalManifestPath = manifestPath
+      if (!finalManifestPath) {
+        console.warn('[skills] System unzip produced empty dir — trying fallback extraction from buffer')
+        try {
+          extractZipFromBuffer(archiveBuffer, extractDir)
+          finalManifestPath = findSkillManifestPath(extractDir)
+        } catch (fallbackErr) {
+          console.error('[skills] Fallback extraction also failed:', fallbackErr)
+        }
+      }
+
+      if (!finalManifestPath) {
         throw new Error(`No SKILL.md found in downloaded archive for ${args.slug}`)
       }
 
-      const sourceDir = path.dirname(manifestPath)
+      const sourceDir = path.dirname(finalManifestPath)
       copyDirRecursive(sourceDir, tempDir)
 
-      const manifestFileName = path.basename(manifestPath)
+      const manifestFileName = path.basename(finalManifestPath)
       if (manifestFileName !== SKILLS_FILENAME) {
         const currentManifestPath = path.join(tempDir, manifestFileName)
         const normalizedManifestPath = path.join(tempDir, SKILLS_FILENAME)
@@ -1130,4 +1354,645 @@ export function registerSkillsHandlers(): void {
       }
     }
   )
+
+  // ── Enterprise Remote Skills ──
+
+  /**
+   * skills:enterprise-remote-list — fetch manifest.json directly from OSS.
+   */
+  ipcMain.handle('skills:enterprise-remote-list', async (): Promise<{
+    success: boolean
+    skills?: EnterpriseRemoteSkill[]
+    error?: string
+  }> => {
+    try {
+      // Try CDN domain first, then OSS direct endpoint
+      const manifestUrls = [
+        `https://sma-hk-test.oss-accelerate.aliyuncs.com/cocowork/enterprise-skills/manifest.json`,
+        `https://dev-oss.iot-solution.net/cocowork/enterprise-skills/manifest.json`
+      ]
+
+      let data: { skills?: EnterpriseRemoteSkill[] } | null = null
+      for (const url of manifestUrls) {
+        try {
+          const response = await fetch(url, {
+            headers: { 'User-Agent': getDefaultApiUserAgent() }
+          })
+          if (response.status === 404) continue
+          if (!response.ok) continue
+          data = await response.json() as { skills?: EnterpriseRemoteSkill[] }
+          if (data) break
+        } catch { continue }
+      }
+
+      if (!data) {
+        return { success: true, skills: [] }
+      }
+
+      return { success: true, skills: data.skills ?? (Array.isArray(data) ? data as EnterpriseRemoteSkill[] : []) }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
+  /**
+   * skills:enterprise-remote-download — download an enterprise skill from OSS and install it.
+   */
+  ipcMain.handle(
+    'skills:enterprise-remote-download',
+    async (_event, args: { name: string; downloadUrl: string }): Promise<{
+      success: boolean
+      error?: string
+    }> => {
+      try {
+        // Download from OSS — try direct URL first, then with STS auth
+        let response: Response | null = null
+
+        // Attempt 1: direct public URL
+        for (const url of [args.downloadUrl]) {
+          try {
+            const resp = await fetch(url, { headers: { 'User-Agent': getDefaultApiUserAgent() } })
+            if (resp.ok) { response = resp; break }
+          } catch { continue }
+        }
+
+        // Attempt 2: with STS credentials (for private bucket)
+        if (!response) {
+          try {
+            const settings = readSettings()
+            const token = settings.authToken as string | undefined
+            if (!token) throw new Error('no auth')
+
+            const stsResp = await fetch('https://dev.iot-solution.net/kotlinweb/ali/getStsRam', {
+              headers: { Authorization: `Bearer ${token}`, 'User-Agent': getDefaultApiUserAgent() }
+            })
+            const stsJson = await stsResp.json() as { code: number; data?: StsResponse }
+            if (stsJson.code === 0 && stsJson.data) {
+              const cred = stsJson.data.response.credentials
+              const bucket = stsJson.data.bucket
+              const ep = stsJson.data.endPoint
+              // Try OSS direct endpoint with STS auth
+              const key = new URL(args.downloadUrl).pathname.slice(1) // strip leading /
+              const ossUrl = `https://${bucket}.${ep}/${key}`
+              const date = new Date().toUTCString()
+              const signStr = `GET\n\n\n${date}\nx-oss-security-token:${cred.securityToken}\n/${bucket}/${key}`
+              const sig = crypto.createHmac('sha1', cred.accessKeySecret).update(signStr).digest('base64')
+              response = await fetch(ossUrl, {
+                headers: {
+                  'Date': date,
+                  'Authorization': `OSS ${cred.accessKeyId}:${sig}`,
+                  'x-oss-security-token': cred.securityToken,
+                  'User-Agent': getDefaultApiUserAgent()
+                }
+              })
+            }
+          } catch { /* STS download failed */ }
+        }
+
+        if (!response) {
+          return { success: false, error: 'Download failed: OSS file not accessible (check bucket public-read permission)' }
+        }
+
+        // Verify it's actually a zip file
+        const archiveBuffer = Buffer.from(await response.arrayBuffer())
+        const isZip = archiveBuffer.length >= 4 &&
+          archiveBuffer[0] === 0x50 && archiveBuffer[1] === 0x4B &&
+          archiveBuffer[2] === 0x03 && archiveBuffer[3] === 0x04
+
+        if (!isZip) {
+          const preview = archiveBuffer.toString('utf-8').slice(0, 300)
+          return { success: false, error: `Downloaded file is not a valid zip (size=${archiveBuffer.length}). First bytes: ${preview}` }
+        }
+
+        // Extract to temp
+        const tempBase = path.join(os.tmpdir(), 'opencowork-skills', `enterprise-${Date.now()}`)
+        fs.mkdirSync(tempBase, { recursive: true })
+
+        const archivePath = path.join(tempBase, `${args.name}.zip`)
+        fs.writeFileSync(archivePath, archiveBuffer)
+
+        const extractDir = path.join(tempBase, '_archive')
+        fs.mkdirSync(extractDir, { recursive: true })
+        await extractZipArchive(archivePath, extractDir)
+
+        // Fallback: if system unzip produced nothing (e.g. corrupt central directory on Windows),
+        // manually extract using local file headers from the buffer.
+        const manifestPath = findSkillManifestPath(extractDir)
+        if (!manifestPath) {
+          console.warn('[skills] System unzip produced empty dir — trying fallback extraction from buffer')
+          try {
+            extractZipFromBuffer(archiveBuffer, extractDir)
+          } catch (fallbackErr) {
+            console.error('[skills] Fallback extraction also failed:', fallbackErr)
+          }
+        }
+
+        const finalManifestPath = findSkillManifestPath(extractDir)
+        if (!finalManifestPath) {
+          const extractedFiles = listExtractedFiles(extractDir)
+          return { success: false, error: `No SKILL.md in archive (zip OK). Extracted: ${extractedFiles.join(', ')}` }
+        }
+
+        // Copy to installed skills dir
+        const sourceDir = path.dirname(finalManifestPath)
+        if (!fs.existsSync(SKILLS_DIR)) {
+          fs.mkdirSync(SKILLS_DIR, { recursive: true })
+        }
+
+        const targetDir = path.join(SKILLS_DIR, args.name)
+        if (fs.existsSync(targetDir)) {
+          fs.rmSync(targetDir, { recursive: true, force: true })
+        }
+        copyDirRecursive(sourceDir, targetDir)
+
+        // Cleanup temp
+        try { fs.rmSync(tempBase, { recursive: true, force: true }) } catch { /* ignore */ }
+
+        return { success: true }
+      } catch (err) {
+        return { success: false, error: String(err) }
+      }
+    }
+  )
+
+  // ── Enterprise Skill Upload via OSS STS ──
+
+  interface StsCredentials {
+    accessKeyId: string
+    accessKeySecret: string
+    securityToken: string
+    expiration: string
+  }
+
+  interface StsResponse {
+    bucket: string
+    endPoint: string
+    domain?: string
+    response: {
+      credentials: StsCredentials
+    }
+  }
+
+  /**
+   * skills:enterprise-sts-token — fetch STS credentials for OSS upload.
+   */
+  ipcMain.handle('skills:enterprise-sts-token', async (): Promise<{
+    success: boolean
+    credentials?: StsCredentials
+    bucket?: string
+    endPoint?: string
+    domain?: string
+    error?: string
+  }> => {
+    try {
+      const settings = readSettings()
+      const token = settings.authToken as string | undefined
+      if (!token) {
+        return { success: false, error: 'Login required' }
+      }
+
+      const stsUrl = 'https://dev.iot-solution.net/kotlinweb/ali/getStsRam'
+      const resp = await fetch(stsUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': getDefaultApiUserAgent()
+        }
+      })
+
+      const json = await resp.json() as {
+        code: number
+        data?: StsResponse
+        mesg?: string
+      }
+
+      if (json.code !== 0 || !json.data) {
+        return { success: false, error: json.mesg || `STS failed: code ${json.code}` }
+      }
+
+      return {
+        success: true,
+        credentials: json.data.response.credentials,
+        bucket: json.data.bucket,
+        endPoint: json.data.endPoint,
+        domain: json.data.domain
+      }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
+  /**
+   * skills:enterprise-upload — zip a skill directory and upload to OSS via STS.
+   */
+  ipcMain.handle(
+    'skills:enterprise-upload',
+    async (_event, args: {
+      sourceDir: string
+      skillName: string
+      description: string
+      version: string
+      author: string
+      isProtected?: boolean
+      isAdmin?: boolean
+      visibility?: 'all' | 'department'
+      departmentId?: string
+    }): Promise<{ success: boolean; downloadUrl?: string; error?: string }> => {
+      try {
+        // 0. Pre-check: source directory must contain SKILL.md
+        const sourceSkillMd = path.join(args.sourceDir, SKILLS_FILENAME)
+        if (!fs.existsSync(sourceSkillMd)) {
+          return { success: false, error: `Source directory must contain a ${SKILLS_FILENAME} file` }
+        }
+
+        const skillContent = fs.readFileSync(sourceSkillMd, 'utf-8')
+        const frontMatterMatch = skillContent.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)
+        if (!frontMatterMatch) {
+          return { success: false, error: `${SKILLS_FILENAME} must have YAML frontmatter with name and description` }
+        }
+
+        // Basic validation
+        if (!args.skillName || args.skillName.length < 2) {
+          return { success: false, error: 'Skill name is required (min 2 characters)' }
+        }
+        if (!args.description || args.description.length < 10) {
+          return { success: false, error: 'Description is required (min 10 characters)' }
+        }
+        if (!args.version || !/^\d+\.\d+\.\d+$/.test(args.version)) {
+          return { success: false, error: 'Version must be in semver format (e.g. 1.0.0)' }
+        }
+
+        // 1. Get STS credentials
+        const settings = readSettings()
+        const authToken = settings.authToken as string | undefined
+        if (!authToken) {
+          return { success: false, error: 'Login required to upload' }
+        }
+
+        const stsUrl = 'https://dev.iot-solution.net/kotlinweb/ali/getStsRam'
+        const stsResp = await fetch(stsUrl, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'User-Agent': getDefaultApiUserAgent()
+          }
+        })
+        const stsJson = await stsResp.json() as { code: number; data?: StsResponse; mesg?: string }
+        if (stsJson.code !== 0 || !stsJson.data) {
+          return { success: false, error: stsJson.mesg || `STS failed (code ${stsJson.code})` }
+        }
+
+        const credentials = stsJson.data.response.credentials
+        const bucket = stsJson.data.bucket
+        const endPoint = stsJson.data.endPoint
+        const domain = stsJson.data.domain
+
+        // 2. Create zip from source dir
+        const zipName = `${args.skillName}-${args.version}.zip`
+        const zipBuf = createSimpleZip(args.sourceDir)
+
+        // 3. Upload to OSS
+        const key = `cocowork/enterprise-skills/${zipName}`
+        const date = new Date().toUTCString()
+        const contentType = 'application/zip'
+
+        // Build OSS signature
+        const stringToSign = `PUT\n\n${contentType}\n${date}\nx-oss-security-token:${credentials.securityToken}\n/${bucket}/${key}`
+        const signature = crypto
+          .createHmac('sha1', credentials.accessKeySecret)
+          .update(stringToSign)
+          .digest('base64')
+
+        const uploadUrl = `https://${bucket}.${endPoint}/${key}`
+
+        const uploadResp = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': contentType,
+            'Date': date,
+            'Authorization': `OSS ${credentials.accessKeyId}:${signature}`,
+            'x-oss-security-token': credentials.securityToken
+          },
+          body: zipBuf as any
+        })
+
+        if (!uploadResp.ok) {
+          const body = await uploadResp.text().catch(() => '')
+          return { success: false, error: `Upload failed: HTTP ${uploadResp.status} ${body}` }
+        }
+
+        // 4. Update manifest.json on OSS
+        const downloadUrl = domain
+          ? `https://${domain}/${key}`
+          : `https://${bucket}.${endPoint}/${key}`
+
+        const manifestKey = 'cocowork/enterprise-skills/manifest.json'
+        const manifestUrl = `https://${bucket}.${endPoint}/${manifestKey}`
+
+        // Download existing manifest
+        let manifest: { skills: EnterpriseRemoteSkill[] } = { skills: [] }
+        try {
+          const mResp = await fetch(manifestUrl)
+          if (mResp.ok) {
+            manifest = await mResp.json() as { skills: EnterpriseRemoteSkill[] }
+          }
+        } catch { /* start fresh */ }
+
+        // Upsert skill entry (protected skills cannot be overwritten)
+        const existingIdx = manifest.skills.findIndex((s) => s.name === args.skillName)
+        // Protected skills can only be overwritten by author or admin
+        if (existingIdx >= 0 && manifest.skills[existingIdx].protected && manifest.skills[existingIdx].author !== args.author && !args.isAdmin) {
+          return { success: false, error: `Skill "${args.skillName}" is protected and cannot be overwritten by others` }
+        }
+        // Non-admin cannot overwrite other people's skills
+        if (existingIdx >= 0 && !manifest.skills[existingIdx].protected && manifest.skills[existingIdx].author !== args.author && !args.isAdmin) {
+          return { success: false, error: `Skill "${args.skillName}" was uploaded by ${manifest.skills[existingIdx].author}, only they or admin can update it` }
+        }
+
+        const newEntry: EnterpriseRemoteSkill = {
+          name: args.skillName,
+          description: args.description,
+          version: args.version,
+          author: args.author,
+          downloadUrl,
+          ...(args.isProtected ? { protected: true } : {})
+        }
+        if (existingIdx >= 0) {
+          manifest.skills[existingIdx] = newEntry
+        } else {
+          manifest.skills.push(newEntry)
+        }
+
+        // Upload updated manifest
+        const manifestBody = JSON.stringify(manifest, null, 2)
+        const mDate = new Date().toUTCString()
+        const mStringToSign = `PUT\n\napplication/json\n${mDate}\nx-oss-security-token:${credentials.securityToken}\n/${bucket}/${manifestKey}`
+        const mSignature = crypto
+          .createHmac('sha1', credentials.accessKeySecret)
+          .update(mStringToSign)
+          .digest('base64')
+
+        const mUploadResp = await fetch(manifestUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Date': mDate,
+            'Authorization': `OSS ${credentials.accessKeyId}:${mSignature}`,
+            'x-oss-security-token': credentials.securityToken
+          },
+          body: manifestBody as any
+        })
+
+        if (!mUploadResp.ok) {
+          return { success: false, error: `Manifest upload failed: HTTP ${mUploadResp.status}` }
+        }
+
+        // Also upload index.html (best effort)
+        try {
+          const indexHtmlPath = path.join(getBundledSkillsDir(), '..', 'enterprise-skills-index.html')
+          if (fs.existsSync(indexHtmlPath)) {
+            const indexBody = fs.readFileSync(indexHtmlPath)
+            const indexKey = 'cocowork/enterprise-skills/index.html'
+            const iDate = new Date().toUTCString()
+            const iSignStr = `PUT\n\ntext/html\n${iDate}\nx-oss-security-token:${credentials.securityToken}\n/${bucket}/${indexKey}`
+            const iSig = crypto.createHmac('sha1', credentials.accessKeySecret).update(iSignStr).digest('base64')
+            await fetch(`https://${bucket}.${endPoint}/${indexKey}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'text/html',
+                'Date': iDate,
+                'Authorization': `OSS ${credentials.accessKeyId}:${iSig}`,
+                'x-oss-security-token': credentials.securityToken
+              },
+              body: indexBody as any
+            })
+          }
+        } catch { /* best effort */ }
+
+        return { success: true, downloadUrl }
+      } catch (err) {
+        return { success: false, error: String(err) }
+      }
+    }
+  )
+
+  /**
+   * skills:enterprise-remove — remove a skill from the remote manifest.
+   * Only the author (or anyone if not protected) can remove.
+   */
+  ipcMain.handle(
+    'skills:enterprise-remove',
+    async (_event, args: { name: string; author: string; isAdmin?: boolean }): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const stsResult = await getStsCredentials()
+        if (!stsResult.success || !stsResult.credentials) {
+          return { success: false, error: stsResult.error || 'Failed to get STS credentials' }
+        }
+
+        const { credentials, bucket, endPoint } = stsResult
+        const manifestKey = 'cocowork/enterprise-skills/manifest.json'
+        const manifestUrl = `https://${bucket}.${endPoint}/${manifestKey}`
+
+        // Download manifest
+        const mResp = await fetch(manifestUrl)
+        if (!mResp.ok) return { success: false, error: `Failed to fetch manifest: HTTP ${mResp.status}` }
+        const manifest = await mResp.json() as { skills: EnterpriseRemoteSkill[] }
+
+        const idx = manifest.skills.findIndex((s) => s.name === args.name)
+        if (idx === -1) return { success: false, error: 'Skill not found in manifest' }
+
+        const skill = manifest.skills[idx]
+        // Only the author or admin can remove
+        const isAuthorOrAdmin = skill.author === args.author || args.isAdmin
+        if (!isAuthorOrAdmin) {
+          return { success: false, error: 'Only the author or admin can remove this skill' }
+        }
+
+        manifest.skills.splice(idx, 1)
+
+        // Upload updated manifest
+        const manifestBody = JSON.stringify(manifest, null, 2)
+        const date = new Date().toUTCString()
+        const signStr = `PUT\n\napplication/json\n${date}\nx-oss-security-token:${credentials.securityToken}\n/${bucket}/${manifestKey}`
+        const signature = crypto.createHmac('sha1', credentials.accessKeySecret).update(signStr).digest('base64')
+
+        const uploadResp = await fetch(manifestUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Date': date,
+            'Authorization': `OSS ${credentials.accessKeyId}:${signature}`,
+            'x-oss-security-token': credentials.securityToken
+          },
+          body: manifestBody as any
+        })
+
+        if (!uploadResp.ok) return { success: false, error: `Manifest update failed: HTTP ${uploadResp.status}` }
+        return { success: true }
+      } catch (err) {
+        return { success: false, error: String(err) }
+      }
+    }
+  )
+
+  /** Helper: get STS credentials for OSS operations */
+  async function getStsCredentials(): Promise<{
+    success: boolean
+    credentials?: StsCredentials
+    bucket?: string
+    endPoint?: string
+    error?: string
+  }> {
+    const settings = readSettings()
+    const token = settings.authToken as string | undefined
+    if (!token) return { success: false, error: 'Login required' }
+
+    const stsUrl = 'https://dev.iot-solution.net/kotlinweb/ali/getStsRam'
+    const resp = await fetch(stsUrl, {
+      headers: { Authorization: `Bearer ${token}`, 'User-Agent': getDefaultApiUserAgent() }
+    })
+    const json = await resp.json() as { code: number; data?: StsResponse; mesg?: string }
+    if (json.code !== 0 || !json.data) return { success: false, error: json.mesg || 'STS failed' }
+
+    return {
+      success: true,
+      credentials: json.data.response.credentials,
+      bucket: json.data.bucket,
+      endPoint: json.data.endPoint
+    }
+  }
+}
+
+/** Simple zip creator for skill directories */
+function createSimpleZip(sourceDir: string): Buffer {
+  const files = collectAllFiles(sourceDir)
+  const chunks: Buffer[] = []
+  const encoder = new TextEncoder()
+  let currentOffset = 0
+
+  // Track offset and size for each file (for central directory)
+  const cdEntries: Buffer[] = []
+
+  for (const { relativePath, data } of files) {
+    const cleanPath = relativePath.replace(/\\/g, '/')
+    if (cleanPath.endsWith('/')) continue // skip directory-only entries
+
+    const nameBytes = encoder.encode(cleanPath)
+    const crc = crc32(data)
+
+    // Local file header
+    const localHeader = Buffer.alloc(30 + nameBytes.length)
+    localHeader.writeUInt32LE(0x04034b50, 0)
+    localHeader.writeUInt16LE(20, 4)
+    localHeader.writeUInt16LE(0, 6)
+    localHeader.writeUInt16LE(0, 8) // store
+    localHeader.writeUInt16LE(0, 10) // mod time
+    localHeader.writeUInt16LE(0, 12) // mod date
+    localHeader.writeUInt32LE(crc, 14)
+    localHeader.writeUInt32LE(data.length, 18)
+    localHeader.writeUInt32LE(data.length, 22)
+    localHeader.writeUInt16LE(nameBytes.length, 26)
+    localHeader.writeUInt16LE(0, 28)
+    Buffer.from(nameBytes).copy(localHeader, 30)
+
+    chunks.push(localHeader, data)
+
+    // Central directory entry
+    const cdEntry = Buffer.alloc(46 + nameBytes.length)
+    cdEntry.writeUInt32LE(0x02014b50, 0)
+    cdEntry.writeUInt16LE(20, 4) // version made by
+    cdEntry.writeUInt16LE(20, 6) // version needed
+    cdEntry.writeUInt16LE(0, 8) // flags
+    cdEntry.writeUInt16LE(0, 10) // store
+    cdEntry.writeUInt16LE(0, 12) // time
+    cdEntry.writeUInt16LE(0, 14) // date
+    cdEntry.writeUInt32LE(crc, 16)
+    cdEntry.writeUInt32LE(data.length, 20)
+    cdEntry.writeUInt32LE(data.length, 24)
+    cdEntry.writeUInt16LE(nameBytes.length, 28)
+    cdEntry.writeUInt16LE(0, 30)
+    cdEntry.writeUInt16LE(0, 32)
+    cdEntry.writeUInt32LE(0, 34) // external attrs
+    cdEntry.writeUInt32LE(currentOffset, 38) // local header offset ← correct!
+    Buffer.from(nameBytes).copy(cdEntry, 46)
+    cdEntries.push(cdEntry)
+
+    currentOffset += 30 + nameBytes.length + data.length
+  }
+
+  const cdOffset = currentOffset
+  const allCd = Buffer.concat(cdEntries)
+  chunks.push(allCd)
+
+  // End of central directory
+  const eocd = Buffer.alloc(22)
+  eocd.writeUInt32LE(0x06054b50, 0)
+  eocd.writeUInt16LE(0, 4)
+  eocd.writeUInt16LE(0, 6)
+  eocd.writeUInt16LE(cdEntries.length, 8)   // total entries in central directory
+  eocd.writeUInt16LE(cdEntries.length, 10)  // total entries in central directory
+  eocd.writeUInt32LE(allCd.length, 12)
+  eocd.writeUInt32LE(cdOffset, 16) // ← correct offset!
+  eocd.writeUInt16LE(0, 20)
+  chunks.push(eocd)
+
+  return Buffer.concat(chunks)
+}
+
+function listExtractedFiles(dir: string, maxFiles = 20): string[] {
+  const results: string[] = []
+  try {
+    walkDirFlat(dir, '', results, maxFiles)
+  } catch { /* ignore */ }
+  return results
+}
+
+function walkDirFlat(dir: string, prefix: string, results: string[], max: number): void {
+  if (results.length >= max) return
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+  for (const entry of entries) {
+    if (results.length >= max) return
+    const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) {
+      walkDirFlat(path.join(dir, entry.name), relPath, results, max)
+    } else {
+      results.push(relPath)
+    }
+  }
+}
+
+function collectAllFiles(dir: string): { relativePath: string; data: Buffer }[] {
+  const results: { relativePath: string; data: Buffer }[] = []
+  walkDir(dir, '', results)
+  return results
+}
+
+function walkDir(dir: string, prefix: string, results: { relativePath: string; data: Buffer }[]): void {
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue
+    const fullPath = path.join(dir, entry.name)
+    const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) {
+      // Add directory entry
+      results.push({ relativePath: relPath + '/', data: Buffer.alloc(0) })
+      walkDir(fullPath, relPath, results)
+    } else {
+      results.push({ relativePath: relPath, data: fs.readFileSync(fullPath) })
+    }
+  }
+}
+
+/** CRC32 for zip */
+function crc32(data: Buffer): number {
+  let crc = 0xffffffff
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data[i]
+    for (let j = 0; j < 8; j++) {
+      if (crc & 1) {
+        crc = (crc >>> 1) ^ 0xedb88320
+      } else {
+        crc >>>= 1
+      }
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0
 }

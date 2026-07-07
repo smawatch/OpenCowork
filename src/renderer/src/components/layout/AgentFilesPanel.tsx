@@ -547,9 +547,14 @@ export function AgentFilesPanel({
       const currentSession = resolvedSessionId
         ? state.sessions.find((item) => item.id === resolvedSessionId)
         : undefined
-      const currentProject = currentSession?.projectId
+      const sessionProject = currentSession?.projectId
         ? state.projects.find((item) => item.id === currentSession.projectId)
         : undefined
+      // Fallback to active project when no session is active (project home view)
+      const activeProject = !resolvedSessionId && state.activeProjectId
+        ? state.projects.find((item) => item.id === state.activeProjectId)
+        : undefined
+      const currentProject = sessionProject ?? activeProject
 
       return {
         sessionId: resolvedSessionId,
