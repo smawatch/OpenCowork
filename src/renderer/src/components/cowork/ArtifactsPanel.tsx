@@ -38,8 +38,7 @@ const PREVIEWABLE_EXTENSIONS = new Set([
   '.webp',
   '.svg',
   '.ico',
-  '.docx',
-  '.pdf'
+  '.docx'
 ])
 const SPREADSHEET_EXTENSIONS = new Set(['.csv', '.tsv', '.xls', '.xlsx'])
 

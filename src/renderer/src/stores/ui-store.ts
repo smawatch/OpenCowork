@@ -795,7 +795,6 @@ function buildFilePreviewState(
     '.xlsx',
     '.xlsm'
   ])
-  const pdfExts = new Set(['.pdf'])
   const binaryExts = new Set([
     '.zip',
     '.rar',
@@ -835,7 +834,6 @@ function buildFilePreviewState(
   else if (fontExts.has(ext)) viewerType = 'font'
   else if (docxExts.has(ext)) viewerType = 'docx'
   else if (officeOnlineExts.has(ext)) viewerType = 'office-online'
-  else if (pdfExts.has(ext)) viewerType = 'pdf'
   else if (binaryExts.has(ext)) viewerType = 'binary'
   const previewTypes = new Set([
     'html',

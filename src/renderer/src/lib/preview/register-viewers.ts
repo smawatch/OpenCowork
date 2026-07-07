@@ -56,11 +56,6 @@ const DocxViewer = React.lazy(async () => {
   return { default: mod.DocxViewer }
 })
 
-const PdfViewer = React.lazy(async () => {
-  const mod = await import('./viewers/pdf-viewer')
-  return { default: mod.PdfViewer }
-})
-
 const FallbackViewer = React.lazy(async () => {
   const mod = await import('./viewers/fallback-viewer')
   return { default: mod.FallbackViewer }
@@ -171,12 +166,6 @@ export function registerAllViewers(): void {
     type: 'office-online',
     extensions: ['.doc', '.ppt', '.pptx', '.pps', '.ppsx', '.odp', '.odt', '.ott', '.rtf'],
     component: OfficeOnlineViewer
-  })
-
-  viewerRegistry.register({
-    type: 'pdf',
-    extensions: ['.pdf'],
-    component: PdfViewer
   })
 
   viewerRegistry.register({

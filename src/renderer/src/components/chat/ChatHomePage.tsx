@@ -7,6 +7,7 @@ import { WorkingFolderSelectorDialog } from './WorkingFolderSelectorDialog'
 import { useUIStore } from '@renderer/stores/ui-store'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useChatActions, type SendMessageOptions } from '@renderer/hooks/use-chat-actions'
+import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
 import type { ImageAttachment } from '@renderer/lib/image-attachments'
 import { ensureDefaultChatWorkingFolder } from '@renderer/lib/chat-working-folder'
 import { NewSessionProjectSelector } from './NewSessionProjectSelector'
@@ -87,6 +88,11 @@ export function ChatHomePage(): React.JSX.Element {
   const { sendMessage } = useChatActions()
   const [folderDialogOpen, setFolderDialogOpen] = React.useState(false)
   const [createProjectDialogOpen, setCreateProjectDialogOpen] = React.useState(false)
+
+  // 进入对话页面时自动选中企业和部门知识库
+  React.useEffect(() => {
+    useKnowledgeStore.getState().initAutoSelectDatasets()
+  }, [])
 
   React.useEffect(() => {
     setSelectedProjectId(defaultSelectedProjectId)

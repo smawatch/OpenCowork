@@ -442,19 +442,7 @@ export const IPC = {
   KNOWLEDGE_PERSONAL_DOWNLOAD_FILE: 'knowledge:personal:download-file',
   KNOWLEDGE_PERSONAL_LIST_FILES: 'knowledge:personal:list-files',
   KNOWLEDGE_PERSONAL_READ_FILE: 'knowledge:personal:read-file',
-  KNOWLEDGE_PERSONAL_RENAME_COLLECTION: 'knowledge:personal:rename-collection',
-
-  // Local Knowledge Base
-  KNOWLEDGE_LOCAL_CREATE: 'knowledge:local:create',
-  KNOWLEDGE_LOCAL_LIST: 'knowledge:local:list',
-  KNOWLEDGE_LOCAL_DELETE: 'knowledge:local:delete',
-  KNOWLEDGE_LOCAL_GET_CHUNKS: 'knowledge:local:get-chunks',
-  KNOWLEDGE_LOCAL_IMPORT_FILE: 'knowledge:local:import-file',
-  KNOWLEDGE_LOCAL_EMBED: 'knowledge:local:embed',
-  KNOWLEDGE_LOCAL_EMBEDDED_STATUS: 'knowledge:local:embedded-status',
-  KNOWLEDGE_LOCAL_CLEANING_STATUS: 'knowledge:local:cleaning-status',
-  KNOWLEDGE_LOCAL_SEARCH_SEMANTIC: 'knowledge:local:search-semantic',
-  KNOWLEDGE_LOCAL_SEARCH: 'knowledge:local:search'
+  KNOWLEDGE_PERSONAL_RENAME_COLLECTION: 'knowledge:personal:rename-collection'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]
