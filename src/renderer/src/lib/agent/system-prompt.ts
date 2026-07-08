@@ -6,7 +6,6 @@ import { buildLeadCoordinatorPrompt } from './teams/prompts'
 import type { ActiveTeam } from '../../stores/team-store'
 import { resolveLanguageName } from '../i18n-language'
 import { buildParallelToolCallsPrompt } from './parallel-tool-calls-prompt'
-import { useKnowledgeStore } from '../../stores/knowledge-store'
 import { useMcpStore } from '../../stores/mcp-store'
 
 export type PromptEnvironmentContext = {
