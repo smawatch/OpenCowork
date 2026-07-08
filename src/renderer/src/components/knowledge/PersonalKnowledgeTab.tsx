@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { OutputData } from '@editorjs/editorjs'
 import ReactMarkdown from 'react-markdown'
+import type { OutputData } from '@editorjs/editorjs'
 import {
   BookOpen,
+  Database,
   FileText,
-  FolderPlus,
+  FileUp,
   Layers,
-  Link,
   Loader2,
   Pencil,
-  RefreshCw
+  Plus,
+  RefreshCw,
+  Trash2
 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
@@ -23,7 +24,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter
 } from '@renderer/components/ui/dialog'
 import {
@@ -33,9 +33,13 @@ import {
   SelectTrigger,
   SelectValue
 } from '@renderer/components/ui/select'
-import { ipcClient } from '@renderer/lib/ipc/ipc-client'
-import { IPC } from '@renderer/lib/ipc/channels'
+import {
+  MARKDOWN_REMARK_PLUGINS,
+  MARKDOWN_REHYPE_PLUGINS,
+  createMarkdownComponents
+} from '@renderer/lib/preview/viewers/markdown-components'
 import { useAuthStore } from '@renderer/stores/auth-store'
+import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { toast } from 'sonner'
 import { EditorJsRichText } from '@renderer/components/editorjs/EditorJsRichText'
 import {
@@ -49,48 +53,14 @@ import {
   deleteCollections,
   importFileToDataset,
   createTextCollection,
-  createFolder,
   listDatasets,
   listCollections,
   listChunks,
   KbApiError,
   type DatasetItem,
   type CollectionItem,
-  type ChunkItem,
+  type ChunkItem
 } from '@renderer/lib/knowledge/kb-api-client'
-import { KnowledgeToolbar, type SortField, type SortDir } from './KnowledgeToolbar'
-import { KnowledgeRow } from './KnowledgeRow'
-import { KnowledgeDetail } from './KnowledgeDetail'
-import { parseKnowledgeRoute, goToKnowledgeDetail } from '@renderer/lib/knowledge-route'
-import {
-  MARKDOWN_REMARK_PLUGINS,
-  MARKDOWN_REHYPE_PLUGINS,
-  createMarkdownComponents
-} from '@renderer/lib/preview/viewers/markdown-components'
-
-const MARKDOWN_COMPONENTS = createMarkdownComponents()
-
-// --------------- helpers ---------------
-
-function augmentDataset(ds: DatasetItem, index: number, isPersonal: boolean): DatasetItem {
-  const tagPools = [
-    ['技术', 'AI', '后端'],
-    ['运营', '活动'],
-    ['产品', '需求'],
-    ['客服', 'FAQ'],
-    ['支付', 'Java', 'SpringBoot'],
-    ['IoT', '嵌入式'],
-    ['前端', 'React', 'TypeScript'],
-    ['数据', '分析']
-  ]
-  return {
-    ...ds,
-    systemTag: ds.systemTag || (ds.source === 'department' ? '部门' : (isPersonal ? '个人' : '企业')),
-    tags: ds.tags || tagPools[index % tagPools.length],
-    creator: ds.creator,
-    updateTime: ds.updateTime || new Date(Date.now() - index * 86400000 * 3).toISOString()
-  }
-}
 
 function typeLabel(type: string): string {
   switch (type) {
@@ -101,7 +71,7 @@ function typeLabel(type: string): string {
     case 'folder':
       return '文件夹'
     default:
-      return type
+      return type || '未知'
   }
 }
 
@@ -110,7 +80,7 @@ function typeIcon(type: string): React.ReactNode {
     case 'virtual':
       return <Pencil className="size-3.5" />
     case 'link':
-      return <Link className="size-3.5" />
+      return <Layers className="size-3.5" />
     case 'folder':
       return <Layers className="size-3.5" />
     default:
@@ -131,19 +101,15 @@ function trainingTypeLabel(t: string): string {
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toISOString().slice(0, 10)
+    const d = new Date(iso)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   } catch {
     return iso
   }
 }
 
-// --------------- main component ---------------
-
-type PageKb = DatasetItem & { kind: 'personal' | 'enterprise' }
-type ApiResponse<T> = { success: boolean; data: T; total?: number; error?: string; code?: string }
-
-export function KnowledgePage(): React.JSX.Element {
-  const { t } = useTranslation('layout')
+export function PersonalKnowledgeTab(): React.JSX.Element {
   const token = useAuthStore((s) => s.token)
   const logout = useAuthStore((s) => s.logout)
   const user = useAuthStore((s) => s.user)
@@ -151,47 +117,21 @@ export function KnowledgePage(): React.JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const canEditKb = useCallback(
-    (kb: PageKb) => {
-      // Enterprise KB: no edit allowed
-      if (kb.systemTag === '企业') return false
-      // Department KB: only the creator can edit
-      if (kb.source === 'department' || kb.systemTag === '部门') {
+    (kb: DatasetItem) => {
+      if (kb.source === 'department') {
         if (!user) return false
         return !!kb.creator && (kb.creator === user.username || kb.creator === user.displayName)
       }
-      // Personal KB: edit allowed
       return true
     },
     [user]
   )
+  const markdownComponents = useMemo(() => createMarkdownComponents(), [])
 
-  // ---- data ----
-  const [allKbs, setAllKbs] = useState<PageKb[]>([])
+  const [datasets, setDatasets] = useState<DatasetItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // ---- route ----
-  const [route, setRoute] = useState(() => parseKnowledgeRoute(window.location.hash))
-
-  useEffect(() => {
-    const handler = () => setRoute(parseKnowledgeRoute(window.location.hash))
-    window.addEventListener('hashchange', handler)
-    return () => window.removeEventListener('hashchange', handler)
-  }, [])
-
-  // Sync hash for list view (handles sidebar navigation to knowledge page)
-  useEffect(() => {
-    if (route.kind === 'list' && window.location.hash !== '#/knowledge') {
-      window.history.replaceState(null, '', '#/knowledge')
-    }
-  }, [route.kind])
-
-  // ---- UI state ----
-  const [search, setSearch] = useState('')
-  const [activeTags, setActiveTags] = useState<string[]>([])
-  const [sortField, setSortField] = useState<SortField>('updateTime')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
-
-  // ---- create KB dialog ----
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
   const [newIntro, setNewIntro] = useState('')
@@ -200,47 +140,65 @@ export function KnowledgePage(): React.JSX.Element {
   const [newSource, setNewSource] = useState<'personal' | 'department'>('personal')
   const [creating, setCreating] = useState(false)
 
-  // ---- edit KB ----
-  const [showEditKb, setShowEditKb] = useState(false)
-  const [editingKb, setEditingKb] = useState<DatasetItem | null>(null)
-  const [editKbTags, setEditKbTags] = useState<string[]>([])
+  // ---- edit KB dialog ----
+  const [showEdit, setShowEdit] = useState(false)
+  const [editKb, setEditKb] = useState<DatasetItem | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editIntro, setEditIntro] = useState('')
+  const [editTags, setEditTags] = useState<string[]>([])
+  const [editCustomTag, setEditCustomTag] = useState('')
   const [editing, setEditing] = useState(false)
 
-  const [editKbName, setEditKbName] = useState('')
-
-  const openEditKb = useCallback((kb: DatasetItem) => {
-    setEditingKb(kb)
-    setEditKbName(kb.name)
-    setEditKbTags(kb.tags || [])
-    setShowEditKb(true)
+  const toggleEditTag = useCallback((tag: string) => {
+    setEditTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    )
   }, [])
 
-  const toggleEditKbTag = useCallback((tag: string) => {
-    setEditKbTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])
+  const addEditCustomTag = useCallback(() => {
+    const trimmed = editCustomTag.trim()
+    if (!trimmed || editTags.includes(trimmed)) return
+    setEditTags((prev) => [...prev, trimmed])
+    setEditCustomTag('')
+  }, [editCustomTag, editTags])
+
+  const openEditDialog = useCallback((kb: DatasetItem) => {
+    setEditKb(kb)
+    setEditName(kb.name)
+    setEditIntro(kb.intro || '')
+    setEditTags(kb.tags || [])
+    setEditCustomTag('')
+    setShowEdit(true)
   }, [])
 
-  const handleEditKb = useCallback(async () => {
-    if (!editingKb || !editKbName.trim()) return
+  const handleEdit = useCallback(async () => {
+    if (!editKb || !editName.trim()) return
     setEditing(true)
     try {
-      const r = await updateDataset(ipcClient, {
-        id: editingKb.id,
-        name: editKbName.trim() !== editingKb.name ? editKbName.trim() : undefined,
-        tags: editKbTags
+      const result = await updateDataset(ipcClient, {
+        id: editKb.id,
+        name: editName.trim(),
+        intro: editIntro.trim() || undefined,
+        tags: editTags
       })
-      if (!r.success) { toast.error(r.error || '更新失败'); return }
+      if (!result.success) {
+        toast.error(result.error || result.message || '更新失败')
+        return
+      }
       toast.success('已更新')
-      setShowEditKb(false)
-      // 更新本地列表
-      setAllKbs((prev) =>
-        prev.map((k) =>
-          k.id === editingKb.id ? { ...k, name: editKbName.trim(), tags: editKbTags } : k
-        )
-      )
-      setEditingKb(null)
-    } catch { toast.error('更新失败') }
-    finally { setEditing(false) }
-  }, [editingKb, editKbName, editKbTags])
+      setShowEdit(false)
+      setEditKb(null)
+      // 刷新列表
+      setLoading(true)
+      const r = await listDatasets(ipcClient)
+      if (r.success) setDatasets(r.data ?? [])
+      setLoading(false)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : '更新失败')
+    } finally {
+      setEditing(false)
+    }
+  }, [editKb, editName, editIntro, editTags])
 
   const DEFAULT_TAG_OPTIONS = ['运营', '测试', '技术', '产品', '需求', '开发', '后端', '前端', 'AI', '文档']
 
@@ -258,23 +216,17 @@ export function KnowledgePage(): React.JSX.Element {
     setCustomTagInput('')
   }, [customTagInput, newTags])
 
-  // ---- delete confirmation ----
-  const [deleteTargetKb, setDeleteTargetKb] = useState<DatasetItem | null>(null)
-
-  // ---- detail dialog (collections) ----
-  const [selectedKb, setSelectedKb] = useState<PageKb | null>(null)
+  const [selectedKb, setSelectedKb] = useState<DatasetItem | null>(null)
   const [collections, setCollections] = useState<CollectionItem[]>([])
   const [collectionsLoading, setCollectionsLoading] = useState(false)
   const [collectionsError, setCollectionsError] = useState<string | null>(null)
 
-  // ---- import dialog ----
   const [showImport, setShowImport] = useState(false)
   const [importFileBuffer, setImportFileBuffer] = useState<ArrayBuffer | null>(null)
   const [importFileName, setImportFileName] = useState('')
   const [importTrainingType, setImportTrainingType] = useState('chunk')
   const [importing, setImporting] = useState(false)
 
-  // ---- text collection dialog ----
   const [showTextCollection, setShowTextCollection] = useState(false)
   const [textColName, setTextColName] = useState('')
   const textColEditorDataRef = useRef<OutputData>({ blocks: [], time: Date.now() })
@@ -283,135 +235,52 @@ export function KnowledgePage(): React.JSX.Element {
   const [textColQaPrompt, setTextColQaPrompt] = useState('')
   const [savingText, setSavingText] = useState(false)
 
-  // ---- folder creation dialog ----
-  const [showCreateFolder, setShowCreateFolder] = useState(false)
-  const [folderName, setFolderName] = useState('')
-  const [creatingFolder, setCreatingFolder] = useState(false)
-
-  // ---- chunks dialog ----
   const [selectedCollection, setSelectedCollection] = useState<CollectionItem | null>(null)
   const [chunks, setChunks] = useState<ChunkItem[]>([])
   const [chunksLoading, setChunksLoading] = useState(false)
   const [chunksError, setChunksError] = useState<string | null>(null)
   const [chunksTotal, setChunksTotal] = useState(0)
 
-  // ==================== data fetching ====================
-
-  const fetchAll = useCallback(async () => {
+  const fetchDatasets = useCallback(async () => {
+    if (!token) return
     setLoading(true)
-    const merged: PageKb[] = []
-    let idx = 0
-    // personal
-    if (token) {
-      try {
-        const r = await listDatasets(ipcClient)
-        if (r.success) {
-          const items = (r.data ?? []).map((d) => {
-            const page = {
-              ...augmentDataset(d, idx, true),
-              kind: 'personal' as const
-            }
-            idx++
-            return page
-          })
-          merged.push(...items)
-        }
-      } catch {
-        /* silent */
-      }
-    }
-    // enterprise
+    setError(null)
     try {
-      const r = (await ipcClient.invoke(IPC.KNOWLEDGE_LIST_DATASETS)) as ApiResponse<
-        DatasetItem[]
-      > & { code?: string }
-      if (r.code === 'UNAUTHORIZED') logout()
-      if (r.success) {
-        const items = (r.data ?? []).map((d) => {
-          const page = {
-            ...augmentDataset(d, idx, false),
-            kind: 'enterprise' as const
-          }
-          idx++
-          return page
-        })
-        merged.push(...items)
+      const result = await listDatasets(ipcClient)
+      if (!result.success) {
+        setError(result.error || result.message || '获取知识库列表失败')
+        return
       }
-    } catch {
-      /* silent */
+      const list = result.data ?? []
+      console.log('[个人知识库] 已加载:', list.map((ds) => `${ds.name} (${ds.id})`).join(', '))
+      setDatasets(list)
+    } catch (err: unknown) {
+      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') {
+        logout()
+        return
+      }
+      setError(err instanceof Error ? err.message : '网络错误')
+    } finally {
+      setLoading(false)
     }
-    setAllKbs(merged)
-    setLoading(false)
   }, [token, logout])
 
   useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
-
-  // 从详情页返回列表时重新拉取数据
-  const prevRouteKindRef = useRef(route.kind)
-  useEffect(() => {
-    if (prevRouteKindRef.current === 'detail' && route.kind === 'list') {
-      fetchAll()
-    }
-    prevRouteKindRef.current = route.kind
-  }, [route.kind, fetchAll])
-
-  // ==================== filtered & sorted ====================
-
-  const allTags = useMemo(() => {
-    const set = new Set<string>()
-    for (const kb of allKbs) {
-      for (const tag of kb.tags || []) set.add(tag)
-    }
-    return Array.from(set).sort()
-  }, [allKbs])
-
-  const filterSort = useCallback(
-    <T extends DatasetItem>(list: T[]): T[] => {
-      let filtered = list
-      if (search.trim()) {
-        const q = search.trim().toLowerCase()
-        filtered = filtered.filter((kb) => kb.name.toLowerCase().includes(q))
-      }
-      if (activeTags.length > 0) {
-        filtered = filtered.filter((kb) => {
-          const kt = kb.tags || []
-          return activeTags.some((t) => kt.includes(t))
-        })
-      }
-      return [...filtered].sort((a, b) => {
-        const dir = sortDir === 'asc' ? 1 : -1
-        switch (sortField) {
-          case 'name':
-            return dir * a.name.localeCompare(b.name, 'zh-Hans')
-          case 'updateTime':
-          default:
-            return (
-              dir * (new Date(a.updateTime || 0).getTime() - new Date(b.updateTime || 0).getTime())
-            )
-        }
-      })
-    },
-    [search, activeTags, sortField, sortDir]
-  )
-
-  const filteredKbs = useMemo(() => filterSort(allKbs), [allKbs, filterSort])
-
-  // ==================== create KB ====================
+    fetchDatasets()
+  }, [fetchDatasets])
 
   const handleCreate = useCallback(async () => {
     if (!newName.trim()) return
     setCreating(true)
     try {
-      const r = await createDataset(ipcClient, {
+      const result = await createDataset(ipcClient, {
         name: newName.trim(),
         intro: newIntro.trim() || undefined,
         tags: newTags.length > 0 ? newTags : undefined,
         source: isManager ? newSource : undefined
       })
-      if (!r.success) {
-        toast.error(r.error || r.message || '创建失败')
+      if (!result.success) {
+        toast.error(result.error || result.message || '创建失败')
         return
       }
       toast.success('知识库已创建')
@@ -420,69 +289,43 @@ export function KnowledgePage(): React.JSX.Element {
       setNewIntro('')
       setNewTags([])
       setCustomTagInput('')
-      fetchAll()
+      setNewSource('personal')
+      fetchDatasets()
     } catch (err: unknown) {
-      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') logout()
-      else toast.error(err instanceof Error ? err.message : '创建失败')
+      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') {
+        logout()
+        return
+      }
+      toast.error(err instanceof Error ? err.message : '创建失败')
     } finally {
       setCreating(false)
     }
-  }, [newName, newIntro, newTags, fetchAll, logout])
-
-  // ==================== detail (collections) ====================
+  }, [newName, newIntro, newTags, fetchDatasets, logout])
 
   const openKbDetail = useCallback(
-    async (kb: PageKb) => {
+    async (kb: DatasetItem) => {
       setSelectedKb(kb)
       setCollectionsLoading(true)
       setCollectionsError(null)
       try {
-        const r = await listCollections(ipcClient, kb.id)
-        if (!r.success) {
-          setCollectionsError(r.error || r.message || '获取失败')
+        const result = await listCollections(ipcClient, kb.id)
+        if (!result.success) {
+          setCollectionsError(result.error || result.message || '获取集合列表失败')
           return
         }
-        setCollections(r.data ?? [])
+        setCollections(result.data ?? [])
       } catch (err: unknown) {
-        if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') logout()
-        else setCollectionsError(err instanceof Error ? err.message : '网络错误')
+        if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') {
+          logout()
+          return
+        }
+        setCollectionsError(err instanceof Error ? err.message : '网络错误')
       } finally {
         setCollectionsLoading(false)
       }
     },
     [logout]
   )
-
-  // ==================== delete KB ====================
-
-  const handleDeleteKb = useCallback(
-    (kb: DatasetItem) => {
-      setDeleteTargetKb(kb)
-    },
-    []
-  )
-
-  const handleConfirmDeleteKb = useCallback(async () => {
-    const kb = deleteTargetKb
-    if (!kb) return
-    setDeleteTargetKb(null)
-    try {
-      const r = await deleteDataset(ipcClient, kb.id)
-      if (!r.success) {
-        toast.error(r.error || r.message || '删除失败')
-        return
-      }
-      toast.success('已删除')
-      setSelectedKb(null)
-      setCollections([])
-      fetchAll()
-    } catch (err: unknown) {
-      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') logout()
-      else toast.error(err instanceof Error ? err.message : '删除失败')
-    }
-  }, [deleteTargetKb, fetchAll, logout])
-
-  // ==================== import ====================
 
   const handleSelectFile = useCallback(() => {
     const input = fileInputRef.current
@@ -506,37 +349,39 @@ export function KnowledgePage(): React.JSX.Element {
     if (!selectedKb || !importFileBuffer) return
     setImporting(true)
     try {
-      const r = await importFileToDataset(ipcClient, {
+      const result = await importFileToDataset(ipcClient, {
         datasetId: selectedKb.id,
         fileName: importFileName,
         fileBuffer: importFileBuffer,
         trainingType: importTrainingType
       })
-      if (!r.success) {
-        toast.error(r.error || r.message || '导入失败')
+      if (!result.success) {
+        toast.error(result.error || result.message || '导入失败')
         return
       }
-      toast.success(`导入成功，${r.data?.results.insertLen ?? 0} 个分块`)
+      toast.success(`导入成功，${result.data?.results.insertLen ?? 0} 个分块`)
       setShowImport(false)
       setImportFileBuffer(null)
       setImportFileName('')
       openKbDetail(selectedKb)
     } catch (err: unknown) {
-      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') logout()
-      else toast.error(err instanceof Error ? err.message : '导入失败')
+      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') {
+        logout()
+        return
+      }
+      toast.error(err instanceof Error ? err.message : '导入失败')
     } finally {
       setImporting(false)
     }
   }, [selectedKb, importFileBuffer, importFileName, importTrainingType, openKbDetail, logout])
 
-  // ==================== text collection ====================
-
   const handleCreateTextCollection = useCallback(async () => {
-    const mdText = editorJsToMarkdown(textColEditorDataRef.current)
+    const editorData = textColEditorDataRef.current
+    const mdText = editorJsToMarkdown(editorData)
     if (!selectedKb || !textColName.trim() || !mdText.trim()) return
     setSavingText(true)
     try {
-      const r = await createTextCollection(ipcClient, {
+      const result = await createTextCollection(ipcClient, {
         datasetId: selectedKb.id,
         name: textColName.trim(),
         text: mdText,
@@ -546,11 +391,11 @@ export function KnowledgePage(): React.JSX.Element {
             ? textColQaPrompt.trim()
             : undefined
       })
-      if (!r.success) {
-        toast.error(r.error || r.message || '创建失败')
+      if (!result.success) {
+        toast.error(result.error || result.message || '创建失败')
         return
       }
-      toast.success(`创建成功，${r.data?.results.insertLen ?? 0} 个分块`)
+      toast.success(`创建成功，${result.data?.results.insertLen ?? 0} 个分块`)
       setShowTextCollection(false)
       setTextColName('')
       textColEditorDataRef.current = { blocks: [], time: Date.now() }
@@ -558,78 +403,28 @@ export function KnowledgePage(): React.JSX.Element {
       setTextColQaPrompt('')
       openKbDetail(selectedKb)
     } catch (err: unknown) {
-      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') logout()
-      else toast.error(err instanceof Error ? err.message : '创建失败')
+      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') {
+        logout()
+        return
+      }
+      toast.error(err instanceof Error ? err.message : '创建失败')
     } finally {
       setSavingText(false)
     }
   }, [selectedKb, textColName, textColTrainingType, textColQaPrompt, openKbDetail, logout])
-
-  // ==================== create folder ====================
-
-  const handleCreateFolder = useCallback(async () => {
-    if (!selectedKb || !folderName.trim()) return
-    setCreatingFolder(true)
-    try {
-      const r = await createFolder(ipcClient, {
-        datasetId: selectedKb.id,
-        name: folderName.trim()
-      })
-      if (!r.success) {
-        toast.error(r.error || r.message || '创建失败')
-        return
-      }
-      toast.success('目录已创建')
-      setShowCreateFolder(false)
-      setFolderName('')
-      openKbDetail(selectedKb)
-    } catch (err: unknown) {
-      if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') logout()
-      else toast.error(err instanceof Error ? err.message : '创建失败')
-    } finally {
-      setCreatingFolder(false)
-    }
-  }, [selectedKb, folderName, openKbDetail, logout])
-
-  // ==================== delete collection ====================
-
-  const handleDeleteCollection = useCallback(
-    async (e: React.MouseEvent, item: CollectionItem) => {
-      e.stopPropagation()
-      if (!selectedKb) return
-      try {
-        const r = await deleteCollections(ipcClient, {
-          datasetId: selectedKb.id,
-          collectionIds: [item.id]
-        })
-        if (!r.success) {
-          toast.error(r.error || r.message || '删除失败')
-          return
-        }
-        toast.success('已删除')
-        openKbDetail(selectedKb)
-      } catch (err: unknown) {
-        if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') logout()
-        else toast.error(err instanceof Error ? err.message : '删除失败')
-      }
-    },
-    [selectedKb, openKbDetail, logout]
-  )
-
-  // ==================== chunks ====================
 
   const openChunks = useCallback(async (collection: CollectionItem) => {
     setSelectedCollection(collection)
     setChunksLoading(true)
     setChunksError(null)
     try {
-      const r = await listChunks(ipcClient, collection.id)
-      if (!r.success) {
-        setChunksError(r.error || r.message || '获取失败')
+      const result = await listChunks(ipcClient, collection.id)
+      if (!result.success) {
+        setChunksError(result.error || result.message || '获取分块失败')
         return
       }
-      setChunks(r.data ?? [])
-      setChunksTotal(r.total ?? r.data?.length ?? 0)
+      setChunks(result.data ?? [])
+      setChunksTotal(result.total ?? result.data?.length ?? 0)
     } catch (err: unknown) {
       setChunksError(err instanceof Error ? err.message : '网络错误')
     } finally {
@@ -637,101 +432,165 @@ export function KnowledgePage(): React.JSX.Element {
     }
   }, [])
 
-  // ==================== JSX ====================
+  const handleDeleteCollection = useCallback(
+    async (e: React.MouseEvent, item: CollectionItem) => {
+      e.stopPropagation()
+      if (!selectedKb) return
+      try {
+        const result = await deleteCollections(ipcClient, {
+          datasetId: selectedKb.id,
+          collectionIds: [item.id]
+        })
+        if (!result.success) {
+          toast.error(result.error || result.message || '删除失败')
+          return
+        }
+        toast.success('已删除')
+        openKbDetail(selectedKb)
+      } catch (err: unknown) {
+        if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') {
+          logout()
+          return
+        }
+        toast.error(err instanceof Error ? err.message : '删除失败')
+      }
+    },
+    [selectedKb, openKbDetail, logout]
+  )
 
-  if (route.kind === 'detail' && route.kbId) {
+  const handleDeleteDataset = useCallback(
+    async (e: React.MouseEvent, kb: DatasetItem) => {
+      e.stopPropagation()
+      try {
+        const result = await deleteDataset(ipcClient, kb.id)
+        if (!result.success) {
+          toast.error(result.error || result.message || '删除失败')
+          return
+        }
+        toast.success('知识库已删除')
+        setSelectedKb(null)
+        setCollections([])
+        fetchDatasets()
+      } catch (err: unknown) {
+        if (err instanceof KbApiError && err.code === 'UNAUTHORIZED') {
+          logout()
+          return
+        }
+        toast.error(err instanceof Error ? err.message : '删除失败')
+      }
+    },
+    [fetchDatasets, logout]
+  )
+
+  if (!token) {
     return (
-      <div className="flex h-full min-h-0 flex-col bg-background">
-        <KnowledgeDetail kbId={route.kbId} />
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <Database className="mb-3 size-10 opacity-30" />
+        <p className="text-sm">请先登录</p>
       </div>
     )
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+    <div className="p-6">
       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInputChange} />
-
-      {/* Page Header */}
-      <div className="border-b px-6 py-5 flex items-center justify-between" style={{ borderColor: '#f1f3f5' }}>
-        <h1 className="text-xl font-bold" style={{ color: '#1f2329' }}>
-          {t('knowledgePage.title', { defaultValue: '知识库' })}
-        </h1>
+      <div className="flex items-center gap-3 mb-4">
+        <Button size="sm" onClick={fetchDatasets} variant="outline" className="text-xs">
+          <RefreshCw className="size-3.5 mr-1" />
+          刷新
+        </Button>
+        <Button size="sm" className="text-xs" onClick={() => setShowCreate(true)}>
+          <Plus className="size-3.5 mr-1" />
+          创建知识库
+        </Button>
       </div>
 
-      {/* Toolbar */}
-      <KnowledgeToolbar
-        search={search}
-        onSearchChange={setSearch}
-        activeTags={activeTags}
-        onTagsChange={setActiveTags}
-        allTags={allTags}
-        sortField={sortField}
-        sortDir={sortDir}
-        onSortChange={(f, d) => {
-          setSortField(f)
-          setSortDir(d)
-        }}
-        onCreate={() => {
-          setNewName('')
-          setNewIntro('')
-          setShowCreate(true)
-        }}
-      />
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <Database className="mb-3 size-10 opacity-30" />
+          <p className="text-sm">{error}</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={fetchDatasets}>
+            <RefreshCw className="mr-1 size-3" /> 重试
+          </Button>
+        </div>
+      ) : datasets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <BookOpen className="mb-3 size-10 opacity-30" />
+          <p className="text-sm">暂无个人知识库</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => setShowCreate(true)}>
+            <Plus className="mr-1 size-3" /> 创建第一个知识库
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {datasets.map((ds) => (
+            <button
+              key={ds.id}
+              className="group flex flex-col rounded-xl border bg-card p-5 text-left transition-all hover:border-primary/50 hover:shadow-md cursor-pointer relative"
+              onClick={() => openKbDetail(ds)}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                  <BookOpen className="size-4 text-primary" />
+                </div>
+                <Badge variant="secondary" className="text-xs shrink-0">
+                  {ds.type || 'dataset'}
+                </Badge>
+                <div className="flex-1" />
+                {canEditKb(ds) && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openEditDialog(ds)
+                      }}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 text-muted-foreground hover:text-red-500"
+                      onClick={(e) => handleDeleteDataset(e, ds)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </>
+                )}
+              </div>
+              <h3 className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+                {ds.name}
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                {ds.intro || '这个知识库还没有介绍~'}
+              </p>
+              {(ds.tags && ds.tags.length > 0) && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {(ds.tags || []).slice(0, 3).map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal text-muted-foreground">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {(ds.tags?.length || 0) > 3 && (
+                    <span className="text-[10px] text-muted-foreground">+{ds.tags!.length - 3}</span>
+                  )}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Loading */}
-        {loading && (
-          <div className="space-y-4 p-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-lg" />
-            ))}
-          </div>
-        )}
-
-        {/* Content */}
-        {!loading && filteredKbs.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <BookOpen className="mb-3 size-10 opacity-30" />
-            <p className="text-sm">暂无知识库</p>
-          </div>
-        )}
-        {!loading && filteredKbs.length > 0 && (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b" style={{ borderColor: '#f1f3f5' }}>
-                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
-                  名称
-                </th>
-                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
-                  标签
-                </th>
-                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
-                  创建人
-                </th>
-                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
-                  更新时间
-                </th>
-                <th className="px-6 py-2.5 text-right text-[13px] font-medium w-16" style={{ color: '#999' }}>
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredKbs.map((kb) => (
-                <KnowledgeRow
-                  key={kb.id}
-                  kb={kb}
-                  onEnter={() => goToKnowledgeDetail(kb.id)}
-                  onEdit={canEditKb(kb) ? () => openEditKb(kb) : undefined}
-                  onDelete={canEditKb(kb) ? () => handleDeleteKb(kb) : undefined}
-                />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* ==================== Create KB Dialog ==================== */}
+      {/* Create Dataset Dialog */}
       <Dialog
         open={showCreate}
         onOpenChange={(open) => {
@@ -745,9 +604,9 @@ export function KnowledgePage(): React.JSX.Element {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base">创建知识库</DialogTitle>
+            <DialogTitle className="text-base">创建个人知识库</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
@@ -850,13 +709,101 @@ export function KnowledgePage(): React.JSX.Element {
               取消
             </Button>
             <Button size="sm" onClick={handleCreate} disabled={creating || !newName.trim()}>
-              {creating && <Loader2 className="size-3.5 mr-1 animate-spin" />}创建
+              {creating && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+              创建
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ==================== Detail (Collections) Dialog ==================== */}
+      {/* Edit Dataset Dialog */}
+      <Dialog
+        open={showEdit}
+        onOpenChange={(open) => {
+          if (!open) { setShowEdit(false); setEditKb(null) }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">编辑知识库</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">名称</label>
+              <Input
+                className="mt-1"
+                placeholder="输入知识库名称"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">简介</label>
+              <Textarea
+                className="mt-1 min-h-20"
+                placeholder="输入知识库简介（可选）"
+                value={editIntro}
+                onChange={(e) => setEditIntro(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">标签</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {DEFAULT_TAG_OPTIONS.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleEditTag(tag)}
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+                      editTags.includes(tag)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                    )}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1.5">
+                <Input
+                  className="h-7 text-xs flex-1"
+                  placeholder="自定义标签..."
+                  value={editCustomTag}
+                  onChange={(e) => setEditCustomTag(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEditCustomTag() } }}
+                />
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addEditCustomTag}>
+                  添加
+                </Button>
+              </div>
+              {editTags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {editTags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-[11px] px-1.5 py-0 h-5 gap-1">
+                      {tag}
+                      <span
+                        className="cursor-pointer hover:text-red-500 ml-0.5"
+                        onClick={() => toggleEditTag(tag)}
+                      >×</span>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { setShowEdit(false); setEditKb(null) }}>
+              取消
+            </Button>
+            <Button size="sm" onClick={handleEdit} disabled={editing || !editName.trim()}>
+              {editing && <Loader2 className="size-3.5 mr-1 animate-spin" />}保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dataset Detail Dialog */}
       <Dialog
         open={!!selectedKb}
         onOpenChange={(open) => {
@@ -872,63 +819,52 @@ export function KnowledgePage(): React.JSX.Element {
               <BookOpen className="size-4 text-primary" /> {selectedKb?.name}
             </DialogTitle>
           </DialogHeader>
+
           {selectedKb?.intro && (
             <p className="-mt-2 text-xs text-muted-foreground">{selectedKb.intro}</p>
           )}
-          {selectedKb?.kind === 'personal' && (
-            <div className="flex items-center gap-2 -mx-6 px-6">
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs"
-                onClick={() => {
-                  setFolderName('')
-                  setShowCreateFolder(true)
-                }}
-              >
-                <FolderPlus className="size-3.5 mr-1" />
-                新建目录
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs"
-                onClick={() => {
-                  setImportFileBuffer(null)
-                  setImportFileName('')
-                  setShowImport(true)
-                }}
-              >
-                <FileText className="size-3.5 mr-1" />
-                导入文件
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs"
-                onClick={() => {
-                  setTextColName('')
-                  textColEditorDataRef.current = { blocks: [], time: Date.now() }
-                  setTextColHasContent(false)
-                  setTextColTrainingType('chunk')
-                  setTextColQaPrompt('')
-                  setShowTextCollection(true)
-                }}
-              >
-                <Pencil className="size-3.5 mr-1" />
-                创建空白集
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs"
-                onClick={() => selectedKb && openKbDetail(selectedKb)}
-              >
-                <RefreshCw className="size-3.5 mr-1" />
-                刷新
-              </Button>
-            </div>
-          )}
+
+          <div className="flex items-center gap-2 -mx-6 px-6">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs"
+              onClick={() => {
+                setImportFileBuffer(null)
+                setImportFileName('')
+                setShowImport(true)
+              }}
+            >
+              <FileUp className="size-3.5 mr-1" />
+              导入文件
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs"
+              onClick={() => {
+                setTextColName('')
+                textColEditorDataRef.current = { blocks: [], time: Date.now() }
+                setTextColHasContent(false)
+                setTextColTrainingType('chunk')
+                setTextColQaPrompt('')
+                setShowTextCollection(true)
+              }}
+            >
+              <Pencil className="size-3.5 mr-1" />
+              创建空白集
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs"
+              onClick={() => selectedKb && openKbDetail(selectedKb)}
+            >
+              <RefreshCw className="size-3.5 mr-1" />
+              刷新
+            </Button>
+          </div>
+
           <div className="flex-1 overflow-y-auto -mx-6 -mb-6">
             {collectionsLoading ? (
               <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
@@ -946,7 +882,9 @@ export function KnowledgePage(): React.JSX.Element {
                 </Button>
               </div>
             ) : collections.length === 0 ? (
-              <div className="py-16 text-center text-sm text-muted-foreground">暂无集合</div>
+              <div className="py-16 text-center text-sm text-muted-foreground">
+                暂无集合，导入文件或创建空白集来开始
+              </div>
             ) : (
               <div>
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-6 py-2.5">
@@ -987,25 +925,14 @@ export function KnowledgePage(): React.JSX.Element {
                           </div>
                         )}
                       </button>
-                      {selectedKb?.kind === 'personal' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 shrink-0 text-muted-foreground hover:text-red-500"
-                          onClick={(e) => handleDeleteCollection(e, item)}
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 14 14"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                          >
-                            <path d="M2 4h10M5 4V3a1 1 0 011-1h2a1 1 0 011 1v1M11 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V4" />
-                          </svg>
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0 text-muted-foreground hover:text-red-500"
+                        onClick={(e) => handleDeleteCollection(e, item)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -1015,7 +942,7 @@ export function KnowledgePage(): React.JSX.Element {
         </DialogContent>
       </Dialog>
 
-      {/* ==================== Import File Dialog ==================== */}
+      {/* Import File Dialog */}
       <Dialog
         open={showImport}
         onOpenChange={(open) => {
@@ -1026,7 +953,7 @@ export function KnowledgePage(): React.JSX.Element {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base">导入文件到「{selectedKb?.name}」</DialogTitle>
           </DialogHeader>
@@ -1042,7 +969,7 @@ export function KnowledgePage(): React.JSX.Element {
                   onClick={handleSelectFile}
                   className="w-full justify-start"
                 >
-                  <FileText className="size-3.5 mr-2" />
+                  <FileUp className="size-3.5 mr-2" />
                   {importFileName || '点击选择文件'}
                 </Button>
               </div>
@@ -1072,63 +999,14 @@ export function KnowledgePage(): React.JSX.Element {
               取消
             </Button>
             <Button size="sm" onClick={handleImportFile} disabled={importing || !importFileBuffer}>
-              {importing && <Loader2 className="size-3.5 mr-1 animate-spin" />}导入
+              {importing && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+              导入
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ==================== Create Folder Dialog ==================== */}
-      <Dialog
-        open={showCreateFolder}
-        onOpenChange={(open) => {
-          if (!open) {
-            setShowCreateFolder(false)
-            setFolderName('')
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base">新建目录到「{selectedKb?.name}」</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-muted-foreground">
-                目录名称 <span className="text-red-400">*</span>
-              </label>
-              <Input
-                className="mt-1"
-                placeholder="输入目录名称"
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowCreateFolder(false)
-                setFolderName('')
-              }}
-            >
-              取消
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleCreateFolder}
-              disabled={creatingFolder || !folderName.trim()}
-            >
-              {creatingFolder && <Loader2 className="size-3.5 mr-1 animate-spin" />}
-              创建
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ==================== Create Text Collection Dialog ==================== */}
+      {/* Create Text Collection Dialog */}
       <Dialog
         open={showTextCollection}
         onOpenChange={(open) => {
@@ -1163,7 +1041,7 @@ export function KnowledgePage(): React.JSX.Element {
               </label>
               <div className="mt-1">
                 <EditorJsRichText
-                  placeholder="输入需要导入知识库的文本内容..."
+                  placeholder="输入需要导入知识库的文本内容，系统会自动分割..."
                   onChange={(data) => {
                     textColEditorDataRef.current = data
                     setTextColHasContent(editorJsToPlainText(data).trim().length > 0)
@@ -1213,13 +1091,14 @@ export function KnowledgePage(): React.JSX.Element {
               onClick={handleCreateTextCollection}
               disabled={savingText || !textColName.trim() || !textColHasContent}
             >
-              {savingText && <Loader2 className="size-3.5 mr-1 animate-spin" />}创建
+              {savingText && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+              创建
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ==================== Chunks Dialog ==================== */}
+      {/* Chunks Dialog */}
       <Dialog
         open={!!selectedCollection}
         onOpenChange={(open) => {
@@ -1272,7 +1151,7 @@ export function KnowledgePage(): React.JSX.Element {
                           <ReactMarkdown
                             remarkPlugins={MARKDOWN_REMARK_PLUGINS}
                             rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
-                            components={MARKDOWN_COMPONENTS}
+                            components={markdownComponents}
                           >
                             {chunk.content}
                           </ReactMarkdown>
@@ -1284,7 +1163,7 @@ export function KnowledgePage(): React.JSX.Element {
                           <ReactMarkdown
                             remarkPlugins={MARKDOWN_REMARK_PLUGINS}
                             rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
-                            components={MARKDOWN_COMPONENTS}
+                            components={markdownComponents}
                           >
                             {chunk.answer}
                           </ReactMarkdown>
@@ -1296,95 +1175,6 @@ export function KnowledgePage(): React.JSX.Element {
               </div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ==================== Edit KB Dialog (名称 + 标签) ==================== */}
-      <Dialog open={showEditKb} onOpenChange={(o) => { if (!o) { setShowEditKb(false); setEditingKb(null) } }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base">编辑知识库</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* 名称 */}
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">名称</label>
-              <Input
-                value={editKbName}
-                onChange={(e) => setEditKbName(e.target.value)}
-                placeholder="知识库名称"
-                className="text-sm"
-              />
-            </div>
-            {/* 标签 */}
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">标签</label>
-              <div className="flex flex-wrap gap-1.5">
-              {DEFAULT_TAG_OPTIONS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => toggleEditKbTag(tag)}
-                  className={cn(
-                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-                    editKbTags.includes(tag)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/70'
-                  )}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-            {editKbTags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {editKbTags.map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-[11px] px-1.5 py-0 h-5 gap-1">
-                    {tag}
-                    <span className="cursor-pointer hover:text-red-500 ml-0.5" onClick={() => toggleEditKbTag(tag)}>×</span>
-                  </Badge>
-                ))}
-              </div>
-            )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => { setShowEditKb(false); setEditingKb(null) }}>取消</Button>
-            <Button size="sm" onClick={handleEditKb} disabled={editing}>
-              {editing && <Loader2 className="size-3.5 mr-1 animate-spin" />}保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ==================== Delete KB Confirmation Dialog ==================== */}
-      <Dialog
-        open={deleteTargetKb !== null}
-        onOpenChange={(o) => { if (!o) setDeleteTargetKb(null) }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>确认删除知识库</DialogTitle>
-            <DialogDescription>
-              <div className="text-sm space-y-2">
-                <p>删除知识库后将同时删除其下所有文档和目录。</p>
-                <div className="rounded-md bg-muted/50 p-3">
-                  <p className="font-medium">知识库：{deleteTargetKb?.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    此操作不可恢复。
-                  </p>
-                </div>
-              </div>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setDeleteTargetKb(null)}>
-              取消
-            </Button>
-            <Button size="sm" variant="destructive" onClick={handleConfirmDeleteKb}>
-              确认删除
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

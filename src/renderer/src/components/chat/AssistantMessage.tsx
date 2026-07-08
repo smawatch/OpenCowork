@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { FadeIn, ScaleIn } from '@renderer/components/animate-ui'
 import { cn } from '@renderer/lib/utils'
+import { SaveToKnowledgePopover } from './SaveToKnowledgePopover'
 import { ImageGeneratingLoader } from './ImageGeneratingLoader'
 import { ImageGenerationErrorCard } from './ImageGenerationErrorCard'
 import { AgentErrorCard } from './AgentErrorCard'
@@ -1676,6 +1677,7 @@ export function AssistantMessage({
     isLiveMode && msgId ? s.generatingImagePreviews[msgId] : undefined
   )
 
+
   const stringSegments = useMemo(
     () => (typeof content === 'string' ? parseThinkTags(content) : null),
     [content]
@@ -2948,6 +2950,7 @@ export function AssistantMessage({
                   onClick={() => msgId && onRetry?.(msgId)}
                 />
               ) : null}
+              <SaveToKnowledgePopover sessionId={sessionId} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

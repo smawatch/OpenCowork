@@ -435,17 +435,19 @@ export const IPC = {
   KNOWLEDGE_LIST_CHUNKS: 'knowledge:list-chunks',
   KNOWLEDGE_SEARCH: 'knowledge:search',
 
-  // Local Knowledge Base
-  KNOWLEDGE_LOCAL_CREATE: 'knowledge:local:create',
-  KNOWLEDGE_LOCAL_LIST: 'knowledge:local:list',
-  KNOWLEDGE_LOCAL_DELETE: 'knowledge:local:delete',
-  KNOWLEDGE_LOCAL_GET_CHUNKS: 'knowledge:local:get-chunks',
-  KNOWLEDGE_LOCAL_IMPORT_FILE: 'knowledge:local:import-file',
-  KNOWLEDGE_LOCAL_EMBED: 'knowledge:local:embed',
-  KNOWLEDGE_LOCAL_EMBEDDED_STATUS: 'knowledge:local:embedded-status',
-  KNOWLEDGE_LOCAL_CLEANING_STATUS: 'knowledge:local:cleaning-status',
-  KNOWLEDGE_LOCAL_SEARCH_SEMANTIC: 'knowledge:local:search-semantic',
-  KNOWLEDGE_LOCAL_SEARCH: 'knowledge:local:search'
+  // Personal Knowledge Base (API)
+  KNOWLEDGE_PERSONAL_LIST_DATASETS: 'knowledge:personal:list-datasets',
+  KNOWLEDGE_PERSONAL_DELETE_COLLECTIONS: 'knowledge:personal:delete-collections',
+  KNOWLEDGE_PERSONAL_DELETE_DATASET: 'knowledge:personal:delete-dataset',
+  KNOWLEDGE_PERSONAL_UPDATE_DATASET: 'knowledge:personal:update-dataset',
+  KNOWLEDGE_PERSONAL_CREATE_DATASET: 'knowledge:personal:create-dataset',
+  KNOWLEDGE_PERSONAL_IMPORT_FILE: 'knowledge:personal:import-file',
+  KNOWLEDGE_PERSONAL_CREATE_TEXT_COLLECTION: 'knowledge:personal:create-text-collection',
+  KNOWLEDGE_PERSONAL_CREATE_FOLDER: 'knowledge:personal:create-folder',
+  KNOWLEDGE_PERSONAL_DOWNLOAD_FILE: 'knowledge:personal:download-file',
+  KNOWLEDGE_PERSONAL_LIST_FILES: 'knowledge:personal:list-files',
+  KNOWLEDGE_PERSONAL_READ_FILE: 'knowledge:personal:read-file',
+  KNOWLEDGE_PERSONAL_RENAME_COLLECTION: 'knowledge:personal:rename-collection'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

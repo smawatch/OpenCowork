@@ -19,6 +19,7 @@ import {
   parseSettingsRoute,
   replaceSettingsRoute
 } from '@renderer/lib/settings-route'
+import { parseKnowledgeRoute } from '@renderer/lib/knowledge-route'
 
 export type AppMode = 'chat' | 'clarify' | 'cowork' | 'code' | 'acp'
 
@@ -795,7 +796,6 @@ function buildFilePreviewState(
     '.xlsx',
     '.xlsm'
   ])
-  const pdfExts = new Set(['.pdf'])
   const binaryExts = new Set([
     '.zip',
     '.rar',
@@ -835,7 +835,6 @@ function buildFilePreviewState(
   else if (fontExts.has(ext)) viewerType = 'font'
   else if (docxExts.has(ext)) viewerType = 'docx'
   else if (officeOnlineExts.has(ext)) viewerType = 'office-online'
-  else if (pdfExts.has(ext)) viewerType = 'pdf'
   else if (binaryExts.has(ext)) viewerType = 'binary'
   const previewTypes = new Set([
     'html',
@@ -2004,6 +2003,25 @@ export const useUIStore = create<UIStore>()(
           if (window.location.hash !== settingsRoute.canonicalHash) {
             window.history.replaceState(null, '', settingsRoute.canonicalHash)
           }
+          return
+        }
+
+        const knowledgeRoute = parseKnowledgeRoute(window.location.hash)
+        if (knowledgeRoute.kind === 'detail' || window.location.hash === '#/knowledge') {
+          set({
+            knowledgePageOpen: true,
+            settingsPageOpen: false,
+            settingsOpen: false,
+            skillsPageOpen: false,
+            soulsPageOpen: false,
+            syncPageOpen: false,
+            resourcesPageOpen: false,
+            translatePageOpen: false,
+            drawPageOpen: false,
+            tasksPageOpen: false,
+            aiCreationPageOpen: false,
+            ...closeRightSidePanels()
+          })
           return
         }
 

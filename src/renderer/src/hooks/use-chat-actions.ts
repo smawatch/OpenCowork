@@ -20,7 +20,10 @@ import {
   calculateCacheReadRatio,
   withCacheShapeDebugInfo
 } from '@renderer/lib/agent/cache-shape'
-import { prependTurnContextToLastUserMessage } from '@renderer/lib/agent/turn-context'
+import {
+  applyKnowledgeBaseSearch,
+  prependTurnContextToLastUserMessage
+} from '@renderer/lib/agent/turn-context'
 import {
   decodeStructuredToolResult,
   encodeToolError,
@@ -4299,6 +4302,7 @@ export function useChatActions(): {
             messagesToSend = prependTurnContextToLastUserMessage(messagesToSend, {
               planMode: isPlanMode
             })
+            messagesToSend = await applyKnowledgeBaseSearch(messagesToSend, ipcClient)
             const agentRequestCacheShape = buildCacheShapeDebugInfo({
               systemPrompt: agentSystemPrompt,
               tools: effectiveToolDefs,
