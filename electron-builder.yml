@@ -13,6 +13,7 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   # Exclude renderer-only / build-only node_modules (already bundled by Vite)
   - '!node_modules/monaco-editor/**'
+  - '!node_modules/gpt-tokenizer/**'
   - '!node_modules/@lobehub/**'
   - '!node_modules/lucide-react/**'
   - '!node_modules/lightningcss*/**'
@@ -94,7 +95,7 @@ files:
   - '!node_modules/better-sqlite3/docs/**'
   - '!node_modules/better-sqlite3/benchmark/**'
   # Exclude unnecessary files from all modules
-  - '!node_modules/pdf-parse/test/**'
+  - '!node_modules/pdf-parse/**'
   - '!node_modules/**/README.md'
   - '!node_modules/**/CHANGELOG.md'
   - '!node_modules/**/*.ts'

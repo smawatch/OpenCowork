@@ -36,21 +36,21 @@ const BUILTIN_MCP_SERVERS: McpServerConfig[] = [
     builtin: true,
     createdAt: 0
   },
-  {
-    id: 'builtin-apifox-new-mcp',
-    name: 'apifox-new-mcp',
-    enabled: true,
-    transport: 'streamable-http',
-    url: 'https://apifox.com/api/v1/mcp',
-    headers: {
-      Authorization: 'Bearer afxp_43bf60reS4NW3DSr9IpBMNDfViOpx3wxzsIY',
-      'X-Apifox-Api-Version': '2025-09-01'
-    },
-    autoFallback: true,
-    description: '企业内置MCP（提供后台接口文档能力）',
-    builtin: true,
-    createdAt: 0
-  },
+  // {
+  //   id: 'builtin-apifox-new-mcp',
+  //   name: 'apifox-new-mcp',
+  //   enabled: true,
+  //   transport: 'streamable-http',
+  //   url: 'https://apifox.com/api/v1/mcp',
+  //   headers: {
+  //     Authorization: 'Bearer afxp_43bf60reS4NW3DSr9IpBMNDfViOpx3wxzsIY',
+  //     'X-Apifox-Api-Version': '2025-09-01'
+  //   },
+  //   autoFallback: true,
+  //   description: '企业内置MCP（提供后台接口文档能力）',
+  //   builtin: true,
+  //   createdAt: 0
+  // },
   {
     id: 'builtin-figma-pilot',
     name: 'Figma Pilot',
