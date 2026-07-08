@@ -73,6 +73,7 @@ export async function applyKnowledgeBaseSearch(
   console.log(`[知识库] 自动检索 | 查询="${query.slice(0, 50)}" | 知识库=[${selectedNames.join(', ')}]`)
 
   try {
+    console.log(`[知识库] 开始检索...`)
     const result = (await ipc.invoke(IPC.KNOWLEDGE_SEARCH, {
       query,
       datasetIds: selectedIds,
@@ -84,7 +85,21 @@ export async function applyKnowledgeBaseSearch(
       error?: string
     }
 
-    if (!result.success || !result.data || result.data.length === 0) return messages
+    console.log(`[知识库] 检索结果:`, {
+      success: result.success,
+      count: result.data?.length ?? 0,
+      error: result.error,
+      items: result.data?.map((d) => ({
+        source: d.source,
+        score: Math.round(d.score * 100) + '%',
+        contentPreview: d.content?.slice(0, 80) + '...'
+      }))
+    })
+
+    if (!result.success || !result.data || result.data.length === 0) {
+      console.log(`[知识库] 无结果返回，将不带知识库上下文发送`)
+      return messages
+    }
 
     const items = result.data
     const contextText = [
@@ -97,6 +112,9 @@ export async function applyKnowledgeBaseSearch(
       ),
       '</knowledge-base-results>'
     ].join('\n')
+
+    console.log(`[知识库] 已插入上下文，长度: ${contextText.length} 字符`)
+    console.log(`[知识库] 上下文内容:\n${contextText}`)
 
     const lastUserIndex = messages.reduce((index, message, currentIndex) => {
       return message.role === 'user' ? currentIndex : index

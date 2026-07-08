@@ -149,7 +149,6 @@ const saveChatToKbHandler: ToolHandler = {
     }
 
     try {
-      const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
       const sessionId = ctx.sessionId
       let sessionTitle = title
       let userQuestion = ''
@@ -176,21 +175,33 @@ const saveChatToKbHandler: ToolHandler = {
         } catch { /* silent */ }
       }
 
+      // 优化标题：如果会话标题是 New Conversation 或空，用用户问题作为标题
+      let finalTitle = sessionTitle
+      if (!finalTitle || finalTitle === 'New Conversation' || finalTitle.startsWith('New Conversation')) {
+        if (userQuestion) {
+          // 用用户问题的前30个字符，去掉换行和问号
+          finalTitle = userQuestion.slice(0, 30).replace(/[\n?]/g, '').trim()
+        }
+      }
+      finalTitle = finalTitle || title
+
+      // 清理 content 中重复的标题和问题
+      let cleanContent = content.trim()
+      if (userQuestion) {
+        // 移除开头可能重复的标题（如 ## 查询CO-FIT项目ID）
+        cleanContent = cleanContent.replace(/^(#+\s*[^\n]+\n*)+/, '').trim()
+        // 移除 "### 问题\n\n{问题}\n\n### 回答\n\n" 模式
+        const escapedQuestion = userQuestion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        cleanContent = cleanContent.replace(
+          new RegExp(`^###\\s*问题\\s*\\n*\\n*${escapedQuestion}\\s*\\n*\\n*###\\s*回答\\s*\\n*\\n*`),
+          ''
+        ).trim()
+      }
+
       // 构建 Markdown
-      const markdown = [
-        `# ${sessionTitle || title}`,
-        '',
-        `创建时间：${now}`,
-        '',
-        '来源：AI对话',
-        '',
-        '---',
-        '',
-        userQuestion ? `## 用户问题\n\n${userQuestion}\n\n---\n` : '',
-        '## AI回答',
-        '',
-        content
-      ].filter(Boolean).join('\n')
+      const markdown = userQuestion
+        ? `# ${finalTitle}\n\nQ:\n${userQuestion}\n\nA:\n${cleanContent}`
+        : `# ${finalTitle}\n\n${cleanContent}`
 
       // 编码为 .md 文件并上传
       const encoder = new TextEncoder()
