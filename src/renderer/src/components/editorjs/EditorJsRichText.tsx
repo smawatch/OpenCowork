@@ -300,7 +300,8 @@ function EditorJsRichTextInner(
 
   const handleChange = useCallback(
     async (_api: EditorAPI, event: BlockMutationEvent | BlockMutationEvent[]) => {
-      if (!editorRef.current || !onChangeRef.current) return
+      const editor = editorRef.current
+      if (!editor || !onChangeRef.current) return
       // 跳过由我们内部追加 trailing paragraph 触发的 onChange，避免循环
       if (trailingInsertingRef.current) return
 
@@ -308,7 +309,7 @@ function EditorJsRichTextInner(
       const types = events.map((e) => e.type)
 
       internalChangeRef.current = true
-      const saved = await editorRef.current.save()
+      const saved = await editor.save()
       const blocks = saved.blocks
 
       // 当新增/修改 block 后，若末尾是 table，自动追加一个空 paragraph，
@@ -318,18 +319,18 @@ function EditorJsRichTextInner(
       //                  （toolbar 按钮走 TOOLBAR_ACTIONS，已主动插入了 paragraph）
       const shouldCheck = types.includes('block-changed') || types.includes('block-added')
       if (shouldCheck && blocks.length > 0 && blocks[blocks.length - 1].type === 'table') {
-        const currentCount = editorRef.current.blocks.getBlocksCount()
+        const currentCount = editor.blocks.getBlocksCount()
         // 再次确认末尾真的是 table（防御性检查）
         let lastBlockName: string | undefined
         try {
-          lastBlockName = editorRef.current.blocks.getBlockByIndex(currentCount - 1)?.name
+          lastBlockName = editor.blocks.getBlockByIndex(currentCount - 1)?.name
         } catch {
           /* ignore */
         }
         if (lastBlockName === 'table') {
           trailingInsertingRef.current = true
           try {
-            editorRef.current.blocks.insert(
+            editor.blocks.insert(
               'paragraph',
               { text: '' },
               {},
@@ -373,7 +374,10 @@ function EditorJsRichTextInner(
 
     return () => {
       console.log('[EditorJS] destroyed')
-      editorRef.current?.destroy()
+      const instance = editorRef.current
+      if (instance && typeof instance.destroy === 'function') {
+        instance.destroy()
+      }
       editorRef.current = null
       onEditorRef?.(null)
     }
@@ -382,15 +386,16 @@ function EditorJsRichTextInner(
 
   // 在 data 变化时加载内容（仅外部变更，如切换文档/进入编辑模式）
   useEffect(() => {
-    if (!editorRef.current || !data) return
+    const editor = editorRef.current
+    if (!editor || !data) return
     if (internalChangeRef.current) {
       console.log('[EditorJS] data effect skipped (internal change)')
       return
     }
     console.log('[EditorJS] data effect calling render(), blocks:', data.blocks?.length)
     const render = async () => {
-      await editorRef.current!.isReady
-      await editorRef.current!.render(data)
+      await editor.isReady
+      await editor.render(data)
     }
     render()
   }, [data])

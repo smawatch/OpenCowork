@@ -530,7 +530,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         if (parsingCompleted && completedItem) {
           // 延迟一点让状态更新完成
           setTimeout(() => {
-            handleSelectDoc(completedItem!)
+            handleSelectDocRef.current(completedItem!)
           }, 100)
         }
 
@@ -559,17 +559,18 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
   }, [hasParsing, kbId])
 
   // Fetch stored files for download
-  useEffect(() => {
-    const fetchFiles = async () => {
-      try {
-        const r = await listStoredFiles(ipcClient, kbId)
-        if (r.success) setStoredFiles(r.data ?? [])
-      } catch {
-        /* silent */
-      }
+  const fetchStoredFiles = useCallback(async () => {
+    try {
+      const r = await listStoredFiles(ipcClient, kbId)
+      if (r.success) setStoredFiles(r.data ?? [])
+    } catch {
+      /* silent */
     }
-    fetchFiles()
   }, [kbId])
+
+  useEffect(() => {
+    fetchStoredFiles()
+  }, [fetchStoredFiles])
 
   // Check if current selected item has a stored file
   const currentStoredFile = useMemo(() => {
@@ -950,6 +951,10 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
     setChunksLoading(false)
   }, [kbId, storedFiles, draftDirty, editDirty, editMode, draftMode, editSaving, draftTitle, draftContent, draftEditorData, editTitle, editContent, editEditorData, selectedItem, currentFolderId])
 
+  // Always-up-to-date ref for polling loop (avoids stale closure)
+  const handleSelectDocRef = useRef(handleSelectDoc)
+  handleSelectDocRef.current = handleSelectDoc
+
   const handleDeleteItem = useCallback(async (item: CollectionItem) => {
     // 计算子项数量
     const countChildren = (parentId: string): { docs: number; folders: number } => {
@@ -1214,11 +1219,14 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         setSelectedItem(newDoc)
         setChunks([])
       }
+
+      // 刷新本地文件列表，确保新文件发布后能找到本地副本
+      fetchStoredFiles()
     } catch {
       toast.error('发布失败')
     }
     setDraftSaving(false)
-  }, [kbId, draftTitle, draftContent, currentFolderId, fetchCollections, fetchChildren])
+  }, [kbId, draftTitle, draftContent, currentFolderId, fetchCollections, fetchChildren, fetchStoredFiles])
 
   const handleDiscardDraft = useCallback(() => {
     setDraftMode(false)
@@ -1406,6 +1414,8 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       // 发布成功，清除本地编辑草稿
       localStorage.removeItem(`${EDIT_DRAFT_STORAGE_PREFIX}${kbId}-${oldCollectionId}`)
       lastAutoSavedEditSnapshotRef.current = ''
+      // 刷新本地文件列表，确保新文件能被后续编辑正确找到
+      fetchStoredFiles()
       if (!silent) toast.success('发布成功')
       return true
     } catch {
@@ -1414,7 +1424,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       else setEditSaveError(true)
       return false
     }
-  }, [kbId, selectedItem, editTitle, editContent])
+  }, [kbId, selectedItem, editTitle, editContent, fetchStoredFiles])
 
   const handleSaveEdit = useCallback(async () => {
     if (!editTitle.trim() || !editContent.trim()) {
