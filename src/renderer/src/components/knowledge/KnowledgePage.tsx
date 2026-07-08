@@ -147,7 +147,14 @@ export function KnowledgePage(): React.JSX.Element {
   const token = useAuthStore((s) => s.token)
   const logout = useAuthStore((s) => s.logout)
   const user = useAuthStore((s) => s.user)
+  const refreshProfile = useAuthStore((s) => s.refreshProfile)
   const isManager = user?.roles?.includes('manager') ?? false
+  const isDeptHead = isManager // 部门主管才有权限添加部门知识库
+
+  // 页面挂载时同步最新权限
+  useEffect(() => {
+    refreshProfile()
+  }, [])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const canEditKb = useCallback(
@@ -197,7 +204,7 @@ export function KnowledgePage(): React.JSX.Element {
   const [newIntro, setNewIntro] = useState('')
   const [newTags, setNewTags] = useState<string[]>([])
   const [customTagInput, setCustomTagInput] = useState('')
-  const [newSource, setNewSource] = useState<'personal' | 'department'>('personal')
+  const [newType, setNewType] = useState<'personal' | 'department'>('personal')
   const [creating, setCreating] = useState(false)
 
   // ---- edit KB ----
@@ -402,14 +409,20 @@ export function KnowledgePage(): React.JSX.Element {
 
   const handleCreate = useCallback(async () => {
     if (!newName.trim()) return
+    if (newType === 'department' && !isDeptHead) {
+      console.warn('[kb] 创建部门知识库被阻断, user.roles:', user?.roles, 'isManager:', isManager, 'isDeptHead:', isDeptHead)
+      toast.error('仅部门主管可创建部门知识库')
+      return
+    }
     setCreating(true)
     try {
       const r = await createDataset(ipcClient, {
         name: newName.trim(),
         intro: newIntro.trim() || undefined,
         tags: newTags.length > 0 ? newTags : undefined,
-        source: isManager ? newSource : undefined
+        source: newType
       })
+      console.log('[kb] createDataset response:', JSON.stringify(r))
       if (!r.success) {
         toast.error(r.error || r.message || '创建失败')
         return
@@ -427,7 +440,7 @@ export function KnowledgePage(): React.JSX.Element {
     } finally {
       setCreating(false)
     }
-  }, [newName, newIntro, newTags, fetchAll, logout])
+  }, [newName, newIntro, newTags, newType, isDeptHead, fetchAll, logout])
 
   // ==================== detail (collections) ====================
 
@@ -741,7 +754,7 @@ export function KnowledgePage(): React.JSX.Element {
             setNewIntro('')
             setNewTags([])
             setCustomTagInput('')
-            setNewSource('personal')
+            setNewType('personal')
           }
         }}
       >
@@ -761,23 +774,21 @@ export function KnowledgePage(): React.JSX.Element {
                 onChange={(e) => setNewName(e.target.value)}
               />
             </div>
-            {isManager && (
-              <div>
-                <label className="text-xs text-muted-foreground">来源</label>
-                <Select
-                  value={newSource}
-                  onValueChange={(v) => setNewSource(v as 'personal' | 'department')}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="personal">个人</SelectItem>
-                    <SelectItem value="department">部门</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <label className="text-xs text-muted-foreground">类型</label>
+              <Select
+                value={newType}
+                onValueChange={(v) => setNewType(v as 'personal' | 'department')}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="personal">个人</SelectItem>
+                  <SelectItem value="department">部门（需部门经理权限）</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <label className="text-xs text-muted-foreground">简介</label>
               <Textarea

@@ -27,6 +27,7 @@ interface AuthState {
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   updateUser: (user: Partial<User>) => void;
+  refreshProfile: () => Promise<boolean>;
   getValidToken: () => Promise<string | null>;
 }
 
@@ -209,6 +210,26 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           user: state.user ? { ...state.user, ...userData } : null
         }));
+      },
+
+      refreshProfile: async () => {
+        try {
+          const result = await window.api.userGetProfile();
+          console.log('[auth] refreshProfile result:', JSON.stringify(result));
+          if (result.success && result.data) {
+            const profile = result.data;
+            console.log('[auth] new roles:', profile.roles, 'permissions:', profile.permissions);
+            set((state) => ({
+              user: state.user ? { ...state.user, ...profile } : null
+            }));
+            return true;
+          }
+          console.warn('[auth] refreshProfile failed:', result.error);
+          return false;
+        } catch (err) {
+          console.error('[auth] refreshProfile error:', err);
+          return false;
+        }
       }
     }),
     {

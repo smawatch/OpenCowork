@@ -630,9 +630,9 @@ export function PersonalKnowledgeTab(): React.JSX.Element {
                   <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     <SelectItem value="personal">个人</SelectItem>
-                    <SelectItem value="department">部门</SelectItem>
+                    <SelectItem value="department">部门（需部门经理权限）</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

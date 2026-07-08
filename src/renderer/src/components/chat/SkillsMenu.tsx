@@ -40,6 +40,7 @@ import { useUIStore } from '@renderer/stores/ui-store'
 import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
 import { useKnowledgeStore } from '@renderer/stores/knowledge-store'
 import { useAuthStore } from '@renderer/stores/auth-store'
+import { SYSTEM_TAG_CONFIG, type SystemTag } from '@renderer/lib/knowledge/kb-api-client'
 import { resolvePluginsForProject, useAppPluginStore } from '@renderer/stores/app-plugin-store'
 import {
   APP_PLUGIN_DESCRIPTORS,
@@ -125,7 +126,7 @@ export function SkillsMenu({
   const selectedDatasetIds = useKnowledgeStore((s) => s.selectedDatasetIds)
   const toggleDataset = useKnowledgeStore((s) => s.toggleDataset)
   const setDatasetNames = useKnowledgeStore((s) => s.setDatasetNames)
-  const [kbDatasets, setKbDatasets] = React.useState<Array<{ id: string; name: string; intro?: string }>>([])
+  const [kbDatasets, setKbDatasets] = React.useState<Array<{ id: string; name: string; intro?: string; source?: string; systemTag?: string }>>([])
   const [kbLoading, setKbLoading] = React.useState(false)
   const pluginsByProject = useAppPluginStore((s) => s.pluginsByProject)
   const availablePlugins = React.useMemo(() => {
@@ -165,6 +166,15 @@ export function SkillsMenu({
     () => skills.filter((skill) => !pluginBackedSkillNames.has(skill.name as AppPluginId)),
     [pluginBackedSkillNames, skills]
   )
+  const resolveKbTag = React.useCallback((ds: { source?: string; systemTag?: string }): { label: string; bg: string; color: string } | null => {
+    if (ds.systemTag && SYSTEM_TAG_CONFIG[ds.systemTag as SystemTag]) {
+      const cfg = SYSTEM_TAG_CONFIG[ds.systemTag as SystemTag]
+      return { label: ds.systemTag, ...cfg }
+    }
+    if (ds.source === 'department') return { label: '部门', bg: '#FEF3E2', color: '#D97706' }
+    if (ds.source === 'personal') return { label: '个人', bg: '#F0FDF4', color: '#16A34A' }
+    return null
+  }, [])
   const connectedMcpServers = React.useMemo(
     () =>
       mcpServers.filter(
@@ -659,6 +669,7 @@ export function SkillsMenu({
                 ) : (
                   kbDatasets.map((ds) => {
                     const isActive = selectedDatasetIds.includes(ds.id)
+                    const tag = resolveKbTag(ds)
                     return (
                       <DropdownMenuItem
                         key={ds.id}
@@ -678,6 +689,14 @@ export function SkillsMenu({
                           {isActive && <Check className="size-3" />}
                         </span>
                         <span className="flex-1 truncate text-xs">{ds.name}</span>
+                        {tag && (
+                          <span
+                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none"
+                            style={{ backgroundColor: tag.bg, color: tag.color }}
+                          >
+                            {tag.label}
+                          </span>
+                        )}
                       </DropdownMenuItem>
                     )
                   })
