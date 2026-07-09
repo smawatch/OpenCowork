@@ -7,6 +7,12 @@ import * as crypto from 'crypto'
 import { promisify } from 'util'
 import { getDefaultApiUserAgent } from '../lib/api-user-agent'
 import { readSettings } from './settings-handlers'
+import {
+  shouldEncrypt,
+  isEncrypted,
+  encryptContent,
+  decryptContent
+} from '../lib/skill-encryption'
 
 const execFileAsync = promisify(execFile)
 
@@ -475,9 +481,37 @@ function extractZipFromBuffer(zipBuf: Buffer, destDir: string): void {
   }
 }
 
+/** 启动迁移：递归加密 SKILLS_DIR 中需要保护的文件 */
+function ensureSkillsEncrypted(): void {
+  try {
+    if (!fs.existsSync(SKILLS_DIR)) return
+    function walk(dir: string): void {
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          walk(full)
+        } else if (entry.name === '_meta.json') {
+          continue
+        } else if (shouldEncrypt(full)) {
+          const content = fs.readFileSync(full, 'utf-8')
+          if (!isEncrypted(content)) {
+            fs.writeFileSync(full, encryptContent(content), 'utf-8')
+          }
+        }
+      }
+    }
+    walk(SKILLS_DIR)
+  } catch (err) {
+    console.error('[Skills] Encryption migration failed:', err)
+  }
+}
+
 export function registerSkillsHandlers(): void {
   // Initialize builtin skills on startup
   ensureBuiltinSkills()
+  // 迁移：加密本地技能文件
+  ensureSkillsEncrypted()
 
   ipcMain.handle(
     'skills:ensure-builtin',
@@ -503,7 +537,9 @@ export function registerSkillsHandlers(): void {
         const mdPath = path.join(SKILLS_DIR, entry.name, SKILLS_FILENAME)
         if (!fs.existsSync(mdPath)) continue
         try {
-          const content = fs.readFileSync(mdPath, 'utf-8')
+          // 解密 SKILL.md（如已加密）
+          const rawContent = fs.readFileSync(mdPath, 'utf-8')
+          const content = isEncrypted(rawContent) ? decryptContent(rawContent) : rawContent
           const ver = readSkillVersion(path.join(SKILLS_DIR, entry.name))
           const isBuiltin = ver !== null || fs.existsSync(path.join(SKILLS_DIR, entry.name, '_meta.json'))
           skills.push({
@@ -541,7 +577,9 @@ export function registerSkillsHandlers(): void {
         if (!fs.existsSync(mdPath)) continue
 
         try {
-          const content = fs.readFileSync(mdPath, 'utf-8')
+          // 解密 SKILL.md（如已加密）
+          const rawContent = fs.readFileSync(mdPath, 'utf-8')
+          const content = isEncrypted(rawContent) ? decryptContent(rawContent) : rawContent
           const ver = readSkillVersion(path.join(bundledDir, entry.name))
           // Description: _meta.json > SKILL.md frontmatter > fallback
           const meta = readSkillMeta(path.join(bundledDir, entry.name))
@@ -577,8 +615,10 @@ export function registerSkillsHandlers(): void {
         if (!fs.existsSync(mdPath)) {
           return { error: `Built-in skill "${args.name}" not found` }
         }
+        // 解密后去除 frontmatter
         const raw = fs.readFileSync(mdPath, 'utf-8')
-        const content = raw.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n)?/, '')
+        const decrypted = isEncrypted(raw) ? decryptContent(raw) : raw
+        const content = decrypted.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n)?/, '')
         return { content: content.trimStart() }
       } catch (err) {
         return { error: String(err) }
@@ -601,10 +641,10 @@ export function registerSkillsHandlers(): void {
         if (!fs.existsSync(mdPath)) {
           return { error: `Skill "${args.name}" not found at ${mdPath}` }
         }
+        // 解密后去除 frontmatter
         const raw = fs.readFileSync(mdPath, 'utf-8')
-        // Strip YAML frontmatter so AI only sees actionable instructions
-        // Use \r?\n to handle both LF and CRLF line endings
-        const content = raw.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n)?/, '')
+        const decrypted = isEncrypted(raw) ? decryptContent(raw) : raw
+        const content = decrypted.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n)?/, '')
         return { content: content.trimStart(), workingDirectory: skillDir }
       } catch (err) {
         return { error: String(err) }
@@ -623,7 +663,10 @@ export function registerSkillsHandlers(): void {
         if (!fs.existsSync(mdPath)) {
           return { error: `Skill "${args.name}" not found` }
         }
-        return { content: fs.readFileSync(mdPath, 'utf-8') }
+        // 解密 SKILL.md（如已加密）
+        const raw = fs.readFileSync(mdPath, 'utf-8')
+        const content = isEncrypted(raw) ? decryptContent(raw) : raw
+        return { content }
       } catch (err) {
         return { error: String(err) }
       }
@@ -753,7 +796,9 @@ export function registerSkillsHandlers(): void {
         if (!fs.existsSync(path.dirname(mdPath))) {
           return { success: false, error: `Skill "${args.name}" not found` }
         }
-        fs.writeFileSync(mdPath, args.content, 'utf-8')
+        // 加密后写入磁盘
+        const encrypted = encryptContent(args.content)
+        fs.writeFileSync(mdPath, encrypted, 'utf-8')
         return { success: true }
       } catch (err) {
         return { success: false, error: String(err) }
@@ -775,7 +820,9 @@ export function registerSkillsHandlers(): void {
         }
 
         const skillName = path.basename(args.sourcePath)
-        const skillMdContent = fs.readFileSync(srcMd, 'utf-8')
+        // 解密 SKILL.md（如已加密）
+        const rawMdContent = fs.readFileSync(srcMd, 'utf-8')
+        const skillMdContent = isEncrypted(rawMdContent) ? decryptContent(rawMdContent) : rawMdContent
         const description = extractDescription(skillMdContent, skillName)
 
         // Collect all files recursively
@@ -807,10 +854,10 @@ export function registerSkillsHandlers(): void {
               ])
               if (codeExts.has(ext)) {
                 try {
-                  scriptContents.push({
-                    file: relPath,
-                    content: fs.readFileSync(fullPath, 'utf-8')
-                  })
+                  // 解密脚本文件（如已加密）
+                  const rawScript = fs.readFileSync(fullPath, 'utf-8')
+                  const scriptContent = isEncrypted(rawScript) ? decryptContent(rawScript) : rawScript
+                  scriptContents.push({ file: relPath, content: scriptContent })
                 } catch {
                   /* skip unreadable */
                 }
@@ -1597,6 +1644,8 @@ export function registerSkillsHandlers(): void {
       visibility?: 'all' | 'department'
       departmentId?: string
     }): Promise<{ success: boolean; downloadUrl?: string; error?: string }> => {
+      // 加密临时目录（上传后清理）
+      let tempEncryptDir: string | null = null
       try {
         // 0. Pre-check: source directory must contain SKILL.md
         const sourceSkillMd = path.join(args.sourceDir, SKILLS_FILENAME)
@@ -1620,6 +1669,26 @@ export function registerSkillsHandlers(): void {
         if (!args.version || !/^\d+\.\d+\.\d+$/.test(args.version)) {
           return { success: false, error: 'Version must be in semver format (e.g. 1.0.0)' }
         }
+
+        // 创建临时目录，复制并加密文件后打包上传
+        tempEncryptDir = path.join(os.tmpdir(), 'opencowork-skills', 'encrypt-' + Date.now())
+        copyDirRecursive(args.sourceDir, tempEncryptDir)
+        // 递归加密临时目录中的文档文件
+        function encryptWalk(dir: string): void {
+          const entries = fs.readdirSync(dir, { withFileTypes: true })
+          for (const entry of entries) {
+            const full = path.join(dir, entry.name)
+            if (entry.isDirectory()) {
+              encryptWalk(full)
+            } else if (shouldEncrypt(full)) {
+              const content = fs.readFileSync(full, 'utf-8')
+              if (!isEncrypted(content)) {
+                fs.writeFileSync(full, encryptContent(content), 'utf-8')
+              }
+            }
+          }
+        }
+        encryptWalk(tempEncryptDir)
 
         // 1. Get STS credentials
         const settings = readSettings()
@@ -1645,9 +1714,9 @@ export function registerSkillsHandlers(): void {
         const endPoint = stsJson.data.endPoint
         const domain = stsJson.data.domain
 
-        // 2. Create zip from source dir
+        // 2. 从加密临时目录创建 zip
         const zipName = `${args.skillName}-${args.version}.zip`
-        const zipBuf = createSimpleZip(args.sourceDir)
+        const zipBuf = createSimpleZip(tempEncryptDir)
 
         // 3. Upload to OSS
         const key = `cocowork/enterprise-skills/${zipName}`
@@ -1770,6 +1839,13 @@ export function registerSkillsHandlers(): void {
         return { success: true, downloadUrl }
       } catch (err) {
         return { success: false, error: String(err) }
+      } finally {
+        // 清理加密临时目录
+        if (tempEncryptDir) {
+          try {
+            fs.rmSync(tempEncryptDir, { recursive: true, force: true })
+          } catch { /* ignore cleanup errors */ }
+        }
       }
     }
   )
@@ -1873,7 +1949,7 @@ function createSimpleZip(sourceDir: string): Buffer {
 
   for (const { relativePath, data } of files) {
     const cleanPath = relativePath.replace(/\\/g, '/')
-    if (cleanPath.endsWith('/')) continue // skip directory-only entries
+    if (cleanPath.endsWith('/')) continue // 跳过纯目录条目
 
     const nameBytes = encoder.encode(cleanPath)
     const crc = crc32(data)
