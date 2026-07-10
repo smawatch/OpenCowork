@@ -401,9 +401,10 @@ function collectTextFiles(rootDir: string): { path: string; content: string }[] 
       }
 
       try {
+        const raw = fs.readFileSync(fullPath, 'utf-8')
         files.push({
           path: relativePath.replace(/\\/g, '/'),
-          content: fs.readFileSync(fullPath, 'utf-8')
+          content: isEncrypted(raw) ? decryptContent(raw) : raw
         })
       } catch {
         // Skip unreadable files
@@ -796,8 +797,8 @@ export function registerSkillsHandlers(): void {
         if (!fs.existsSync(path.dirname(mdPath))) {
           return { success: false, error: `Skill "${args.name}" not found` }
         }
-        // 加密后写入磁盘
-        const encrypted = encryptContent(args.content)
+        // 加密后写入磁盘（避免重复加密）
+        const encrypted = isEncrypted(args.content) ? args.content : encryptContent(args.content)
         fs.writeFileSync(mdPath, encrypted, 'utf-8')
         return { success: true }
       } catch (err) {
@@ -1653,7 +1654,8 @@ export function registerSkillsHandlers(): void {
           return { success: false, error: `Source directory must contain a ${SKILLS_FILENAME} file` }
         }
 
-        const skillContent = fs.readFileSync(sourceSkillMd, 'utf-8')
+        const rawContent = fs.readFileSync(sourceSkillMd, 'utf-8')
+        const skillContent = isEncrypted(rawContent) ? decryptContent(rawContent) : rawContent
         const frontMatterMatch = skillContent.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)
         if (!frontMatterMatch) {
           return { success: false, error: `${SKILLS_FILENAME} must have YAML frontmatter with name and description` }
