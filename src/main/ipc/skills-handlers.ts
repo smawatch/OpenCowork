@@ -482,6 +482,21 @@ function extractZipFromBuffer(zipBuf: Buffer, destDir: string): void {
   }
 }
 
+/** 检测文件是否为二进制文件 */
+function isBinaryFile(filePath: string): boolean {
+  try {
+    const buffer = fs.readFileSync(filePath)
+    // 检查前 512 字节是否包含 null 字节（二进制文件特征）
+    const chunk = buffer.slice(0, 512)
+    for (let i = 0; i < chunk.length; i++) {
+      if (chunk[i] === 0) return true
+    }
+    return false
+  } catch {
+    return true // 无法读取的文件视为二进制
+  }
+}
+
 /** 启动迁移：递归加密 SKILLS_DIR 中需要保护的文件 */
 function ensureSkillsEncrypted(): void {
   try {
@@ -495,6 +510,11 @@ function ensureSkillsEncrypted(): void {
         } else if (entry.name === '_meta.json') {
           continue
         } else if (shouldEncrypt(full)) {
+          // 跳过二进制文件，避免损坏
+          if (isBinaryFile(full)) {
+            console.warn('[Skills] Skipping binary file:', full)
+            continue
+          }
           const content = fs.readFileSync(full, 'utf-8')
           if (!isEncrypted(content)) {
             fs.writeFileSync(full, encryptContent(content), 'utf-8')
@@ -1552,6 +1572,9 @@ export function registerSkillsHandlers(): void {
           fs.rmSync(targetDir, { recursive: true, force: true })
         }
         copyDirRecursive(sourceDir, targetDir)
+
+        // 加密新安装的技能文件
+        ensureSkillsEncrypted()
 
         // Cleanup temp
         try { fs.rmSync(tempBase, { recursive: true, force: true }) } catch { /* ignore */ }
