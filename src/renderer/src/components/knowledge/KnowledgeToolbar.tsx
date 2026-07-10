@@ -56,7 +56,7 @@ export function KnowledgeToolbar({
   onCreate
 }: KnowledgeToolbarProps): React.JSX.Element {
   return (
-    <div className="border-b" style={{ borderColor: '#f1f3f5' }}>
+    <div className="border-b border-border">
       <div className="flex items-center gap-3 px-6 py-3.5">
         {/* Search */}
         <div className="relative flex-1 max-w-xs">
@@ -137,7 +137,7 @@ export function KnowledgeToolbar({
         {/* Sort */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-[#f5f5f5]" title={sortLabel(sortField, sortDir)}>
+            <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-accent" title={sortLabel(sortField, sortDir)}>
               <ArrowUpDown className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>

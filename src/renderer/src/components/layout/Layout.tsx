@@ -335,6 +335,10 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
   const resourcesPageOpen = useUIStore((s) => s.resourcesPageOpen)
   const drawPageOpen = useUIStore((s) => s.drawPageOpen)
   const knowledgePageOpen = useUIStore((s) => s.knowledgePageOpen)
+  const [knowledgePageMounted, setKnowledgePageMounted] = useState(false)
+  useEffect(() => {
+    if (knowledgePageOpen && !knowledgePageMounted) setKnowledgePageMounted(true)
+  }, [knowledgePageOpen, knowledgePageMounted])
   const translatePageOpen = useUIStore((s) => s.translatePageOpen)
   const tasksPageOpen = useUIStore((s) => s.tasksPageOpen)
   const aiCreationPageOpen = useUIStore((s) => s.aiCreationPageOpen)
@@ -734,7 +738,7 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
           insetForMacTrafficLights={!showEmbeddedSidebar}
         />
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden" style={{ position: 'relative' }}>
           <AnimatePresence mode="wait">
             {tasksPageOpen ? (
               <PageTransition
@@ -800,14 +804,7 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
                 </Suspense>
               </PageTransition>
             ) : knowledgePageOpen ? (
-              <PageTransition
-                key="knowledge-page"
-                className="flex-1 min-w-0 bg-background overflow-hidden"
-              >
-                <Suspense fallback={<LazyPageFallback />}>
-                  <KnowledgePage />
-                </Suspense>
-              </PageTransition>
+              <div key="knowledge-placeholder" className="flex-1 min-w-0 bg-background" />
             ) : translatePageOpen ? (
               <PageTransition
                 key="translate-page"
@@ -921,6 +918,25 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
               </PageTransition>
             )}
           </AnimatePresence>
+
+          {/* Knowledge page keep-alive: preserved when switching tabs */}
+          {knowledgePageMounted && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: knowledgePageOpen ? 'flex' : 'none',
+                flexDirection: 'column',
+                background: 'hsl(var(--background))',
+                zIndex: 10,
+                overflow: 'hidden'
+              }}
+            >
+              <Suspense fallback={<LazyPageFallback />}>
+                <KnowledgePage />
+              </Suspense>
+            </div>
+          )}
         </div>
       </div>
     </div>

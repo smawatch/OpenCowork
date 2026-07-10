@@ -9,6 +9,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { type DatasetItem } from '@renderer/lib/knowledge/kb-api-client'
 import { useAuthStore } from '@renderer/stores/auth-store'
+import { cn } from '@renderer/lib/utils'
 
 // --------------- relative time ---------------
 
@@ -85,8 +86,7 @@ export function KnowledgeRow({
 
   return (
     <tr
-      className="group cursor-pointer border-b transition-shadow duration-150"
-      style={{ borderColor: '#f1f3f5' }}
+      className="group cursor-pointer border-b transition-shadow duration-150 border-border"
       onClick={() => onEnter(kb)}
     >
       {/* Name */}
@@ -96,18 +96,17 @@ export function KnowledgeRow({
             <BookOpen className="size-[18px] text-primary" />
           </div>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[15px] font-semibold truncate transition-colors duration-150 group-hover:text-[#1677ff]" style={{ color: '#1f2329' }}>
+            <span className="text-[15px] font-semibold truncate transition-colors duration-150 text-foreground group-hover:text-primary">
               {kb.name}
             </span>
             {kb.systemTag && (
               <span
-                className="inline-flex items-center shrink-0 rounded-full px-2 py-0.5 text-xs font-medium leading-none"
-                style={{
-                  backgroundColor:
-                    kb.systemTag === '企业' ? '#eef4ff' : kb.systemTag === '部门' ? '#fef3e2' : '#eefbf3',
-                  color:
-                    kb.systemTag === '企业' ? '#2563eb' : kb.systemTag === '部门' ? '#d97706' : '#16a34a'
-                }}
+                className={cn(
+                  'inline-flex items-center shrink-0 rounded-full px-2 py-0.5 text-xs font-medium leading-none',
+                  kb.systemTag === '企业' && 'bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+                  kb.systemTag === '部门' && 'bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+                  kb.systemTag === '个人' && 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
+                )}
               >
                 {kb.systemTag}
               </span>
@@ -133,7 +132,7 @@ export function KnowledgeRow({
               {extraCount > 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-xs cursor-default" style={{ color: '#999' }}>
+                    <span className="text-xs cursor-default text-muted-foreground">
                       +{extraCount}
                     </span>
                   </TooltipTrigger>
@@ -154,34 +153,34 @@ export function KnowledgeRow({
               )}
             </>
           ) : (
-            <span className="text-xs" style={{ color: '#ccc' }}>无</span>
+            <span className="text-xs text-muted-foreground/40">无</span>
           )}
         </div>
       </td>
 
       {/* Creator */}
       <td className="px-6 py-3.5">
-        <span className="text-sm font-medium" style={{ color: '#666' }}>
+        <span className="text-sm font-medium text-muted-foreground">
           {displayCreator}
         </span>
       </td>
 
       {/* Update Time */}
-      <td className="px-6 py-3.5 text-[13px] whitespace-nowrap" style={{ color: '#999' }}>
+      <td className="px-6 py-3.5 text-[13px] whitespace-nowrap text-muted-foreground">
         {relativeTime(kb.updateTime)}
       </td>
 
       {/* Actions */}
       <td className="px-6 py-3.5">
         <div
-          className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          className="flex items-center gap-1 justify-end"
           onClick={(e) => e.stopPropagation()}
         >
           {onEdit && (
             <Button
               variant="ghost"
               size="icon"
-              className="size-7 text-muted-foreground hover:text-foreground hover:bg-[#f5f5f5]"
+              className="size-7 text-muted-foreground hover:text-foreground hover:bg-accent"
               onClick={() => onEdit(kb)}
               title="编辑知识库"
             >
@@ -191,7 +190,7 @@ export function KnowledgeRow({
           {onDelete && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:bg-[#f5f5f5]" title="更多操作">
+                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:bg-accent" title="更多操作">
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>

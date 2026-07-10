@@ -60,6 +60,7 @@ import {
   MARKDOWN_REHYPE_PLUGINS,
   createMarkdownComponents
 } from '@renderer/lib/preview/viewers/markdown-components'
+import './knowledge-detail-dark.css'
 
 const MARKDOWN_COMPONENTS = createMarkdownComponents()
 
@@ -133,7 +134,7 @@ function TreeNode({
     <div>
       <button
         className={cn(
-          'flex items-center gap-1.5 w-full px-2 py-1.5 text-left text-xs rounded transition-colors',
+          'flex items-center gap-1.5 w-full px-2 py-1.5 text-left text-xs rounded transition-colors kb-tree-node',
           isParsing ? 'cursor-not-allowed opacity-60' : 'hover:bg-accent/50',
           isSelected && 'bg-accent text-accent-foreground font-medium'
         )}
@@ -172,7 +173,7 @@ function TreeNode({
           {isDraft ? `📝 ${item.name}` : item.name}
         </span>
         {isParsing && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0" style={{ backgroundColor: '#e6f7ff', color: '#1890ff' }}>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 parsing-badge">
             <Loader2 className="size-2.5 animate-spin" />
             解析中
           </span>
@@ -257,7 +258,7 @@ function DocToolbar({
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              className="inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onMouseDown={(e) => {
                 e.preventDefault()
                 onAction(item)
@@ -1769,7 +1770,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
   // ==================== JSX ====================
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col bg-background overflow-hidden kb-detail-container">
       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInputChange} />
 
       {/* ---- Header ---- */}
@@ -1816,7 +1817,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
               ) : (
                 <>
                   <button
-                    className="text-base font-semibold truncate hover:text-primary transition-colors cursor-pointer"
+                    className="text-base font-semibold truncate hover:text-primary transition-colors cursor-pointer kb-header-name"
                     onClick={handleGoToRoot}
                     title="点击回到根目录"
                   >
@@ -1852,13 +1853,13 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
       {/* ---- Body ---- */}
       <div className="flex flex-1 min-h-0">
         {/* Left sidebar */}
-        <div className="w-[260px] border-r flex flex-col shrink-0">
+        <div className="w-[260px] border-r flex flex-col shrink-0 kb-detail-sidebar">
           {/* Search */}
           <div className="px-3 py-2.5 border-b shrink-0">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
               <Input
-                className="pl-7 h-7 text-xs"
+                className="pl-7 h-7 text-xs kb-detail-search"
                 placeholder="搜索文档..."
                 value={searchTree}
                 onChange={(e) => setSearchTree(e.target.value)}
@@ -1930,14 +1931,14 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
         </div>
 
         {/* Right content */}
-        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto flex flex-col" style={{ background: '#f8fafc' }}>
+        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto flex flex-col bg-muted/40 kb-editor-outer">
           {/* Draft mode - immersive editor */}
           {draftMode ? (
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex-1 flex flex-col min-h-0 mx-auto w-full max-w-[900px]">
-                <div className="flex flex-col flex-1 min-h-0 mt-6 mb-8 rounded-xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div className="flex flex-col flex-1 min-h-0 mt-6 mb-8 rounded-xl bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)] kb-editor-card">
                   {/* Sticky toolbar */}
-                  <div className="shrink-0 sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-100 px-10 py-2.5 flex items-center gap-3">
+                  <div className="shrink-0 sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border kb-editor-toolbar px-10 py-2.5 flex items-center gap-3">
                     <DocToolbar onAction={handleDocToolbar} />
                     <div className="flex-1" />
                     <div className="flex items-center gap-2.5">
@@ -1949,7 +1950,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                       ) : draftDirty ? (
                         <span className="text-xs text-amber-500">草稿未保存</span>
                       ) : (
-                        <span className="flex items-center gap-1 text-xs text-slate-400">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Check className="size-3" />
                           草稿已保存
                         </span>
@@ -1957,14 +1958,14 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-xs h-7 text-slate-500 hover:text-slate-700"
+                        className="text-xs h-7 text-muted-foreground hover:text-foreground"
                         onClick={handleDiscardDraft}
                       >
                         放弃
                       </Button>
                       <Button
                         size="sm"
-                        className="text-xs h-7 bg-slate-800 hover:bg-slate-700 text-white"
+                        className="text-xs h-7 bg-primary hover:bg-primary/80 text-primary-foreground"
                         onClick={handlePublishDraft}
                         disabled={draftSaving || !draftTitle.trim() || !draftContent.trim()}
                       >
@@ -1978,12 +1979,12 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                   <div className="flex-1 overflow-y-auto px-10 pt-8 pb-24">
                     {/* Document info */}
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs text-slate-400">📄 草稿</span>
-                      <span className="text-slate-200">·</span>
+                      <span className="text-xs text-muted-foreground">📄 草稿</span>
+                      <span className="text-muted-foreground/30">·</span>
                       {draftDirty ? (
                         <span className="text-xs text-amber-500">草稿未保存</span>
                       ) : (
-                        <span className="text-xs text-slate-400">草稿已自动保存</span>
+                        <span className="text-xs text-muted-foreground">草稿已自动保存</span>
                       )}
                     </div>
 
@@ -1997,8 +1998,8 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                         setDraftDirty(true)
                       }}
                       placeholder="输入文档标题..."
-                      className="w-full border-0 outline-none bg-transparent mb-8 focus:ring-0 placeholder:text-slate-200"
-                      style={{ fontSize: '36px', fontWeight: 700, lineHeight: 1.2, color: '#1f2329' }}
+                      className="w-full border-0 outline-none bg-transparent mb-8 focus:ring-0 placeholder:text-muted-foreground dark:placeholder:text-slate-600 text-foreground kb-editor-title"
+                      style={{ fontSize: '36px', fontWeight: 700, lineHeight: 1.2 }}
                     />
 
                     {/* Editor — borderless document mode */}
@@ -2055,27 +2056,27 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                 />
 
                 <div className="flex items-center gap-2 mb-6">
-                  <BookOpen className="size-4 text-slate-400" />
-                  <span className="text-xs text-slate-400">
+                  <BookOpen className="size-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
                     {currentFolderId ? '当前目录' : '知识库根目录'}
                   </span>
                 </div>
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-4 mb-8">
-                  <div className="rounded-lg border bg-white p-4 shadow-sm">
+                  <div className="rounded-lg border bg-card p-4 shadow-sm kb-stats-card">
                     <div className="text-2xl font-bold text-primary">
                       {collections.filter(c => c.type !== 'folder').length}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">文档数量</div>
                   </div>
-                  <div className="rounded-lg border bg-white p-4 shadow-sm">
+                  <div className="rounded-lg border bg-card p-4 shadow-sm kb-stats-card">
                     <div className="text-2xl font-bold text-primary">
                       {collections.filter(c => c.type === 'folder').length}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">文件夹数量</div>
                   </div>
-                  <div className="rounded-lg border bg-white p-4 shadow-sm">
+                  <div className="rounded-lg border bg-card p-4 shadow-sm kb-stats-card">
                     <div className="text-2xl font-bold text-primary">
                       {collections.reduce((s, c) => s + (c.dataAmount || 0), 0)}
                     </div>
@@ -2115,11 +2116,11 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
             /* ---- Folder / Document content ---- */
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex-1 flex flex-col min-h-0 mx-auto w-full max-w-[900px]">
-                <div className="flex flex-col flex-1 min-h-0 mt-6 mb-8 rounded-xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div className="flex flex-col flex-1 min-h-0 mt-6 mb-8 rounded-xl bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)] kb-editor-card">
                   {editMode ? (
                     <>
                       {/* Edit sticky toolbar */}
-                      <div className="shrink-0 sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-100 px-10 py-2.5 flex items-center gap-3">
+                      <div className="shrink-0 sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border kb-editor-toolbar px-10 py-2.5 flex items-center gap-3">
                         <DocToolbar onAction={handleDocToolbar} />
                         <div className="flex-1" />
                         <div className="flex items-center gap-2.5">
@@ -2133,7 +2134,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                           ) : editDirty ? (
                             <span className="text-xs text-amber-500">草稿未保存</span>
                           ) : (
-                            <span className="flex items-center gap-1 text-xs text-slate-400">
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Check className="size-3" />
                               草稿已保存
                             </span>
@@ -2141,14 +2142,14 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-xs h-7 text-slate-500 hover:text-slate-700"
+                            className="text-xs h-7 text-muted-foreground hover:text-foreground"
                             onClick={handleExitEditMode}
                           >
                             取消
                           </Button>
                           <Button
                             size="sm"
-                            className="text-xs h-7 bg-slate-800 hover:bg-slate-700 text-white"
+                            className="text-xs h-7 bg-primary hover:bg-primary/80 text-primary-foreground"
                             onClick={handleSaveEdit}
                             disabled={editSaving || !editTitle.trim() || !editContent.trim()}
                           >
@@ -2168,8 +2169,8 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                             setEditDirty(true)
                           }}
                           placeholder="输入文档标题..."
-                          className="w-full border-0 outline-none bg-transparent mb-8 focus:ring-0 placeholder:text-slate-200"
-                          style={{ fontSize: '36px', fontWeight: 700, lineHeight: 1.2, color: '#1f2329' }}
+                          className="w-full border-0 outline-none bg-transparent mb-8 focus:ring-0 placeholder:text-muted-foreground dark:placeholder:text-slate-600 text-foreground kb-editor-title"
+                          style={{ fontSize: '36px', fontWeight: 700, lineHeight: 1.2 }}
                         />
                         <EditorJsRichText
                           key={`edit-editor-${selectedItem?.id ?? 'none'}`}
@@ -2185,8 +2186,8 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                 /* View mode */
                 <>
                   {/* Document header bar */}
-                  <div className="shrink-0 sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-100 px-10 py-2.5 flex items-center gap-2">
-                    <span className="text-xs text-slate-400">
+                  <div className="shrink-0 sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border kb-editor-toolbar px-10 py-2.5 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
                       {selectedItem.type === 'folder' ? '📁' : '📄'} {typeLabel(selectedItem.type)}
                     </span>
                     <div className="flex-1" />
@@ -2196,7 +2197,7 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="size-7 text-slate-500 hover:text-slate-700"
+                            className="size-7 text-muted-foreground hover:text-foreground"
                             onClick={handleDownloadFile}
                           >
                             <Download className="size-3.5" />
@@ -2210,8 +2211,8 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                   {/* View content */}
                   <div className="flex-1 overflow-y-auto px-10 pt-8 pb-24">
                     <h1
-                      className="mb-8"
-                      style={{ fontSize: '36px', fontWeight: 700, lineHeight: 1.2, color: '#1f2329' }}
+                      className="mb-8 text-foreground kb-editor-title"
+                      style={{ fontSize: '36px', fontWeight: 700, lineHeight: 1.2 }}
                     >
                       {selectedItem.name}
                     </h1>
@@ -2254,9 +2255,9 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                   ) : (
                     <div className="space-y-6">
                       {chunks.map((chunk) => (
-                        <div key={chunk.id} className="border-b border-slate-100 pb-6 last:border-0">
+                        <div key={chunk.id} className="border-b border-border pb-6 last:border-0">
                           {chunk.content && (
-                            <div className="prose prose-sm dark:prose-invert max-w-none leading-[1.8]" style={{ color: '#1f2329' }}>
+                            <div className="prose prose-sm dark:prose-invert max-w-none leading-[1.8] text-foreground kb-prose-content">
                               <ReactMarkdown
                                 remarkPlugins={MARKDOWN_REMARK_PLUGINS}
                                 rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
@@ -2267,8 +2268,8 @@ export function KnowledgeDetail({ kbId }: KnowledgeDetailProps): React.JSX.Eleme
                             </div>
                           )}
                           {chunk.answer && (
-                            <div className="mt-3 rounded-lg bg-slate-50 px-4 py-3 prose prose-sm dark:prose-invert max-w-none">
-                              <span className="text-xs text-slate-400">答案：</span>
+                            <div className="mt-3 rounded-lg bg-muted px-4 py-3 prose prose-sm dark:prose-invert max-w-none">
+                              <span className="text-xs text-muted-foreground">答案：</span>
                               <ReactMarkdown
                                 remarkPlugins={MARKDOWN_REMARK_PLUGINS}
                                 rehypePlugins={MARKDOWN_REHYPE_PLUGINS}

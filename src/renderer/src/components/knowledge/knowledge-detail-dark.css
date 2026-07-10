@@ -1,0 +1,282 @@
+/* Knowledge Detail - Dark Mode Optimizations */
+/* Scoped to .kb-detail-container */
+
+/* ---- 1. Container & background ---- */
+.dark .kb-detail-container {
+  --kb-bg-editor: #2B3138;
+  --kb-bg-outer: #1F2329;
+  --kb-bg-sidebar: #1F2329;
+  --kb-bg-toolbar: #2B3138;
+  --kb-bg-card: #2B3138;
+  --kb-bg-input: #2B3138;
+  --kb-bg-table-header: #343A40;
+  --kb-bg-table-cell: #2B3138;
+  --kb-text-title: #F5F5F5;
+  --kb-text-heading2: #EAEAEA;
+  --kb-text-body: #D4D4D4;
+  --kb-text-secondary: #A0A0A0;
+  --kb-text-sidebar: #D8D8D8;
+  --kb-text-sidebar-dim: #A8A8A8;
+  --kb-border: rgba(255,255,255,.08);
+  --kb-hover: rgba(255,255,255,.05);
+  --kb-hover-accent: rgba(255,255,255,.04);
+}
+
+/* ---- 2. Top header ---- */
+.dark .kb-detail-container .kb-header-name {
+  color: #FFFFFF;
+}
+.dark .kb-detail-container .kb-header-stats {
+  color: #A5A5A5;
+}
+
+/* ---- 3. Left sidebar ---- */
+.dark .kb-detail-sidebar {
+  background: #1F2329 !important;
+}
+.dark .kb-detail-sidebar .kb-tree-node {
+  color: #D8D8D8;
+}
+.dark .kb-detail-sidebar .kb-tree-node:hover {
+  background: rgba(255,255,255,.05);
+}
+.dark .kb-detail-sidebar .kb-tree-node.bg-accent {
+  background: rgba(var(--primary-rgb, 37, 99, 235), .12) !important;
+}
+
+/* ---- 4. Search box ---- */
+.dark .kb-detail-search {
+  background: #2B3138;
+  border-color: rgba(255,255,255,.08);
+  color: #E5E5E5;
+}
+.dark .kb-detail-search::placeholder {
+  color: #8C8C8C;
+}
+
+/* ---- 5. Editor area background ---- */
+.dark .kb-editor-outer {
+  background: #1F2329 !important;
+}
+.dark .kb-editor-card {
+  background: #2B3138 !important;
+  border-color: rgba(255,255,255,.06) !important;
+}
+
+/* ---- 6. Editor toolbar ---- */
+.dark .kb-editor-toolbar {
+  background: #2B3138 !important;
+  border-color: rgba(255,255,255,.06) !important;
+}
+.dark .kb-editor-toolbar button {
+  color: #CFCFCF !important;
+}
+.dark .kb-editor-toolbar button:hover {
+  background: rgba(255,255,255,.08) !important;
+  color: #FFFFFF !important;
+}
+
+/* ---- 7. Editor title & body text ---- */
+.dark .kb-editor-title {
+  color: #F5F5F5 !important;
+}
+.dark .kb-editor-body {
+  color: #D4D4D4 !important;
+}
+
+/* ---- 8. Prose / Markdown content ---- */
+.dark .kb-prose-content {
+  color: #D4D4D4 !important;
+}
+.dark .kb-prose-content h1,
+.dark .kb-prose-content h2 {
+  color: #F5F5F5 !important;
+}
+.dark .kb-prose-content h3,
+.dark .kb-prose-content h4 {
+  color: #EAEAEA !important;
+}
+.dark .kb-prose-content p,
+.dark .kb-prose-content li {
+  color: #D4D4D4 !important;
+}
+.dark .kb-prose-content blockquote {
+  color: #A0A0A0 !important;
+  border-left-color: rgba(255,255,255,.15) !important;
+}
+.dark .kb-prose-content code {
+  color: #E5E5E5 !important;
+  background: rgba(255,255,255,.08) !important;
+}
+.dark .kb-prose-content pre {
+  background: rgba(0,0,0,.25) !important;
+}
+.dark .kb-prose-content pre code {
+  background: transparent !important;
+}
+.dark .kb-prose-content a {
+  color: var(--primary, #60a5fa) !important;
+}
+.dark .kb-prose-content hr {
+  border-color: rgba(255,255,255,.08) !important;
+}
+.dark .kb-prose-content del {
+  color: #8C8C8C !important;
+}
+.dark .kb-prose-content strong {
+  color: #EAEAEA !important;
+}
+
+/* ---- 9. Tables ---- */
+.dark .kb-prose-content table {
+  border-color: rgba(255,255,255,.08) !important;
+}
+.dark .kb-prose-content thead {
+  background: #343A40 !important;
+}
+.dark .kb-prose-content thead th {
+  color: #F3F3F3 !important;
+  background: #343A40 !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+.dark .kb-prose-content tbody td {
+  color: #D8D8D8 !important;
+  background: #2B3138 !important;
+  border-color: rgba(255,255,255,.06) !important;
+}
+.dark .kb-prose-content tbody tr:hover {
+  background: rgba(255,255,255,.04) !important;
+}
+
+/* ---- 10. Stats cards ---- */
+.dark .kb-stats-card {
+  background: #2B3138 !important;
+  border-color: rgba(255,255,255,.06) !important;
+}
+
+/* ---- 11. Scrollbar ---- */
+.dark .kb-detail-container ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dark .kb-detail-container ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark .kb-detail-container ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.15);
+  border-radius: 3px;
+}
+.dark .kb-detail-container ::-webkit-scrollbar-thumb:hover {
+  background: var(--primary, rgba(255,255,255,.3));
+}
+
+/* ---- 12. Draft / Editor placeholder ---- */
+.dark .kb-detail-container .placeholder-text {
+  color: #6B7280 !important;
+}
+
+/* ---- 13. "解析中" badge ---- */
+.dark .kb-tree-node .parsing-badge {
+  background: rgba(59, 130, 246, .15) !important;
+  color: #60a5fa !important;
+}
+
+/* ---- 14. EditorJS content dark mode ---- */
+.dark .kb-editor-card .ce-block__content,
+.dark .kb-editor-card .ce-toolbar__content {
+  color: #D4D4D4;
+}
+.dark .kb-editor-card .ce-header {
+  color: #F5F5F5;
+}
+.dark .kb-editor-card .cdx-block {
+  color: #D4D4D4;
+}
+.dark .kb-editor-card .ce-paragraph {
+  color: #D4D4D4 !important;
+}
+.dark .kb-editor-card .ce-code__textarea {
+  color: #E5E5E5 !important;
+  background: rgba(0,0,0,.25) !important;
+  caret-color: #E5E5E5;
+}
+.dark .kb-editor-card .ce-inline-tool {
+  color: #CFCFCF;
+}
+.dark .kb-editor-card .ce-inline-tool:hover {
+  background: rgba(255,255,255,.08);
+  color: #FFFFFF;
+}
+.dark .kb-editor-card .ce-inline-tool--active {
+  background: rgba(var(--primary-rgb, 37,99,235), .2);
+  color: var(--primary, #60a5fa);
+}
+.dark .kb-editor-card .ce-toolbox__button {
+  color: #CFCFCF;
+}
+.dark .kb-editor-card .ce-toolbox__button:hover {
+  background: rgba(255,255,255,.08);
+  color: #FFFFFF;
+}
+.dark .kb-editor-card .ce-conversion-tool {
+  color: #D4D4D4;
+}
+.dark .kb-editor-card .ce-conversion-tool:hover {
+  background: rgba(255,255,255,.08);
+}
+.dark .kb-editor-card .ce-settings__button {
+  color: #CFCFCF;
+}
+.dark .kb-editor-card .ce-settings__button:hover {
+  background: rgba(255,255,255,.08);
+  color: #FFFFFF;
+}
+.dark .kb-editor-card .tc-popover {
+  background: #2B3138;
+  border-color: rgba(255,255,255,.08);
+}
+.dark .kb-editor-card .tc-popover__item {
+  color: #D4D4D4;
+}
+.dark .kb-editor-card .tc-popover__item:hover {
+  background: rgba(255,255,255,.08);
+}
+.dark .kb-editor-card .tc-wrap {
+  --color-background: #2B3138;
+  --color-border: rgba(255,255,255,.08);
+  --color-text-secondary: #A0A0A0;
+}
+.dark .kb-editor-card .tc-table {
+  border-color: rgba(255,255,255,.08);
+}
+.dark .kb-editor-card .tc-row {
+  border-color: rgba(255,255,255,.06);
+}
+.dark .kb-editor-card .tc-cell {
+  color: #D8D8D8;
+}
+.dark .kb-editor-card .tc-table__area {
+  background: #2B3138;
+}
+.dark .kb-editor-card .tc-add-column,
+.dark .kb-editor-card .tc-add-row {
+  color: #CFCFCF;
+}
+.dark .kb-editor-card .tc-add-column:hover,
+.dark .kb-editor-card .tc-add-row:hover {
+  background: rgba(255,255,255,.08);
+  color: #FFFFFF;
+}
+.dark .kb-editor-card .ce-popover {
+  background: #2B3138 !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+.dark .kb-editor-card .ce-popover__item {
+  color: #D4D4D4 !important;
+}
+.dark .kb-editor-card .ce-popover__item:hover {
+  background: rgba(255,255,255,.08) !important;
+}
+.dark .kb-editor-card .ce-popover__item-icon {
+  color: #CFCFCF;
+}

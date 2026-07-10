@@ -665,8 +665,8 @@ export function KnowledgePage(): React.JSX.Element {
       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInputChange} />
 
       {/* Page Header */}
-      <div className="border-b px-6 py-5 flex items-center justify-between" style={{ borderColor: '#f1f3f5' }}>
-        <h1 className="text-xl font-bold" style={{ color: '#1f2329' }}>
+      <div className="border-b px-6 py-5 flex items-center justify-between border-border">
+        <h1 className="text-xl font-bold text-foreground">
           {t('knowledgePage.title', { defaultValue: '知识库' })}
         </h1>
       </div>
@@ -711,20 +711,20 @@ export function KnowledgePage(): React.JSX.Element {
         {!loading && filteredKbs.length > 0 && (
           <table className="w-full">
             <thead>
-              <tr className="border-b" style={{ borderColor: '#f1f3f5' }}>
-                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
+              <tr className="border-b border-border">
+                <th className="px-6 py-2.5 text-left text-[13px] font-medium text-muted-foreground">
                   名称
                 </th>
-                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
+                <th className="px-6 py-2.5 text-left text-[13px] font-medium text-muted-foreground">
                   标签
                 </th>
-                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
+                <th className="px-6 py-2.5 text-left text-[13px] font-medium text-muted-foreground">
                   创建人
                 </th>
-                <th className="px-6 py-2.5 text-left text-[13px] font-medium" style={{ color: '#999' }}>
+                <th className="px-6 py-2.5 text-left text-[13px] font-medium text-muted-foreground">
                   更新时间
                 </th>
-                <th className="px-6 py-2.5 text-right text-[13px] font-medium w-16" style={{ color: '#999' }}>
+                <th className="px-6 py-2.5 text-right text-[13px] font-medium w-16 text-muted-foreground">
                   操作
                 </th>
               </tr>
